@@ -1,0 +1,85 @@
+name: Admin App CI
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "admin_app/**"
+      - ".github/workflows/admin_app.yml"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "admin_app/**"
+      - ".github/workflows/admin_app.yml"
+
+jobs:
+  ci:
+    name: Admin App — Flutter CI
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Java (required for Android builds) ─────────────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # ── 3. Cache Flutter SDK ─────────────────────────────────────────────────
+      - name: Cache Flutter SDK
+        uses: actions/cache@v4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: flutter-stable-${{ runner.os }}-${{ hashFiles('admin_app/pubspec.lock') }}
+          restore-keys: |
+            flutter-stable-${{ runner.os }}-
+
+      # ── 4. Set up Flutter Stable ─────────────────────────────────────────────
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.x"
+          channel: stable
+          cache: true
+
+      # ── 5. Cache pub packages ─────────────────────────────────────────────────
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            admin_app/.dart_tool
+          key: pub-${{ runner.os }}-${{ hashFiles('admin_app/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      # ── 6. Flutter pub get ───────────────────────────────────────────────────
+      - name: Flutter pub get
+        working-directory: admin_app
+        run: flutter pub get
+
+      # ── 7. Flutter analyze ───────────────────────────────────────────────────
+      - name: Flutter analyze
+        working-directory: admin_app
+        run: flutter analyze --no-fatal-infos
+
+      # ── 8. Flutter test ──────────────────────────────────────────────────────
+      - name: Flutter test
+        working-directory: admin_app
+        run: flutter test --reporter compact
+
+      # ── 9. Build debug APK (verify build — APK is NOT uploaded) ─────────────
+      - name: Build debug APK
+        working-directory: admin_app
+        run: flutter build apk --debug --no-pub
+
+      # ── 10. Success summary ──────────────────────────────────────────────────
+      - name: CI Summary
+        run: |
+          echo "╔════════════════════════════════════╗"
+          echo "║  Admin App ✔  All Checks Passed    ║"
+          echo "╚════════════════════════════════════╝"

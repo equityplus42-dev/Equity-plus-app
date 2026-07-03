@@ -1,0 +1,275 @@
+{
+  "info": {
+    "_postman_id": "a987d6f5-e4b3-4c2d-1a0e-9f8e7d6c5b4a",
+    "name": "Referral System API",
+    "description": "API requests for testing the Hierarchical Referral System (Authentication, Referrals, Hierarchy Tree, Notifications, and Admin approvals).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phoneNumber\": \"+123456789\",\n  \"referralCode\": \"ADMINREF\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile Details",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John Updated\",\n  \"lastName\": \"Doe Updated\",\n  \"bio\": \"This is my updated bio\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Referrals & Hierarchy",
+      "item": [
+        {
+          "name": "Get My Referrals Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/referrals",
+              "host": ["{{baseUrl}}"],
+              "path": ["referrals"]
+            }
+          }
+        },
+        {
+          "name": "Get My Referral Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/referrals/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["referrals", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Get My Referral QR Code Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/referrals/qr",
+              "host": ["{{baseUrl}}"],
+              "path": ["referrals", "qr"]
+            }
+          }
+        },
+        {
+          "name": "Get My Downline Tree",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/hierarchy?depth=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["hierarchy"],
+              "query": [
+                { "key": "depth", "value": "3" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Panel",
+      "item": [
+        {
+          "name": "Get System Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Approvals Queue",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/referrals/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "referrals", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Approve Pending Reward",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/referrals/:referralId/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "referrals", ":referralId", "approve"],
+              "variable": [
+                { "key": "referralId", "value": "id-string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Pending Reward",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/referrals/:referralId/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "referrals", ":referralId", "reject"],
+              "variable": [
+                { "key": "referralId", "value": "id-string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Toggle User Suspend Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isApproved\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId/approval",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId", "approval"],
+              "variable": [
+                { "key": "userId", "value": "user-id-string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Variable Config Setting",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"points_level_1\",\n  \"value\": \"150\",\n  \"description\": \"Override Level 1 reward point constants\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Get Global System tree Map",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/hierarchy/global",
+              "host": ["{{baseUrl}}"],
+              "path": ["hierarchy", "global"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

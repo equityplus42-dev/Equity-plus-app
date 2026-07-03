@@ -1,0 +1,206 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Hierarchical Referral System API",
+    "description": "API documentation for the backend system serving user_app, admin_app, and administrative dashboard integrations.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Base API Prefix"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "summary": "Retrieve server connectivity state",
+        "responses": {
+          "200": {
+            "description": "Successful health check connection return"
+          }
+        }
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "firstName", "lastName", "phoneNumber"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "referralCode": { "type": "string" },
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "phoneNumber": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created" }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "summary": "User authentication",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Success payload with JWT Token" }
+        }
+      }
+    },
+    "/v1/users/profile": {
+      "get": {
+        "summary": "Fetch logged-in user profile details",
+        "responses": {
+          "200": { "description": "User profile retrieved" }
+        }
+      }
+    },
+    "/v1/users": {
+      "get": {
+        "summary": "Retrieve paginated list of all active users (Admin only)",
+        "responses": {
+          "200": { "description": "Paginated users list returned" }
+        }
+      }
+    },
+    "/v1/users/{id}": {
+      "get": {
+        "summary": "Retrieve user details by ID (Admin only)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "User details payload" }
+        }
+      },
+      "delete": {
+        "summary": "Soft delete user (Admin only)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "User soft deleted" }
+        }
+      }
+    },
+    "/v1/admin/referrals/pending": {
+      "get": {
+        "summary": "Fetch list of referrals awaiting approval (Admin only)",
+        "responses": {
+          "200": { "description": "Pending referrals list" }
+        }
+      }
+    },
+    "/v1/admin/settings": {
+      "put": {
+        "summary": "Update global system config settings (Admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "value": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "System settings updated" }
+        }
+      }
+    },
+    "/v1/referrals/my-code": {
+      "get": {
+        "summary": "Get referral code parameters",
+        "responses": {
+          "200": { "description": "Referral details payload" }
+        }
+      }
+    },
+    "/v1/referrals/performance": {
+      "get": {
+        "summary": "Retrieve performance counters metrics",
+        "responses": {
+          "200": { "description": "Performance payload metrics" }
+        }
+      }
+    },
+    "/v1/hierarchy/my-downline": {
+      "get": {
+        "summary": "Retrieve downline users path list",
+        "responses": {
+          "200": { "description": "Downline path list" }
+        }
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "summary": "Retrieve user notification listings",
+        "responses": {
+          "200": { "description": "Notifications list" }
+        }
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "summary": "Find users dynamically",
+        "responses": {
+          "200": { "description": "Matching users search results" }
+        }
+      }
+    }
+  }
+}

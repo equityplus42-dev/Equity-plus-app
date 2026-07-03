@@ -1,0 +1,3 @@
+# This file exists to keep the temp/ directory tracked in git.
+# Actual uploaded files are never stored here permanently.
+# Multer uses memoryStorage() — files go directly to Cloudinary as streams.

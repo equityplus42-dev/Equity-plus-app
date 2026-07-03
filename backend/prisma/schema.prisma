@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id                      String          @id @default(uuid())
+  email                   String          @unique
+  password                String
+  role                    String          @default("USER") // USER, ADMIN
+  referralCode            String          @unique
+  referralUrl             String?         @db.VarChar(255)
+  qrCode                  String?         @db.Text
+  referrerId              String?
+  points                  Int             @default(0) // Referral rewards points balance
+  isApproved              Boolean         @default(true) // Admin can suspend/approve
+  isActive                Boolean         @default(true)
+  isDeleted               Boolean         @default(false)
+  deletedAt               DateTime?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  // Relations
+  profile                 Profile?
+  referrer                User?           @relation("UserReferrals", fields: [referrerId], references: [id], onDelete: SetNull)
+  referrals               User[]          @relation("UserReferrals")
+  referralRecordAsReferee Referral?       @relation("RefereeRecord")
+  referralRecordsAsReferrer Referral[]    @relation("ReferrerRecords")
+  hierarchyNode           HierarchyNode?
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+
+  @@index([referrerId])
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName   String?
+  lastName    String?
+  phoneNumber String?
+  avatarUrl   String?
+  bio         String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([phoneNumber])
+}
+
+model Referral {
+  id         String   @id @default(uuid())
+  referrerId String
+  refereeId  String   @unique
+  referrer   User     @relation("ReferrerRecords", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee    User     @relation("RefereeRecord", fields: [refereeId], references: [id], onDelete: Cascade)
+  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  points     Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([referrerId])
+  @@index([status])
+  @@index([referrerId, status])
+}
+
+model HierarchyNode {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?
+  path      String   @db.VarChar(511) // Materialized path, e.g. "/root-uuid/parent-uuid/user-uuid"
+  level     Int      // Depth in hierarchy, root is 0
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([path])
+  @@index([parentId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  type      String   @default("SYSTEM") // SYSTEM, REFERRAL_SIGNUP, REFERRAL_APPROVED, REWARD
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+model SystemSettings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String
+  ipAddress   String?
+  userAgent   String?
+  details     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
