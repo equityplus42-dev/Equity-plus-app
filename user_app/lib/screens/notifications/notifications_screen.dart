@@ -105,8 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       itemCount: notificationProvider.notifications.length,
                       itemBuilder: (context, index) {
                         final note = notificationProvider.notifications[index];
-                        final String dateStr = DateFormat('jm').format(note.createdAt) + 
-                            ' - ' + DateFormat('yMMMd').format(note.createdAt);
+                        final String dateStr = '${DateFormat('jm').format(note.createdAt)} - ${DateFormat('yMMMd').format(note.createdAt)}';
 
                         return GestureDetector(
                           onTap: () {
@@ -120,7 +119,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             decoration: AppTheme.glassCardDecoration().copyWith(
                               color: note.isRead 
                                   ? AppTheme.glassCardBg 
-                                  : AppTheme.primaryPurple.withOpacity(0.05),
+                                  : AppTheme.primaryPurple.withValues(alpha: 0.05),
                             ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +127,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: _getTypeColor(note.type).withOpacity(0.1),
+                                    color: _getTypeColor(note.type).withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -175,7 +174,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                           fontSize: 14,
                                           color: note.isRead 
                                               ? AppTheme.softGrey 
-                                              : AppTheme.lightText.withOpacity(0.9),
+                                              : AppTheme.lightText.withValues(alpha: 0.9),
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -183,7 +182,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         dateStr,
                                         style: GoogleFonts.outfit(
                                           fontSize: 11,
-                                          color: AppTheme.softGrey.withOpacity(0.6),
+                                          color: AppTheme.softGrey.withValues(alpha: 0.6),
                                         ),
                                       ),
                                     ],

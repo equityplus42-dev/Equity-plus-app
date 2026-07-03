@@ -9,7 +9,7 @@ const auditLogService = require('../services/auditLog.service');
 class AdminController {
   async getStats(req, res, next) {
     try {
-      const totalUsers = await prisma.user.count({ where: { role: 'USER' } });
+      const totalUsers = await prisma.user.count({ where: { role: 'USER', isApproved: true } });
       const pendingApprovals = await prisma.referral.count({ where: { status: 'PENDING' } });
       const approvedReferrals = await prisma.referral.count({ where: { status: 'APPROVED' } });
       const totalReferrals = await prisma.referral.count();
@@ -20,6 +20,7 @@ class AdminController {
       const totalPointsDistributed = pointsAgg._sum.points || 0;
 
       const recentSignups = await prisma.user.findMany({
+        where: { role: 'USER', isApproved: true },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: { profile: true }
@@ -38,12 +39,12 @@ class AdminController {
     }
   }
 
-  async updateUserApproval(req, res, next) {
+  async updateUserActiveStatus(req, res, next) {
     try {
-      const { isApproved } = req.body;
-      const user = await userRepository.updateApproval(req.params.userId, isApproved);
-      await auditLogService.log(req, isApproved ? 'USER_APPROVE' : 'USER_SUSPEND', req.params.userId, { adminId: req.user.id });
-      return ApiResponse.success(res, `User approval status updated to ${isApproved}`, user);
+      const { isActive } = req.body;
+      const user = await userRepository.updateActiveStatus(req.params.userId, isActive);
+      await auditLogService.log(req, isActive ? 'USER_ACTIVATE' : 'USER_SUSPEND', req.params.userId, { adminId: req.user.id });
+      return ApiResponse.success(res, `User active status updated to ${isActive}`, user);
     } catch (error) {
       next(error);
     }

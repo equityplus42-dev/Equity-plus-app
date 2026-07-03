@@ -34,7 +34,7 @@ class SupportScreen extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: 'Search FAQ and guides...',
                   prefixIcon: const Icon(Icons.search, color: AppTheme.softGrey),
-                  fillColor: AppTheme.cardBg.withOpacity(0.5),
+                  fillColor: AppTheme.cardBg.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 30),

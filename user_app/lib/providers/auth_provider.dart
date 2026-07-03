@@ -64,7 +64,13 @@ class AuthProvider extends ChangeNotifier {
       );
       _isLoading = false;
       notifyListeners();
-      return true;
+      
+      if (_user!.isApproved) {
+        return true;
+      } else {
+        _user = null; // Clear user since they can't login yet
+        return false;
+      }
     } catch (e) {
       _isLoading = false;
       _errorMessage = e.toString().replaceAll('Exception: ', '');

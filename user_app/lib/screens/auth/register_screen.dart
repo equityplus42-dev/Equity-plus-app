@@ -51,12 +51,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (success) {
       Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Registration failed'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (authProvider.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage!),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration successful! Pending admin approval.'),
+            backgroundColor: AppTheme.neonGreen,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+      }
     }
   }
 
@@ -170,10 +181,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           textCapitalization: TextCapitalization.characters,
                           textInputAction: TextInputAction.done,
                           decoration: const InputDecoration(
-                            labelText: 'Referral Code (Optional)',
+                            labelText: 'Referral Code (Required)',
                             prefixIcon: Icon(Icons.card_giftcard_outlined, size: 20),
-                            hintText: 'e.g. ADMINREF',
+                            hintText: 'e.g. 3A0N94Y2',
                           ),
+                          validator: (value) => value == null || value.trim().isEmpty ? 'Referral Code is required' : null,
                           onFieldSubmitted: (_) => _submit(),
                         ),
                         const SizedBox(height: 24),

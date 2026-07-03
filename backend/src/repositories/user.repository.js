@@ -24,7 +24,7 @@ class UserRepository {
   }
 
   async findAll({ skip, take, search }) {
-    const where = { isDeleted: false };
+    const where = { isDeleted: false, isApproved: true };
     if (search) {
       where.OR = [
         { email: { contains: search, mode: 'insensitive' } },
@@ -52,7 +52,7 @@ class UserRepository {
   }
 
   async countAll({ search }) {
-    const where = { isDeleted: false };
+    const where = { isDeleted: false, isApproved: true };
     if (search) {
       where.OR = [
         { email: { contains: search, mode: 'insensitive' } },
@@ -70,10 +70,10 @@ class UserRepository {
     return prisma.user.count({ where });
   }
 
-  async updateApproval(id, isApproved) {
+  async updateActiveStatus(id, isActive) {
     return prisma.user.update({
       where: { id },
-      data: { isApproved },
+      data: { isActive },
       include: { profile: true },
     });
   }

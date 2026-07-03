@@ -254,8 +254,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           decoration: AppTheme.glassCardDecoration().copyWith(
                             gradient: LinearGradient(
                               colors: [
-                                AppTheme.primaryPurple.withOpacity(0.15),
-                                AppTheme.primaryPink.withOpacity(0.05),
+                                AppTheme.primaryPurple.withValues(alpha: 0.15),
+                                AppTheme.primaryPink.withValues(alpha: 0.05),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
@@ -303,7 +303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ],
                               ),
                               const SizedBox(height: 20),
-                              Divider(color: AppTheme.borderGrey.withOpacity(0.5)),
+                              Divider(color: AppTheme.borderGrey.withValues(alpha: 0.5)),
                               const SizedBox(height: 12),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -482,7 +482,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: TextButton.icon(
                             onPressed: () async {
                               await authProvider.logout();
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               Navigator.pushReplacementNamed(context, AppRoutes.login);
                             },
                             icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
@@ -520,7 +520,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 24),

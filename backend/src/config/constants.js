@@ -20,6 +20,6 @@ module.exports = {
     points_level_2: 50,
     points_level_3: 25,
     max_hierarchy_depth: 3,
-    require_admin_approval: false,
+    require_admin_approval: true,
   },
 };

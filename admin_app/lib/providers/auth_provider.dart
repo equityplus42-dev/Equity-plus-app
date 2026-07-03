@@ -72,7 +72,7 @@ class AuthProvider extends ChangeNotifier {
     if (token == null) return false;
 
     try {
-      final response = await _apiClient.get(ApiConstants.baseUrl + ApiConstants.userDetail + '/profile');
+      final response = await _apiClient.get('${ApiConstants.baseUrl}${ApiConstants.userDetail}/profile');
       final user = UserModel.fromJson(response['data']);
       
       if (user.role != 'ADMIN') {

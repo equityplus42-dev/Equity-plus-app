@@ -7,8 +7,9 @@ import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import 'package:google_fonts/google_fonts.dart';
-
-class DashboardScreen extends StatefulWidget {
+import 'dart:convert';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
@@ -24,6 +25,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Referral code copied to clipboard! 📋'),
+        backgroundColor: AppTheme.primaryPurple,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _shareReferralLink(String code) {
+    Share.share(
+      'Join my referral network! Sign up using my code $code at: https://referral-system.com/register?ref=$code',
+      subject: 'Loop Referral System Invite',
+    );
+  }
+
+  void _showQRCodeDialog(String? base64Qr, String code) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        ImageProvider imageProvider;
+        if (base64Qr != null && base64Qr.startsWith('data:image')) {
+          final String base64Str = base64Qr.split(',')[1];
+          imageProvider = MemoryImage(base64Decode(base64Str));
+        } else {
+          imageProvider = const NetworkImage('https://via.placeholder.com/300?text=QR+Code');
+        }
+
+        return Dialog(
+          backgroundColor: AppTheme.cardBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Your Invitation QR Code',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.lightText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Scan this QR code to sign up directly',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: AppTheme.softGrey,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Image(
+                    image: imageProvider,
+                    width: 200,
+                    height: 200,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Code: $code',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryPurple,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -74,7 +168,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
                               onPressed: () async {
                                 await authProvider.logout();
-                                if (!mounted) return;
+                                if (!context.mounted) return;
                                 Navigator.pushReplacementNamed(context, AppRoutes.login);
                               },
                             )
@@ -122,6 +216,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         
                         const SizedBox(height: 30),
                         
+                        // Referral Code sharing section
+                        Text(
+                          'INVITATION SYSTEM',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.softGrey,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: AppTheme.glassCardDecoration(),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Your Referral Code',
+                                      style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        dashboard.referralCode ?? 'LOADING',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryPurple,
+                                          letterSpacing: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.qr_code_scanner, color: AppTheme.lightText),
+                                    onPressed: () {
+                                      if (dashboard.referralCode != null) {
+                                        _showQRCodeDialog(
+                                          dashboard.qrCodeDataUrl,
+                                          dashboard.referralCode!,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_outlined, color: AppTheme.lightText),
+                                    onPressed: () {
+                                      if (dashboard.referralCode != null) {
+                                        _copyToClipboard(dashboard.referralCode!);
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.share_outlined, color: AppTheme.lightText),
+                                    onPressed: () {
+                                      if (dashboard.referralCode != null) {
+                                        _shareReferralLink(dashboard.referralCode!);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 30),
+
                         // Quick Action Panel
                         Text(
                           'SYSTEM MANAGEMENT',
@@ -252,7 +425,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
@@ -285,9 +458,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(0.2),
+                  color: Colors.redAccent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
                 ),
                 child: Text(
                   '$badgeCount PND',

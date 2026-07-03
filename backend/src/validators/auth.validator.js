@@ -6,7 +6,7 @@ const registerSchema = z.object({
   firstName: z.string().min(1, 'First name is required').optional(),
   lastName: z.string().min(1, 'Last name is required').optional(),
   phoneNumber: z.string().optional(),
-  referralCode: z.string().length(8, 'Referral code must be exactly 8 characters').optional().or(z.literal('')),
+  referralCode: z.string().length(8, 'Referral code must be exactly 8 characters'),
 });
 
 const loginSchema = z.object({

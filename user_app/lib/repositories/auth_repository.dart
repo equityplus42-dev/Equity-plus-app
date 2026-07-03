@@ -44,14 +44,16 @@ class AuthRepository {
     });
     
     final data = response['data'];
-    final String token = data['token'];
+    final String? token = data['token'];
     final userJson = data['user'];
     
     final user = UserModel.fromJson(userJson);
     
-    // Save token and info
-    await _storage.saveToken(token);
-    await _storage.saveUser(user.id, user.email);
+    // Save token and info if present
+    if (token != null) {
+      await _storage.saveToken(token);
+      await _storage.saveUser(user.id, user.email);
+    }
     
     return user;
   }

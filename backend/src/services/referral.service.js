@@ -3,6 +3,7 @@ const authRepository = require('../repositories/auth.repository');
 const hierarchyRepository = require('../repositories/hierarchy.repository');
 const settingsRepository = require('../repositories/settings.repository');
 const notificationService = require('./notification.service');
+const hierarchyService = require('./hierarchy.service');
 const prisma = require('../config/database');
 const { SETTINGS_KEYS, DEFAULT_SETTINGS } = require('../config/constants');
 const { getAncestorsFromPath } = require('../utils/hierarchyHelper');
@@ -78,6 +79,14 @@ class ReferralService {
 
     // Update status to APPROVED
     const updated = await referralRepository.updateStatus(referralId, 'APPROVED');
+
+    // **Approve the User & Add to Hierarchy**
+    await prisma.user.update({
+      where: { id: referral.refereeId },
+      data: { isApproved: true }
+    });
+    
+    await hierarchyService.createNodeForUser(referral.refereeId, referral.referrerId);
 
     const refereeName = referral.referee.profile 
       ? `${referral.referee.profile.firstName || ''} ${referral.referee.profile.lastName || ''}`.trim() 

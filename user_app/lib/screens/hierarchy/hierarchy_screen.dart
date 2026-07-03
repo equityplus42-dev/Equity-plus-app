@@ -107,7 +107,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
             padding: const EdgeInsets.all(12),
             decoration: AppTheme.glassCardDecoration().copyWith(
               border: Border.all(
-                color: _getLevelColor(node.level).withOpacity(0.3),
+                color: _getLevelColor(node.level).withValues(alpha: 0.3),
                 width: 1.5,
               ),
             ),
@@ -122,7 +122,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: _getLevelColor(node.level).withOpacity(0.5),
+                        color: _getLevelColor(node.level).withValues(alpha: 0.5),
                         blurRadius: 6,
                         spreadRadius: 2,
                       )
@@ -159,7 +159,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getLevelColor(node.level).withOpacity(0.1),
+                    color: _getLevelColor(node.level).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(

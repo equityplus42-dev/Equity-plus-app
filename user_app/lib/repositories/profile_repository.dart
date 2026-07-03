@@ -12,10 +12,10 @@ class ProfileRepository {
     String? bio,
   }) async {
     final response = await _apiClient.put(ApiConstants.updateProfile, {
-      if (firstName != null) 'firstName': firstName,
-      if (lastName != null) 'lastName': lastName,
-      if (phoneNumber != null) 'phoneNumber': phoneNumber,
-      if (bio != null) 'bio': bio,
+      'firstName': ?firstName,
+      'lastName': ?lastName,
+      'phoneNumber': ?phoneNumber,
+      'bio': ?bio,
     });
     return response['data'];
   }

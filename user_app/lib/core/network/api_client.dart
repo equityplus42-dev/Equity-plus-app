@@ -100,9 +100,7 @@ class ApiClient {
     }
   }
 
-  /**
-   * Upload user avatar using multipart request
-   */
+  /// Upload user avatar using multipart request
   Future<dynamic> uploadAvatar(Uint8List fileBytes, String fileName) async {
     final Uri uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.uploadAvatar}');
     try {

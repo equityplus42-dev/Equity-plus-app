@@ -20,14 +20,17 @@ class AuthService {
       throw new Error('Email is already registered');
     }
 
-    // 2. Validate referral code if provided
-    let referrerId = null;
-    if (referralCode) {
-      const referrer = await referralService.validateReferralCode(referralCode);
-      if (referrer) {
-        referrerId = referrer.id;
-      }
+    // 2. Validate referral code (MANDATORY)
+    if (!referralCode) {
+      throw new Error('Referral code is mandatory for registration');
     }
+    
+    let referrerId = null;
+    const referrer = await referralService.validateReferralCode(referralCode);
+    if (!referrer) {
+      throw new Error('Invalid referral code');
+    }
+    referrerId = referrer.id;
 
     // 3. Generate a unique referral code for the new user
     let uniqueReferralCode;
@@ -62,8 +65,8 @@ class AuthService {
       phoneNumber,
     });
 
-    // 6. Create node in hierarchy
-    await hierarchyService.createNodeForUser(user.id, referrerId);
+    // 6. Create node in hierarchy (Deferred to admin approval)
+    // await hierarchyService.createNodeForUser(user.id, referrerId);
 
     // 7. If there was a referrer, log the referral entry and calculate/process rewards
     if (referrerId) {
@@ -79,7 +82,10 @@ class AuthService {
 
     // Strip password from returned user object
     const { password: _, ...userWithoutPassword } = user;
-    return { user: userWithoutPassword, token };
+    return { 
+      user: userWithoutPassword, 
+      token: user.isApproved ? token : null 
+    };
   }
 
   /**
@@ -90,6 +96,14 @@ class AuthService {
     const user = await authRepository.findByEmail(email);
     if (!user || user.isDeleted) {
       throw new Error('Invalid email or password');
+    }
+
+    if (!user.isApproved) {
+      throw new Error('Your account is pending admin approval.');
+    }
+
+    if (!user.isActive) {
+      throw new Error('Your account has been suspended by an administrator.');
     }
 
     // 2. Compare passwords

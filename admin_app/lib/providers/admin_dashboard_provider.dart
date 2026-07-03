@@ -12,6 +12,8 @@ class AdminDashboardProvider extends ChangeNotifier {
   int _totalReferrals = 0;
   int _totalPointsDistributed = 0;
   List<UserModel> _recentSignups = [];
+  String? _referralCode;
+  String? _qrCodeDataUrl;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -21,6 +23,8 @@ class AdminDashboardProvider extends ChangeNotifier {
   int get totalReferrals => _totalReferrals;
   int get totalPointsDistributed => _totalPointsDistributed;
   List<UserModel> get recentSignups => _recentSignups;
+  String? get referralCode => _referralCode;
+  String? get qrCodeDataUrl => _qrCodeDataUrl;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -41,6 +45,17 @@ class AdminDashboardProvider extends ChangeNotifier {
 
       final signupsList = data['recentSignups'] as List? ?? [];
       _recentSignups = signupsList.map((j) => UserModel.fromJson(j)).toList();
+
+      try {
+        final qrResponse = await _apiClient.get(ApiConstants.referralQR);
+        if (qrResponse['success'] == true) {
+          _qrCodeDataUrl = qrResponse['data']['qrCode'];
+          _referralCode = qrResponse['data']['referralCode'];
+        }
+      } catch (qrError) {
+        // Fallback silently if admin doesn't have a QR yet
+        print('Could not fetch Admin QR: $qrError');
+      }
 
       _isLoading = false;
       notifyListeners();

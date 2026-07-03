@@ -68,10 +68,10 @@ class AdminUsersProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> toggleUserApproval(String userId, bool isApproved) async {
+  Future<bool> toggleUserApproval(String userId, bool isActive) async {
     try {
       await _apiClient.patch(ApiConstants.toggleUserApproval(userId), {
-        'isApproved': isApproved,
+        'isActive': isActive,
       });
 
       // Update local state list
@@ -85,7 +85,8 @@ class AdminUsersProvider extends ChangeNotifier {
           referralCode: old.referralCode,
           referrerId: old.referrerId,
           points: old.points,
-          isApproved: isApproved,
+          isApproved: old.isApproved,
+          isActive: isActive,
           createdAt: old.createdAt,
           firstName: old.firstName,
           lastName: old.lastName,

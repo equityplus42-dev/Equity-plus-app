@@ -93,7 +93,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
             padding: const EdgeInsets.all(12),
             decoration: AppTheme.glassCardDecoration().copyWith(
               border: Border.all(
-                color: _getLevelColor(node.level).withOpacity(0.3),
+                color: _getLevelColor(node.level).withValues(alpha: 0.3),
                 width: 1.5,
               ),
             ),
@@ -101,7 +101,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: _getLevelColor(node.level).withOpacity(0.15),
+                  backgroundColor: _getLevelColor(node.level).withValues(alpha: 0.15),
                   backgroundImage: node.avatarUrl != null ? NetworkImage(node.avatarUrl!) : null,
                   child: node.avatarUrl == null
                       ? Text(
@@ -140,7 +140,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getLevelColor(node.level).withOpacity(0.1),
+                    color: _getLevelColor(node.level).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(

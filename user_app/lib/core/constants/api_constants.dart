@@ -1,6 +1,6 @@
 class ApiConstants {
   // Replace with your local machine's IP address (e.g. 10.0.2.2 for Android emulator, or actual IP)
-  static const String baseUrl = 'http://10.0.2.2:5000/api/v1';
+  static const String baseUrl = 'http://192.168.31.101:5000/api/v1';
 
   // Auth endpoints
   static const String register = '/auth/register';

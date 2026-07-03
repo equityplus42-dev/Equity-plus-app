@@ -45,7 +45,7 @@ class AdminSettingsProvider extends ChangeNotifier {
       await _apiClient.put(ApiConstants.updateSetting, {
         'key': key,
         'value': value,
-        if (description != null) 'description': description,
+        'description': ?description,
       });
 
       // Update local state map

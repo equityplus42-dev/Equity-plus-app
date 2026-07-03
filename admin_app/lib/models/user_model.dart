@@ -6,6 +6,7 @@ class UserModel {
   final String? referrerId;
   final int points;
   final bool isApproved;
+  final bool isActive;
   final String createdAt;
   final String? firstName;
   final String? lastName;
@@ -21,6 +22,7 @@ class UserModel {
     this.referrerId,
     required this.points,
     required this.isApproved,
+    required this.isActive,
     required this.createdAt,
     this.firstName,
     this.lastName,
@@ -45,6 +47,7 @@ class UserModel {
       referrerId: json['referrerId'],
       points: json['points'] ?? 0,
       isApproved: json['isApproved'] ?? true,
+      isActive: json['isActive'] ?? true,
       createdAt: json['createdAt'] ?? '',
       firstName: profile != null ? profile['firstName'] : json['firstName'],
       lastName: profile != null ? profile['lastName'] : json['lastName'],
@@ -63,6 +66,7 @@ class UserModel {
       'referrerId': referrerId,
       'points': points,
       'isApproved': isApproved,
+      'isActive': isActive,
       'createdAt': createdAt,
       'profile': {
         'firstName': firstName,

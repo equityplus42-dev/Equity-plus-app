@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppTheme.primaryPurple.withOpacity(0.1),
+                      color: AppTheme.primaryPurple.withValues(alpha: 0.1),
                     ),
                     child: const Icon(
                       Icons.shield_outlined,
@@ -150,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                   Text(
                     'System logs are fully audited',
-                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey.withOpacity(0.5)),
+                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey.withValues(alpha: 0.5)),
                   )
                 ],
               ),

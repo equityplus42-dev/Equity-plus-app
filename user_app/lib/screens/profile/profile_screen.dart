@@ -75,9 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  /**
-   * Simulates selecting a local image file and uploads dummy bytes to the backend
-   */
+  /// Simulates selecting a local image file and uploads dummy bytes to the backend
   Future<void> _simulateImageUpload() async {
     final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -152,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     CircleAvatar(
                       radius: 60,
-                      backgroundColor: AppTheme.primaryPurple.withOpacity(0.2),
+                      backgroundColor: AppTheme.primaryPurple.withValues(alpha: 0.2),
                       backgroundImage: authProvider.user?.avatarUrl != null
                           ? NetworkImage(authProvider.user!.avatarUrl!)
                           : null,
@@ -215,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.lightText.withOpacity(0.7),
+                          color: AppTheme.lightText.withValues(alpha: 0.7),
                         ),
                       ),
                       const SizedBox(height: 24),

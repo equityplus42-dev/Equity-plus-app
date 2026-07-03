@@ -86,9 +86,9 @@ class ReportsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: indicatorColor.withOpacity(0.1),
+              color: indicatorColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: indicatorColor.withOpacity(0.5)),
+              border: Border.all(color: indicatorColor.withValues(alpha: 0.5)),
             ),
             child: Text(
               value,
@@ -124,7 +124,7 @@ class ReportsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.primaryPurple.withOpacity(0.1),
+                color: AppTheme.primaryPurple.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: AppTheme.primaryPurple, size: 24),
