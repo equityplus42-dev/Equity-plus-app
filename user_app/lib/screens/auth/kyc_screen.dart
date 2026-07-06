@@ -6,6 +6,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/constants/location_data.dart';
 
 class KycScreen extends StatefulWidget {
   const KycScreen({super.key});
@@ -19,16 +20,17 @@ class _KycScreenState extends State<KycScreen> {
   final _panController = TextEditingController();
   final _aadharController = TextEditingController();
   final _whatsAppController = TextEditingController();
-  final _stateController = TextEditingController();
-  final _districtController = TextEditingController();
+  String? _selectedState;
+  String? _selectedDistrict;
+  bool _isOtherDistrict = false;
+  final _otherDistrictController = TextEditingController();
 
   @override
   void dispose() {
     _panController.dispose();
     _aadharController.dispose();
     _whatsAppController.dispose();
-    _stateController.dispose();
-    _districtController.dispose();
+    _otherDistrictController.dispose();
     super.dispose();
   }
 
@@ -42,8 +44,8 @@ class _KycScreenState extends State<KycScreen> {
       panNumber: _panController.text.trim().toUpperCase(),
       aadharNumber: _aadharController.text.trim(),
       whatsApp: _whatsAppController.text.trim(),
-      state: _stateController.text.trim(),
-      district: _districtController.text.trim(),
+      state: _selectedState ?? '',
+      district: _isOtherDistrict ? _otherDistrictController.text.trim() : (_selectedDistrict ?? ''),
     );
 
     if (!mounted) return;
@@ -141,39 +143,67 @@ class _KycScreenState extends State<KycScreen> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        TextFormField(
-                          controller: _stateController,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
+                        DropdownButtonFormField<String>(
+                          value: _selectedState,
                           decoration: const InputDecoration(
                             labelText: 'State',
                             prefixIcon: Icon(Icons.map_outlined, size: 20),
-                            hintText: 'e.g. West Bengal',
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'State is required';
-                            }
-                            return null;
+                          items: LocationData.states.map((String state) {
+                            return DropdownMenuItem<String>(
+                              value: state,
+                              child: Text(state),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedState = newValue;
+                              _selectedDistrict = null;
+                              _isOtherDistrict = false;
+                            });
                           },
+                          validator: (value) => value == null ? 'State is required' : null,
                         ),
                         const SizedBox(height: 20),
-                        TextFormField(
-                          controller: _districtController,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
+                        DropdownButtonFormField<String>(
+                          value: _selectedDistrict,
                           decoration: const InputDecoration(
                             labelText: 'District / City',
                             prefixIcon: Icon(Icons.location_city_outlined, size: 20),
-                            hintText: 'e.g. Kolkata',
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'District is required';
-                            }
-                            return null;
+                          items: LocationData.getDistrictsForState(_selectedState).map((String district) {
+                            return DropdownMenuItem<String>(
+                              value: district,
+                              child: Text(district),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedDistrict = newValue;
+                              _isOtherDistrict = newValue == 'Other / Type Manually';
+                            });
                           },
+                          validator: (value) => value == null ? 'District is required' : null,
                         ),
+                        if (_isOtherDistrict) ...[
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _otherDistrictController,
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Type District / City',
+                              prefixIcon: Icon(Icons.edit_location_alt_outlined, size: 20),
+                              hintText: 'Enter city name',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'City name is required';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 20),
                         TextFormField(
                           controller: _panController,

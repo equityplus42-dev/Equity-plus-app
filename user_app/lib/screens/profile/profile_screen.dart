@@ -7,7 +7,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/constants/location_data.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,8 +24,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _lastNameController;
   late TextEditingController _phoneController;
   late TextEditingController _whatsAppController;
-  late TextEditingController _stateController;
-  late TextEditingController _districtController;
+  String? _selectedState;
+  String? _selectedDistrict;
+  bool _isOtherDistrict = false;
+  late TextEditingController _otherDistrictController;
   late TextEditingController _bioController;
 
   @override
@@ -34,8 +38,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _lastNameController = TextEditingController(text: user?.lastName ?? '');
     _phoneController = TextEditingController(text: user?.phoneNumber ?? '');
     _whatsAppController = TextEditingController(text: user?.whatsApp ?? '');
-    _stateController = TextEditingController(text: user?.state ?? '');
-    _districtController = TextEditingController(text: user?.district ?? '');
+    _selectedState = user?.state?.isNotEmpty == true ? user!.state : null;
+    
+    // Check if district is in our predefined list, otherwise set to 'Other'
+    final predefinedDistricts = LocationData.getDistrictsForState(_selectedState);
+    if (user?.district?.isNotEmpty == true) {
+      if (predefinedDistricts.contains(user!.district)) {
+        _selectedDistrict = user.district;
+      } else {
+        _selectedDistrict = 'Other / Type Manually';
+        _isOtherDistrict = true;
+      }
+    }
+    _otherDistrictController = TextEditingController(
+      text: _isOtherDistrict ? user?.district : ''
+    );
     _bioController = TextEditingController(text: user?.bio ?? '');
   }
 
@@ -45,8 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _lastNameController.dispose();
     _phoneController.dispose();
     _whatsAppController.dispose();
-    _stateController.dispose();
-    _districtController.dispose();
+    _otherDistrictController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -62,8 +78,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       lastName: _lastNameController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       whatsApp: _whatsAppController.text.trim(),
-      state: _stateController.text.trim(),
-      district: _districtController.text.trim(),
+      state: _selectedState ?? '',
+      district: _isOtherDistrict ? _otherDistrictController.text.trim() : (_selectedDistrict ?? ''),
       bio: _bioController.text.trim(),
     );
 
@@ -355,24 +371,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 20),
                       
-                      TextFormField(
-                        controller: _stateController,
-                        textCapitalization: TextCapitalization.words,
+                      DropdownButtonFormField<String>(
+                        value: LocationData.states.contains(_selectedState) ? _selectedState : null,
                         decoration: const InputDecoration(
                           labelText: 'State',
                           prefixIcon: Icon(Icons.map_outlined, size: 20),
                         ),
+                        items: LocationData.states.map((String state) {
+                          return DropdownMenuItem<String>(
+                            value: state,
+                            child: Text(state),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedState = newValue;
+                            _selectedDistrict = null;
+                            _isOtherDistrict = false;
+                          });
+                        },
                       ),
                       const SizedBox(height: 20),
                       
-                      TextFormField(
-                        controller: _districtController,
-                        textCapitalization: TextCapitalization.words,
+                      DropdownButtonFormField<String>(
+                        value: LocationData.getDistrictsForState(_selectedState).contains(_selectedDistrict) ? _selectedDistrict : null,
                         decoration: const InputDecoration(
                           labelText: 'District / City',
                           prefixIcon: Icon(Icons.location_city_outlined, size: 20),
                         ),
+                        items: LocationData.getDistrictsForState(_selectedState).map((String district) {
+                          return DropdownMenuItem<String>(
+                            value: district,
+                            child: Text(district),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedDistrict = newValue;
+                            _isOtherDistrict = newValue == 'Other / Type Manually';
+                          });
+                        },
                       ),
+                      if (_isOtherDistrict) ...[
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _otherDistrictController,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Type District / City',
+                            prefixIcon: Icon(Icons.edit_location_alt_outlined, size: 20),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       
                       TextFormField(

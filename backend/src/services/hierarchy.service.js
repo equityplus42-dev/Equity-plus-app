@@ -80,8 +80,8 @@ class HierarchyService {
           email: node.user.profile?.phoneNumber || 'N/A',
           referralCode: node.user.referralCode,
           profile: {
-            firstName: node.user.referralCode || 'User',
-            lastName: '',
+            firstName: node.user.profile?.firstName || 'User',
+            lastName: node.user.profile?.lastName || '',
             phoneNumber: node.user.profile?.phoneNumber || 'N/A',
             avatarUrl: null,
           }
