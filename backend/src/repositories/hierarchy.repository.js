@@ -13,6 +13,8 @@ class HierarchyRepository {
         user: {
           select: {
             email: true,
+            referralCode: true,
+            points: true,
             profile: true,
           },
         },
@@ -27,6 +29,8 @@ class HierarchyRepository {
         user: {
           select: {
             email: true,
+            referralCode: true,
+            points: true,
             profile: true,
           },
         },
@@ -44,6 +48,9 @@ class HierarchyRepository {
       path: {
         startsWith: `${userPath}/`,
       },
+      user: {
+        isDeleted: false,
+      },
     };
 
     if (maxLevel !== undefined) {
@@ -58,11 +65,16 @@ class HierarchyRepository {
         user: {
           select: {
             email: true,
+            referralCode: true,
+            points: true,
             profile: {
               select: {
                 firstName: true,
                 lastName: true,
+                phoneNumber: true,
                 avatarUrl: true,
+                panNumber: true,
+                aadharNumber: true,
               },
             },
           },
@@ -74,17 +86,18 @@ class HierarchyRepository {
 
   async findAllNodes() {
     return prisma.hierarchyNode.findMany({
+      where: {
+        user: {
+          isDeleted: false,
+        },
+      },
       include: {
         user: {
           select: {
             email: true,
-            profile: {
-              select: {
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
-              },
-            },
+            referralCode: true,
+            points: true,
+            profile: true,
           },
         },
       },

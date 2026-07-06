@@ -32,7 +32,17 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
     
     if (isLoggedIn) {
-      Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      final user = authProvider.user;
+      final bool hasKyc = user != null &&
+          user.panNumber != null &&
+          user.panNumber!.isNotEmpty &&
+          user.aadharNumber != null &&
+          user.aadharNumber!.isNotEmpty;
+      if (hasKyc) {
+        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.kyc);
+      }
     } else {
       Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
     }

@@ -29,9 +29,18 @@ async function main() {
       }
     }
   });
-
   console.log(`Admin user created/verified: ${admin.email}`);
-
+  // Create hierarchy node for admin at level 0 (root)
+  await prisma.hierarchyNode.upsert({
+    where: { userId: admin.id },
+    update: {},
+    create: {
+      userId: admin.id,
+      parentId: null,
+      path: `/${admin.id}`,
+      level: 0,
+    },
+  });
   // 2. Seed Default System Settings
   const defaultSettings = [
     { key: 'points_level_1', value: '100', description: 'Points awarded to the direct referrer (Level 1)' },

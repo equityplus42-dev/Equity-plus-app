@@ -9,7 +9,7 @@ async function runTests() {
   const server = http.createServer(app);
   server.listen(0);
   const port = server.address().port;
-  const baseUrl = `http://localhost:${port}/api`;
+  const baseUrl = `http://localhost:${port}/api/v1`;
 
   const time = Date.now();
   const testEmail = `userprofile_${time}@example.com`;
@@ -21,6 +21,9 @@ async function runTests() {
   try {
     // 1. Register User
     console.log('- Registering user...');
+    const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    const refCode = admin ? admin.referralCode : 'ADMINREF';
+
     const registerRes = await fetch(`${baseUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -29,12 +32,25 @@ async function runTests() {
         password: testPassword,
         firstName: 'OldFirst',
         lastName: 'OldLast',
+        referralCode: refCode,
       }),
     });
     assert.strictEqual(registerRes.status, 201);
     const registerJson = await registerRes.json();
     user = registerJson.data.user;
-    token = registerJson.data.token;
+    
+    // Explicitly approve the user in the database to allow token generation
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isApproved: true }
+    });
+
+    const jwtService = require('../src/services/jwt.service');
+    token = jwtService.sign({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
 
     // 2. Update Profile
     console.log('- Testing profile updates...');

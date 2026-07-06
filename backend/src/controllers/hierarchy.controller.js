@@ -4,7 +4,14 @@ const ApiResponse = require('../utils/apiResponse');
 class HierarchyController {
   async getUserHierarchy(req, res, next) {
     try {
-      const depth = req.query.depth ? parseInt(req.query.depth, 10) : undefined;
+      const isAdmin = req.user.role === 'ADMIN';
+      let depth = req.query.depth ? parseInt(req.query.depth, 10) : undefined;
+      
+      if (!isAdmin) {
+        // For standard users, restrict depth to a maximum of 4 levels of referees
+        depth = depth !== undefined ? Math.min(depth, 4) : 4;
+      }
+
       const tree = await hierarchyService.getUserHierarchy(req.user.id, depth);
       return ApiResponse.success(res, 'User referral hierarchy retrieved', tree);
     } catch (error) {

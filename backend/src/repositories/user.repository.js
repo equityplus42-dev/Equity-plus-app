@@ -28,11 +28,14 @@ class UserRepository {
     if (search) {
       where.OR = [
         { email: { contains: search, mode: 'insensitive' } },
+        { referralCode: { contains: search, mode: 'insensitive' } },
         {
           profile: {
             OR: [
               { firstName: { contains: search, mode: 'insensitive' } },
               { lastName: { contains: search, mode: 'insensitive' } },
+              { phoneNumber: { contains: search, mode: 'insensitive' } },
+              { panNumber: { contains: search, mode: 'insensitive' } },
             ],
           },
         },
@@ -56,11 +59,14 @@ class UserRepository {
     if (search) {
       where.OR = [
         { email: { contains: search, mode: 'insensitive' } },
+        { referralCode: { contains: search, mode: 'insensitive' } },
         {
           profile: {
             OR: [
               { firstName: { contains: search, mode: 'insensitive' } },
               { lastName: { contains: search, mode: 'insensitive' } },
+              { phoneNumber: { contains: search, mode: 'insensitive' } },
+              { panNumber: { contains: search, mode: 'insensitive' } },
             ],
           },
         },

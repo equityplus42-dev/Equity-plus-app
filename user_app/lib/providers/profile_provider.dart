@@ -12,10 +12,15 @@ class ProfileProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   Future<bool> updateProfile({
-    required String firstName,
-    required String lastName,
-    required String phoneNumber,
-    required String bio,
+    String? firstName,
+    String? lastName,
+    String? phoneNumber,
+    String? whatsApp,
+    String? state,
+    String? district,
+    String? bio,
+    String? panNumber,
+    String? aadharNumber,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -26,7 +31,12 @@ class ProfileProvider extends ChangeNotifier {
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber,
+        whatsApp: whatsApp,
+        state: state,
+        district: district,
         bio: bio,
+        panNumber: panNumber,
+        aadharNumber: aadharNumber,
       );
       _isLoading = false;
       notifyListeners();

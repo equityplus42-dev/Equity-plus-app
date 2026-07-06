@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _lastNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _refCodeController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -49,7 +50,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      final user = authProvider.user;
+      final bool hasKyc = user != null &&
+          user.panNumber != null &&
+          user.panNumber!.isNotEmpty &&
+          user.aadharNumber != null &&
+          user.aadharNumber!.isNotEmpty;
+      if (hasKyc) {
+        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.kyc);
+      }
     } else {
       if (authProvider.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -163,11 +174,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
+                          obscureText: _obscurePassword,
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Password',
-                            prefixIcon: Icon(Icons.vpn_key_outlined, size: 20),
+                            prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) return 'Password is required';

@@ -9,14 +9,25 @@ class ProfileRepository {
     String? firstName,
     String? lastName,
     String? phoneNumber,
+    String? whatsApp,
+    String? state,
+    String? district,
     String? bio,
+    String? panNumber,
+    String? aadharNumber,
   }) async {
-    final response = await _apiClient.put(ApiConstants.updateProfile, {
-      'firstName': ?firstName,
-      'lastName': ?lastName,
-      'phoneNumber': ?phoneNumber,
-      'bio': ?bio,
-    });
+    final Map<String, dynamic> body = {};
+    if (firstName != null) body['firstName'] = firstName;
+    if (lastName != null) body['lastName'] = lastName;
+    if (phoneNumber != null) body['phoneNumber'] = phoneNumber;
+    if (whatsApp != null) body['whatsApp'] = whatsApp;
+    if (state != null) body['state'] = state;
+    if (district != null) body['district'] = district;
+    if (bio != null) body['bio'] = bio;
+    if (panNumber != null) body['panNumber'] = panNumber;
+    if (aadharNumber != null) body['aadharNumber'] = aadharNumber;
+
+    final response = await _apiClient.put(ApiConstants.updateProfile, body);
     return response['data'];
   }
 

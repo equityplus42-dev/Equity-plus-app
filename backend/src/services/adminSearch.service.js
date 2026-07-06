@@ -25,6 +25,7 @@ class AdminSearchService {
               { firstName: { contains: q } },
               { lastName: { contains: q } },
               { phoneNumber: { contains: q } },
+              { panNumber: { contains: q } },
             ],
           },
         },

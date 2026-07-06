@@ -13,6 +13,11 @@ class UserModel {
   final String? phoneNumber;
   final String? avatarUrl;
   final String? bio;
+  final String? panNumber;
+  final String? aadharNumber;
+  final String? whatsApp;
+  final String? state;
+  final String? district;
 
   UserModel({
     required this.id,
@@ -29,6 +34,11 @@ class UserModel {
     this.phoneNumber,
     this.avatarUrl,
     this.bio,
+    this.panNumber,
+    this.aadharNumber,
+    this.whatsApp,
+    this.state,
+    this.district,
   });
 
   String get fullName {
@@ -54,6 +64,11 @@ class UserModel {
       phoneNumber: profile != null ? profile['phoneNumber'] : json['phoneNumber'],
       avatarUrl: profile != null ? profile['avatarUrl'] : json['avatarUrl'],
       bio: profile != null ? profile['bio'] : json['bio'],
+      panNumber: profile != null ? profile['panNumber'] : json['panNumber'],
+      aadharNumber: profile != null ? profile['aadharNumber'] : json['aadharNumber'],
+      whatsApp: profile != null ? profile['whatsApp'] : json['whatsApp'],
+      state: profile != null ? profile['state'] : json['state'],
+      district: profile != null ? profile['district'] : json['district'],
     );
   }
 
@@ -74,6 +89,11 @@ class UserModel {
         'phoneNumber': phoneNumber,
         'avatarUrl': avatarUrl,
         'bio': bio,
+        'panNumber': panNumber,
+        'aadharNumber': aadharNumber,
+        'whatsApp': whatsApp,
+        'state': state,
+        'district': district,
       }
     };
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+
 class AppTheme {
   // Brand color palette
   static const Color darkBg = Color(0xFF0C0A1C);

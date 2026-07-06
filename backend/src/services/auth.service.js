@@ -52,6 +52,11 @@ class AuthService {
     // 4. Hash password
     const hashedPassword = await hashPassword(password);
 
+    // Fetch system settings to check if admin approval is required
+    const settings = await referralService.getSystemSettings();
+    const requireApproval = settings.require_admin_approval === 'true';
+    const isApproved = !requireApproval;
+
     // 5. Create user and profile
     const user = await authRepository.createUser({
       email,
@@ -63,10 +68,13 @@ class AuthService {
       firstName,
       lastName,
       phoneNumber,
+      isApproved,
     });
 
-    // 6. Create node in hierarchy (Deferred to admin approval)
-    // await hierarchyService.createNodeForUser(user.id, referrerId);
+    // 6. Create node in hierarchy if auto-approved
+    if (isApproved) {
+      await hierarchyService.createNodeForUser(user.id, referrerId);
+    }
 
     // 7. If there was a referrer, log the referral entry and calculate/process rewards
     if (referrerId) {

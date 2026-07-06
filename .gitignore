@@ -107,3 +107,6 @@ backend/src/uploads/temp/*
 #   - pubspec.lock    (ensures reproducible Flutter builds)
 #   - package-lock.json (ensures reproducible Node builds)
 # ═══════════════════════════════════════════════════════════════════════════
+
+# Specification documents
+CORE SYSTEM LOGIC (1).docx

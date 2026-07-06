@@ -42,11 +42,14 @@ class AdminSettingsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _apiClient.put(ApiConstants.updateSetting, {
+      final Map<String, dynamic> body = {
         'key': key,
         'value': value,
-        'description': ?description,
-      });
+      };
+      if (description != null) {
+        body['description'] = description;
+      }
+      await _apiClient.put(ApiConstants.updateSetting, body);
 
       // Update local state map
       _settings[key] = value;

@@ -10,6 +10,7 @@ import '../../screens/notifications/notifications_screen.dart';
 import '../../screens/profile/profile_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/support/support_screen.dart';
+import '../../screens/auth/kyc_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -23,6 +24,7 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String settings = '/settings';
   static const String support = '/support';
+  static const String kyc = '/kyc';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -37,6 +39,7 @@ class AppRoutes {
       profile: (context) => const ProfileScreen(),
       settings: (context) => const SettingsScreen(),
       support: (context) => const SupportScreen(),
+      kyc: (context) => const KycScreen(),
     };
   }
 }

@@ -10,7 +10,7 @@ async function runTests() {
   const server = http.createServer(app);
   server.listen(0);
   const port = server.address().port;
-  const baseUrl = `http://localhost:${port}/api`;
+  const baseUrl = `http://localhost:${port}/api/v1`;
 
   const testEmail = `testuser_${Date.now()}@example.com`;
   const testPassword = 'Password123!';
@@ -26,6 +26,9 @@ async function runTests() {
 
     // Test 2: Register User
     console.log('- Testing user registration...');
+    const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    const refCode = admin ? admin.referralCode : 'ADMINREF';
+    
     const registerRes = await fetch(`${baseUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -34,6 +37,7 @@ async function runTests() {
         password: testPassword,
         firstName: 'John',
         lastName: 'Doe',
+        referralCode: refCode,
       }),
     });
     

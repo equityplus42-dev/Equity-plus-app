@@ -9,7 +9,7 @@ async function runTests() {
   const server = http.createServer(app);
   server.listen(0);
   const port = server.address().port;
-  const baseUrl = `http://localhost:${port}/api`;
+  const baseUrl = `http://localhost:${port}/api/v1`;
 
   const time = Date.now();
   const emailA = `usera_${time}@example.com`;
@@ -39,10 +39,13 @@ async function runTests() {
 
     // 2. Register User A (Root)
     console.log('- Registering root User A...');
+    const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    const refCode = admin ? admin.referralCode : 'ADMINREF';
+    
     const resA = await fetch(`${baseUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: emailA, password: 'Password123!', firstName: 'User', lastName: 'A' })
+      body: JSON.stringify({ email: emailA, password: 'Password123!', firstName: 'User', lastName: 'A', referralCode: refCode })
     });
     assert.strictEqual(resA.status, 201);
     const jsonA = await resA.json();
@@ -59,6 +62,7 @@ async function runTests() {
         password: 'Password123!',
         firstName: 'User',
         lastName: 'B',
+        phoneNumber: '9876543210',
         referralCode: userA.referralCode
       })
     });
@@ -76,6 +80,7 @@ async function runTests() {
         password: 'Password123!',
         firstName: 'User',
         lastName: 'C',
+        phoneNumber: '8765432109',
         referralCode: userB.referralCode
       })
     });
@@ -89,17 +94,19 @@ async function runTests() {
     const nodeB = await prisma.hierarchyNode.findUnique({ where: { userId: userB.id } });
     const nodeC = await prisma.hierarchyNode.findUnique({ where: { userId: userC.id } });
 
-    assert.strictEqual(nodeA.level, 0);
-    assert.strictEqual(nodeA.parentId, null);
-    assert.strictEqual(nodeA.path, `/${userA.id}`);
+    const adminId = admin ? admin.id : '00000000-0000-0000-0000-000000000000';
 
-    assert.strictEqual(nodeB.level, 1);
+    assert.strictEqual(nodeA.level, 1);
+    assert.strictEqual(nodeA.parentId, adminId);
+    assert.strictEqual(nodeA.path, `/${adminId}/${userA.id}`);
+
+    assert.strictEqual(nodeB.level, 2);
     assert.strictEqual(nodeB.parentId, userA.id);
-    assert.strictEqual(nodeB.path, `/${userA.id}/${userB.id}`);
+    assert.strictEqual(nodeB.path, `/${adminId}/${userA.id}/${userB.id}`);
 
-    assert.strictEqual(nodeC.level, 2);
+    assert.strictEqual(nodeC.level, 3);
     assert.strictEqual(nodeC.parentId, userB.id);
-    assert.strictEqual(nodeC.path, `/${userA.id}/${userB.id}/${userC.id}`);
+    assert.strictEqual(nodeC.path, `/${adminId}/${userA.id}/${userB.id}/${userC.id}`);
 
     // 6. Verify Rewards Points distributed
     // When B signs up (referred by A) -> A gets 100 points
@@ -127,12 +134,12 @@ async function runTests() {
     const treeData = treeJson.data;
     assert.strictEqual(treeData.length, 1);
     assert.strictEqual(treeData[0].email, emailA);
-    // User A should have User B as child
+    // User A should have User B as child (email property should be masked to their phoneNumber)
     assert.strictEqual(treeData[0].children.length, 1);
-    assert.strictEqual(treeData[0].children[0].email, emailB);
-    // User B should have User C as child
+    assert.strictEqual(treeData[0].children[0].email, '9876543210');
+    // User B should have User C as child (email property should be masked to their phoneNumber)
     assert.strictEqual(treeData[0].children[0].children.length, 1);
-    assert.strictEqual(treeData[0].children[0].children[0].email, emailC);
+    assert.strictEqual(treeData[0].children[0].children[0].email, '8765432109');
 
     console.log('✅ Hierarchy and Rewards tests passed successfully.');
   } catch (err) {

@@ -20,9 +20,26 @@ class SearchController {
 
       const { users, total } = result;
 
-      // Sanitization: omit hashed passwords before transmitting
-      const sanitizedUsers = users.map(({ password, ...u }) => u);
-      
+      // Sanitization: omit hashed passwords and mask downline sensitive data for standard users
+      let sanitizedUsers;
+      if (req.user.role === 'ADMIN') {
+        sanitizedUsers = users.map(({ password, ...u }) => u);
+      } else {
+        sanitizedUsers = users.map(({ password, email, ...u }) => {
+          const maskedProfile = u.profile ? {
+            firstName: u.referralCode || 'User',
+            lastName: '',
+            phoneNumber: u.profile.phoneNumber || 'N/A',
+            avatarUrl: null,
+          } : null;
+          return {
+            ...u,
+            email: u.profile?.phoneNumber || 'N/A',
+            profile: maskedProfile,
+          };
+        });
+      }
+
       const responseData = formatPaginatedResponse(sanitizedUsers, total, p, l);
       return ApiResponse.success(res, 'Search completed successfully', responseData);
     } catch (error) {

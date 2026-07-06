@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -19,6 +21,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
   late TextEditingController _phoneController;
+  late TextEditingController _whatsAppController;
+  late TextEditingController _stateController;
+  late TextEditingController _districtController;
   late TextEditingController _bioController;
 
   @override
@@ -28,6 +33,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _firstNameController = TextEditingController(text: user?.firstName ?? '');
     _lastNameController = TextEditingController(text: user?.lastName ?? '');
     _phoneController = TextEditingController(text: user?.phoneNumber ?? '');
+    _whatsAppController = TextEditingController(text: user?.whatsApp ?? '');
+    _stateController = TextEditingController(text: user?.state ?? '');
+    _districtController = TextEditingController(text: user?.district ?? '');
     _bioController = TextEditingController(text: user?.bio ?? '');
   }
 
@@ -36,6 +44,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _phoneController.dispose();
+    _whatsAppController.dispose();
+    _stateController.dispose();
+    _districtController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -50,6 +61,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
+      whatsApp: _whatsAppController.text.trim(),
+      state: _stateController.text.trim(),
+      district: _districtController.text.trim(),
       bio: _bioController.text.trim(),
     );
 
@@ -75,52 +89,134 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  /// Simulates selecting a local image file and uploads dummy bytes to the backend
-  Future<void> _simulateImageUpload() async {
+  Future<Uint8List?> _compressImage(Uint8List originalBytes) async {
+    try {
+      img.Image? decoded = img.decodeImage(originalBytes);
+      if (decoded == null) return null;
+
+      // Downscale if too large to save memory & space
+      if (decoded.width > 800 || decoded.height > 800) {
+        decoded = img.copyResize(decoded, width: 800);
+      }
+
+      int quality = 80;
+      Uint8List compressed = Uint8List.fromList(img.encodeJpg(decoded, quality: quality));
+
+      // Loop to get under 50KB (51200 bytes)
+      while (compressed.lengthInBytes > 50 * 1024 && quality > 15) {
+        quality -= 15;
+        compressed = Uint8List.fromList(img.encodeJpg(decoded, quality: quality));
+      }
+
+      debugPrint("Final compressed image size: ${compressed.lengthInBytes / 1024} KB (Quality: $quality)");
+      return compressed;
+    } catch (e) {
+      debugPrint("Image compression error: $e");
+      return originalBytes;
+    }
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source) async {
     final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Generating avatar file stream and uploading... ⏳'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
 
-    // Create 1x1 black pixel PNG mockup bytes to upload
-    final List<int> pngBytes = [
-      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 
-      0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 
-      120, 94, 99, 96, 96, 96, 0, 0, 0, 5, 0, 1, 164, 118, 56, 240, 0, 0, 0, 0, 
-      73, 69, 78, 68, 174, 66, 96, 130
-    ];
-    final Uint8List uploadBytes = Uint8List.fromList(pngBytes);
+      if (image == null) return;
 
-    final success = await profileProvider.uploadAvatar(
-      uploadBytes,
-      'simulated_avatar_${DateTime.now().millisecondsSinceEpoch}.png',
-    );
-
-    if (success) {
-      await authProvider.refreshProfile();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Avatar uploaded successfully! (Mock fallback active) 🖼️'),
-            backgroundColor: AppTheme.neonGreen,
+            content: Text('Processing and compressing avatar... ⏳'),
+            duration: Duration(seconds: 1),
           ),
         );
       }
-    } else {
+
+      final Uint8List originalBytes = await image.readAsBytes();
+      final Uint8List? compressedBytes = await _compressImage(originalBytes);
+
+      if (compressedBytes == null) {
+        throw Exception("Failed to process image");
+      }
+
+      final success = await profileProvider.uploadAvatar(
+        compressedBytes,
+        'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+
+      if (success) {
+        await authProvider.refreshProfile();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Avatar uploaded successfully! 🖼️'),
+              backgroundColor: AppTheme.neonGreen,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(profileProvider.errorMessage ?? 'Avatar upload failed'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(profileProvider.errorMessage ?? 'Avatar upload failed'),
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.redAccent,
           ),
         );
       }
     }
+  }
+
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: AppTheme.lightText),
+                title: Text('Gallery', style: GoogleFonts.outfit(color: AppTheme.lightText)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: AppTheme.lightText),
+                title: Text('Camera', style: GoogleFonts.outfit(color: AppTheme.lightText)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadImage(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -169,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       bottom: 0,
                       right: 0,
                       child: GestureDetector(
-                        onTap: _simulateImageUpload,
+                        onTap: _showImagePickerOptions,
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: const BoxDecoration(
@@ -245,6 +341,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Phone Number',
                           prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      TextFormField(
+                        controller: _whatsAppController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'WhatsApp Number',
+                          prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      TextFormField(
+                        controller: _stateController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'State',
+                          prefixIcon: Icon(Icons.map_outlined, size: 20),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      TextFormField(
+                        controller: _districtController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'District / City',
+                          prefixIcon: Icon(Icons.location_city_outlined, size: 20),
                         ),
                       ),
                       const SizedBox(height: 20),

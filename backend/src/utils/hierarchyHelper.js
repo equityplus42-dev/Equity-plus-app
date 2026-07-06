@@ -44,12 +44,21 @@ function buildTree(nodes, rootId = null) {
     nodeMap[node.userId] = {
       id: node.userId,
       parentId: node.parentId,
-      email: node.user?.email,
+      email: node.user?.email || '',
       name: node.user?.profile 
         ? `${node.user.profile.firstName || ''} ${node.user.profile.lastName || ''}`.trim() 
         : 'User',
       avatarUrl: node.user?.profile?.avatarUrl || null,
       level: node.level,
+      path: node.path,
+      referralCode: node.user?.referralCode || '',
+      phoneNumber: node.user?.profile?.phoneNumber || '',
+      panNumber: node.user?.profile?.panNumber || '',
+      aadharNumber: node.user?.profile?.aadharNumber || '',
+      whatsApp: node.user?.profile?.whatsApp || '',
+      state: node.user?.profile?.state || '',
+      district: node.user?.profile?.district || '',
+      points: node.user?.points || 0,
       children: []
     };
   });
@@ -58,7 +67,23 @@ function buildTree(nodes, rootId = null) {
   
   nodes.forEach(node => {
     const mappedNode = nodeMap[node.userId];
-    const parentId = node.parentId;
+    let parentId = node.parentId;
+
+    // Reparent if direct parent is deleted/missing from tree nodes list
+    if (parentId && !nodeMap[parentId] && node.path) {
+      const pathParts = node.path.split('/').filter(p => p !== '');
+      const currentIndex = pathParts.indexOf(node.userId);
+      if (currentIndex > 0) {
+        for (let i = currentIndex - 1; i >= 0; i--) {
+          const ancestorId = pathParts[i];
+          if (nodeMap[ancestorId]) {
+            parentId = ancestorId;
+            mappedNode.parentId = parentId;
+            break;
+          }
+        }
+      }
+    }
     
     if (!parentId || parentId === rootId || !nodeMap[parentId]) {
       // If no parent or parent is outside our list, it's a root node in our tree context
