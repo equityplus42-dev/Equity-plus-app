@@ -371,7 +371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 20),
                       
                       DropdownButtonFormField<String>(
-                        initialValue: LocationData.states.contains(_selectedState) ? _selectedState : null,
+                        value: LocationData.states.contains(_selectedState) ? _selectedState : null,
                         decoration: const InputDecoration(
                           labelText: 'State',
                           prefixIcon: Icon(Icons.map_outlined, size: 20),
@@ -393,7 +393,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 20),
                       
                       DropdownButtonFormField<String>(
-                        initialValue: LocationData.getDistrictsForState(_selectedState).contains(_selectedDistrict) ? _selectedDistrict : null,
+                        value: LocationData.getDistrictsForState(_selectedState).contains(_selectedDistrict) ? _selectedDistrict : null,
                         decoration: const InputDecoration(
                           labelText: 'District / City',
                           prefixIcon: Icon(Icons.location_city_outlined, size: 20),
