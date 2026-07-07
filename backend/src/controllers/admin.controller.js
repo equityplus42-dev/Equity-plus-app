@@ -9,18 +9,41 @@ const auditLogService = require('../services/auditLog.service');
 class AdminController {
   async getStats(req, res, next) {
     try {
-      const totalUsers = await prisma.user.count({ where: { role: 'USER', isApproved: true } });
-      const pendingApprovals = await prisma.referral.count({ where: { status: 'PENDING' } });
-      const approvedReferrals = await prisma.referral.count({ where: { status: 'APPROVED' } });
-      const totalReferrals = await prisma.referral.count();
+      const totalUsers = await prisma.user.count({ 
+        where: { role: 'USER', isApproved: true, isDeleted: false } 
+      });
+      
+      const pendingApprovals = await prisma.referral.count({ 
+        where: { 
+          status: 'PENDING',
+          referee: { isDeleted: false },
+          referrer: { isDeleted: false }
+        } 
+      });
+      
+      const approvedReferrals = await prisma.referral.count({ 
+        where: { 
+          status: 'APPROVED',
+          referee: { isDeleted: false },
+          referrer: { isDeleted: false }
+        } 
+      });
+      
+      const totalReferrals = await prisma.referral.count({
+        where: {
+          referee: { isDeleted: false },
+          referrer: { isDeleted: false }
+        }
+      });
       
       const pointsAgg = await prisma.user.aggregate({
+        where: { isDeleted: false },
         _sum: { points: true }
       });
       const totalPointsDistributed = pointsAgg._sum.points || 0;
 
       const recentSignups = await prisma.user.findMany({
-        where: { role: 'USER', isApproved: true },
+        where: { role: 'USER', isApproved: true, isDeleted: false },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: { profile: true }
