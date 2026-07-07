@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/admin_users_provider.dart';
+import '../../providers/admin_dashboard_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
@@ -69,6 +70,7 @@ class _UsersScreenState extends State<UsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User deleted successfully.'), backgroundColor: AppTheme.neonGreen),
         );
+        Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
       }
     }
   }
@@ -236,7 +238,12 @@ class _UsersScreenState extends State<UsersScreen> {
                                               color: u.isActive ? AppTheme.neonGreen : Colors.redAccent,
                                             ),
                                             tooltip: u.isActive ? 'Suspend User' : 'Activate User',
-                                            onPressed: () => usersProvider.toggleUserApproval(u.id, !u.isActive),
+                                            onPressed: () async {
+                                               final success = await usersProvider.toggleUserApproval(u.id, !u.isActive);
+                                               if (success && context.mounted) {
+                                                 Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
+                                               }
+                                             },
                                           ),
                                           IconButton(
                                             icon: const Icon(Icons.delete_outline, color: AppTheme.softGrey),

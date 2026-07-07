@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,6 +23,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _isDevMode = false;
   int _tapCount = 0;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -30,6 +32,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats();
     });
+    // Periodically fetch stats silently in background every 10 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted) {
+        Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadDevMode() async {
@@ -245,7 +259,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () => dashboard.fetchDashboardStats(),
+                  onRefresh: () => dashboard.fetchDashboardStats(silent: true),
                   color: AppTheme.primaryPurple,
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -434,14 +448,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           desc: 'Review and approve multi-level points payouts',
                           badgeCount: dashboard.pendingApprovals,
                           color: Colors.amberAccent,
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.approvals),
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.approvals).then((_) {
+                            dashboard.fetchDashboardStats(silent: true);
+                          }),
                         ),
                         _buildMenuTile(
                           icon: Icons.manage_accounts_outlined,
                           title: 'User Management Directory',
                           desc: 'Review signup lists and suspend or restore accounts',
                           color: AppTheme.primaryPurple,
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.users),
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.users).then((_) {
+                            dashboard.fetchDashboardStats(silent: true);
+                          }),
                         ),
                         _buildMenuTile(
                           icon: Icons.account_tree_outlined,
@@ -456,7 +474,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             title: 'Global Campaign Settings',
                             desc: 'Alter level distribution percentages and reward constants',
                             color: AppTheme.primaryPink,
-                            onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                            onTap: () => Navigator.pushNamed(context, AppRoutes.settings).then((_) {
+                              dashboard.fetchDashboardStats(silent: true);
+                            }),
                           ),
                           _buildMenuTile(
                             icon: Icons.analytics_outlined,

@@ -30,7 +30,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         const SnackBar(content: Text('Referral reward approved! Points distributed.'), backgroundColor: AppTheme.neonGreen),
       );
       // Reload dashboard counts
-      Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats();
+      Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
     }
   }
 
@@ -40,7 +40,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Referral reward declined.'), backgroundColor: Colors.redAccent),
       );
-      Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats();
+      Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
     }
   }
 
