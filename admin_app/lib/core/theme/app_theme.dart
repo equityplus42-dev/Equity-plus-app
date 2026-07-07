@@ -37,7 +37,7 @@ class AppTheme {
           bodySmall: const TextStyle(fontSize: 12, color: softGrey),
         ),
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         color: cardBg,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -67,7 +67,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: cardBg.withValues(alpha: 0.5),
+        fillColor: cardBg.withOpacity(0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: borderGrey),
@@ -81,7 +81,7 @@ class AppTheme {
           borderSide: const BorderSide(color: primaryPurple, width: 2),
         ),
         labelStyle: GoogleFonts.outfit(color: softGrey),
-        hintStyle: GoogleFonts.outfit(color: softGrey.withValues(alpha: 0.7)),
+        hintStyle: GoogleFonts.outfit(color: softGrey.withOpacity(0.7)),
       ),
     );
   }
@@ -107,7 +107,7 @@ class AppTheme {
       border: Border.all(color: borderGrey, width: 1.5),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.2),
+          color: Colors.black.withOpacity(0.2),
           blurRadius: 10,
           offset: const Offset(0, 4),
         )

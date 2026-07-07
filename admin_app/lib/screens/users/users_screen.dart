@@ -166,7 +166,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                     children: [
                                       CircleAvatar(
                                         radius: 24,
-                                        backgroundColor: AppTheme.primaryPurple.withValues(alpha: 0.15),
+                                        backgroundColor: AppTheme.primaryPurple.withOpacity(0.15),
                                         backgroundImage: u.avatarUrl != null ? NetworkImage(u.avatarUrl!) : null,
                                         child: u.avatarUrl == null
                                             ? Text(
@@ -201,7 +201,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.primaryPurple.withValues(alpha: 0.1),
+                                                    color: AppTheme.primaryPurple.withOpacity(0.1),
                                                     borderRadius: BorderRadius.circular(6),
                                                   ),
                                                   child: Text(
@@ -219,7 +219,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                             const SizedBox(height: 4),
                                             Text(u.email, style: const TextStyle(fontSize: 12, color: AppTheme.softGrey)),
                                             const SizedBox(height: 2),
-                                            Text('Joined: $dateStr', style: TextStyle(fontSize: 10, color: AppTheme.softGrey.withValues(alpha: 0.6))),
+                                            Text('Joined: $dateStr', style: TextStyle(fontSize: 10, color: AppTheme.softGrey.withOpacity(0.6))),
                                             const SizedBox(height: 4),
                                             Text('Balance: ${u.points} PTS', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.neonGreen)),
                                           ],

@@ -189,7 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 'If true, rewards will not pay out until manually approved.',
                                 style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
                               ),
-                              activeThumbColor: AppTheme.primaryPurple,
+                              activeColor: AppTheme.primaryPurple,
                               contentPadding: EdgeInsets.zero,
                             )
                           ],

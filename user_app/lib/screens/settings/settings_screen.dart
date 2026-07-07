@@ -30,13 +30,13 @@ class SettingsScreen extends StatelessWidget {
               icon: Icons.notifications_active_outlined,
               title: 'Push Notifications',
               subtitle: 'Alert on downline activities',
-              trailing: Switch(value: true, onChanged: (_) {}, activeThumbColor: AppTheme.primaryPurple),
+              trailing: Switch(value: true, onChanged: (_) {}, activeColor: AppTheme.primaryPurple),
             ),
             _buildSettingTile(
               icon: Icons.lock_outline,
               title: 'Biometric Security',
               subtitle: 'Unlock app with fingerprint',
-              trailing: Switch(value: false, onChanged: (_) {}, activeThumbColor: AppTheme.primaryPurple),
+              trailing: Switch(value: false, onChanged: (_) {}, activeColor: AppTheme.primaryPurple),
             ),
             
             const SizedBox(height: 30),
@@ -84,7 +84,7 @@ class SettingsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.primaryPurple.withValues(alpha: 0.1),
+              color: AppTheme.primaryPurple.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.settings, color: AppTheme.primaryPurple, size: 24).copyWith(icon: icon),

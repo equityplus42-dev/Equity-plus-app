@@ -86,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   hintText: 'Passcode',
                   hintStyle: GoogleFonts.outfit(color: AppTheme.softGrey),
                   filled: true,
-                  fillColor: Colors.black.withValues(alpha: 0.2),
+                  fillColor: Colors.black.withOpacity(0.2),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
@@ -548,7 +548,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
@@ -581,9 +581,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: 0.2),
+                  color: Colors.redAccent.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                  border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
                 ),
                 child: Text(
                   '$badgeCount PND',

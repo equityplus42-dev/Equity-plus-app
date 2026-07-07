@@ -98,7 +98,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 24,
-                                backgroundColor: AppTheme.primaryPurple.withValues(alpha: 0.2),
+                                backgroundColor: AppTheme.primaryPurple.withOpacity(0.2),
                                 backgroundImage: ref.refereeAvatarUrl != null
                                     ? NetworkImage(ref.refereeAvatarUrl!)
                                     : null,
@@ -138,7 +138,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                                       'Signed up on: $dateStr',
                                       style: GoogleFonts.outfit(
                                         fontSize: 11,
-                                        color: AppTheme.softGrey.withValues(alpha: 0.7),
+                                        color: AppTheme.softGrey.withOpacity(0.7),
                                       ),
                                     ),
                                   ],
@@ -150,10 +150,10 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: _getStatusColor(ref.status).withValues(alpha: 0.1),
+                                      color: _getStatusColor(ref.status).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: _getStatusColor(ref.status).withValues(alpha: 0.5),
+                                        color: _getStatusColor(ref.status).withOpacity(0.5),
                                       ),
                                     ),
                                     child: Text(

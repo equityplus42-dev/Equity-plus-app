@@ -124,7 +124,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('Referee (New User)', style: TextStyle(fontSize: 11, color: AppTheme.softGrey.withValues(alpha: 0.8))),
+                                        Text('Referee (New User)', style: TextStyle(fontSize: 11, color: AppTheme.softGrey.withOpacity(0.8))),
                                         const SizedBox(height: 2),
                                         Text(ref.refereeName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.lightText)),
                                         Text(ref.refereeEmail, style: const TextStyle(fontSize: 12, color: AppTheme.softGrey)),
@@ -137,7 +137,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('Referrer (Inviter)', style: TextStyle(fontSize: 11, color: AppTheme.softGrey.withValues(alpha: 0.8))),
+                                        Text('Referrer (Inviter)', style: TextStyle(fontSize: 11, color: AppTheme.softGrey.withOpacity(0.8))),
                                         const SizedBox(height: 2),
                                         Text(ref.referrerName ?? 'User', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.lightText)),
                                         Text(ref.referrerEmail ?? '', style: const TextStyle(fontSize: 12, color: AppTheme.softGrey)),
@@ -147,7 +147,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              Divider(color: AppTheme.borderGrey.withValues(alpha: 0.5)),
+                              Divider(color: AppTheme.borderGrey.withOpacity(0.5)),
                               const SizedBox(height: 12),
                               
                               // Points and buttons

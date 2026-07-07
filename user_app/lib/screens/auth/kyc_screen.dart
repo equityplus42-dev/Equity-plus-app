@@ -85,7 +85,7 @@ class _KycScreenState extends State<KycScreen> {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppTheme.primaryPurple.withValues(alpha: 0.1),
+                      color: AppTheme.primaryPurple.withOpacity(0.1),
                     ),
                     child: const Icon(
                       Icons.security,

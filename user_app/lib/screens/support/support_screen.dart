@@ -34,7 +34,7 @@ class SupportScreen extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: 'Search FAQ and guides...',
                   prefixIcon: const Icon(Icons.search, color: AppTheme.softGrey),
-                  fillColor: AppTheme.cardBg.withValues(alpha: 0.5),
+                  fillColor: AppTheme.cardBg.withOpacity(0.5),
                 ),
               ),
               const SizedBox(height: 30),
@@ -90,7 +90,7 @@ class SupportScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 24),

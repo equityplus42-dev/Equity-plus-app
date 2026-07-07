@@ -298,14 +298,14 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
       decoration: AppTheme.glassCardDecoration().copyWith(
         gradient: LinearGradient(
           colors: [
-            _getLevelColor(node.level).withValues(alpha: 0.2),
-            AppTheme.cardBg.withValues(alpha: 0.8),
+            _getLevelColor(node.level).withOpacity(0.2),
+            AppTheme.cardBg.withOpacity(0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: _getLevelColor(node.level).withValues(alpha: 0.6),
+          color: _getLevelColor(node.level).withOpacity(0.6),
           width: 2.0,
         ),
       ),
@@ -313,7 +313,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: _getLevelColor(node.level).withValues(alpha: 0.25),
+            backgroundColor: _getLevelColor(node.level).withOpacity(0.25),
             backgroundImage: node.avatarUrl != null ? NetworkImage(node.avatarUrl!) : null,
             child: node.avatarUrl == null
                 ? Text(
@@ -349,7 +349,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _getLevelColor(node.level).withValues(alpha: 0.2),
+                        color: _getLevelColor(node.level).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -416,7 +416,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: _getLevelColor(child.level).withValues(alpha: 0.15),
+              backgroundColor: _getLevelColor(child.level).withOpacity(0.15),
               backgroundImage: child.avatarUrl != null ? NetworkImage(child.avatarUrl!) : null,
               child: child.avatarUrl == null
                   ? Text(
@@ -460,7 +460,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _getLevelColor(child.level).withValues(alpha: 0.1),
+                color: _getLevelColor(child.level).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -518,7 +518,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: _getLevelColor(node.level).withValues(alpha: 0.15),
+                  backgroundColor: _getLevelColor(node.level).withOpacity(0.15),
                   backgroundImage: node.avatarUrl != null ? NetworkImage(node.avatarUrl!) : null,
                   child: node.avatarUrl == null
                       ? Text(
@@ -562,7 +562,7 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getLevelColor(node.level).withValues(alpha: 0.1),
+                    color: _getLevelColor(node.level).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(

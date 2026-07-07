@@ -54,7 +54,7 @@ class AdminDashboardProvider extends ChangeNotifier {
         }
       } catch (qrError) {
         // Fallback silently if admin doesn't have a QR yet
-        print('Could not fetch Admin QR: $qrError');
+        debugPrint('Could not fetch Admin QR: $qrError');
       }
 
       _isLoading = false;
