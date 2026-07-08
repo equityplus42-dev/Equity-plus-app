@@ -48,15 +48,17 @@ class AdminDashboardProvider extends ChangeNotifier {
       final signupsList = data['recentSignups'] as List? ?? [];
       _recentSignups = signupsList.map((j) => UserModel.fromJson(j)).toList();
 
-      try {
-        final qrResponse = await _apiClient.get(ApiConstants.referralQR);
-        if (qrResponse['success'] == true) {
-          _qrCodeDataUrl = qrResponse['data']['qrCode'];
-          _referralCode = qrResponse['data']['referralCode'];
+      if (_referralCode == null) {
+        try {
+          final qrResponse = await _apiClient.get(ApiConstants.referralQR);
+          if (qrResponse['success'] == true) {
+            _qrCodeDataUrl = qrResponse['data']['qrCode'];
+            _referralCode = qrResponse['data']['referralCode'];
+          }
+        } catch (qrError) {
+          // Fallback silently if admin doesn't have a QR yet
+          debugPrint('Could not fetch Admin QR: $qrError');
         }
-      } catch (qrError) {
-        // Fallback silently if admin doesn't have a QR yet
-        debugPrint('Could not fetch Admin QR: $qrError');
       }
 
       _isLoading = false;

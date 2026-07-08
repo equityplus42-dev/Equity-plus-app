@@ -33,9 +33,11 @@ class DashboardProvider extends ChangeNotifier {
       _totalPoints = stats['totalPoints'] ?? 0;
 
       // 2. Fetch QR
-      final qrInfo = await _referralRepository.getReferralQR();
-      _qrCodeDataUrl = qrInfo['qrCode'];
-      _referralCode = qrInfo['referralCode'];
+      if (_referralCode == null) {
+        final qrInfo = await _referralRepository.getReferralQR();
+        _qrCodeDataUrl = qrInfo['qrCode'];
+        _referralCode = qrInfo['referralCode'];
+      }
 
       _isLoading = false;
       notifyListeners();

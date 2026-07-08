@@ -56,6 +56,25 @@ class SettingsScreen extends StatelessWidget {
               title: 'Privacy Policy',
               subtitle: 'How we manage your data security',
               trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: AppTheme.cardBg,
+                    title: Text('Privacy Policy', style: GoogleFonts.outfit(color: AppTheme.lightText)),
+                    content: Text(
+                      'Your data is secure and encrypted.\n\nWe do not share your personal information with third parties without your explicit consent.\n\nAll data is stored securely on our servers.',
+                      style: GoogleFonts.outfit(color: AppTheme.softGrey),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close', style: TextStyle(color: AppTheme.primaryPurple)),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             _buildSettingTile(
               icon: Icons.info_outline,
@@ -74,39 +93,43 @@ class SettingsScreen extends StatelessWidget {
     required String title,
     required String subtitle,
     required Widget trailing,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: AppTheme.glassCardDecoration(),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryPurple.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: AppTheme.glassCardDecoration(),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryPurple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.settings, color: AppTheme.primaryPurple, size: 24).copyWith(icon: icon),
             ),
-            child: const Icon(Icons.settings, color: AppTheme.primaryPurple, size: 24).copyWith(icon: icon),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.lightText),
-                ),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
-                ),
-              ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.lightText),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+                  ),
+                ],
+              ),
             ),
-          ),
-          trailing,
-        ],
+            trailing,
+          ],
+        ),
       ),
     );
   }
