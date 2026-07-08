@@ -184,7 +184,7 @@ class _CanvasTreeViewState extends State<CanvasTreeView> {
 
                   return Positioned(
                     left: position.dx - 55, // Center the 110px card
-                    top: position.dy - 35,  // Center the 70px card
+                    top: position.dy - 40,  // Center the 80px card
                     child: _buildNodeCard(node),
                   );
                 }),
@@ -249,7 +249,7 @@ class _CanvasTreeViewState extends State<CanvasTreeView> {
       onTap: () => widget.onNodeTap(node),
       child: Container(
         width: 110,
-        height: 70,
+        height: 80,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: AppTheme.cardBg.withOpacity(0.85),
@@ -343,8 +343,8 @@ class _TreeLinePainter extends CustomPainter {
           paint.color = levelColor(child.level).withOpacity(0.5);
 
           // Draw bezier curve from bottom of parent to top of child
-          final startY = parentPos.dy + 35; // parent bottom
-          final endY = childPos.dy - 35;   // child top
+          final startY = parentPos.dy + 40; // parent bottom
+          final endY = childPos.dy - 40;   // child top
 
           final path = Path()
             ..moveTo(parentPos.dx, startY)
