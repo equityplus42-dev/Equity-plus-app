@@ -15,13 +15,14 @@ class SearchService {
 
     const where = {
       OR: [
-        { email: { contains: query, mode: 'insensitive' } },
-        { referralCode: { contains: query, mode: 'insensitive' } },
+        { id: { contains: query } },
+        { email: { contains: query } },
+        { referralCode: { contains: query } },
         {
           profile: {
             OR: [
-              { firstName: { contains: query, mode: 'insensitive' } },
-              { lastName: { contains: query, mode: 'insensitive' } },
+              { firstName: { contains: query } },
+              { lastName: { contains: query } },
             ],
           },
         },

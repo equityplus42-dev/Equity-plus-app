@@ -27,15 +27,16 @@ class UserRepository {
     const where = { isDeleted: false, isApproved: true };
     if (search) {
       where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { referralCode: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search } },
+        { email: { contains: search } },
+        { referralCode: { contains: search } },
         {
           profile: {
             OR: [
-              { firstName: { contains: search, mode: 'insensitive' } },
-              { lastName: { contains: search, mode: 'insensitive' } },
-              { phoneNumber: { contains: search, mode: 'insensitive' } },
-              { panNumber: { contains: search, mode: 'insensitive' } },
+              { firstName: { contains: search } },
+              { lastName: { contains: search } },
+              { phoneNumber: { contains: search } },
+              { panNumber: { contains: search } },
             ],
           },
         },
@@ -58,15 +59,16 @@ class UserRepository {
     const where = { isDeleted: false, isApproved: true };
     if (search) {
       where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { referralCode: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search } },
+        { email: { contains: search } },
+        { referralCode: { contains: search } },
         {
           profile: {
             OR: [
-              { firstName: { contains: search, mode: 'insensitive' } },
-              { lastName: { contains: search, mode: 'insensitive' } },
-              { phoneNumber: { contains: search, mode: 'insensitive' } },
-              { panNumber: { contains: search, mode: 'insensitive' } },
+              { firstName: { contains: search } },
+              { lastName: { contains: search } },
+              { phoneNumber: { contains: search } },
+              { panNumber: { contains: search } },
             ],
           },
         },
