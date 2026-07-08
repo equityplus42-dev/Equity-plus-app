@@ -5,6 +5,8 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/biometric_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +20,80 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  final _biometricService = BiometricService();
+  bool _canCheckBiometrics = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final canAuthenticate = await _biometricService.canAuthenticate();
+    if (mounted) {
+      setState(() {
+        _canCheckBiometrics = canAuthenticate;
+      });
+    }
+  }
+
+  Future<void> _submitBiometric() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isBiometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+    final email = prefs.getString('biometric_email');
+    final password = prefs.getString('biometric_password');
+
+    // If biometric login is not enabled in settings or we have no saved credentials, prompt to login with password first
+    if (!isBiometricEnabled || email == null || password == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in using your password at least once to enable biometric login.'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
+      return;
+    }
+
+    final result = await _biometricService.authenticate();
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider.login(email, password);
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message']), backgroundColor: AppTheme.neonGreen),
+        );
+        final user = authProvider.user;
+        final bool hasKyc = user != null &&
+            user.panNumber != null &&
+            user.panNumber!.isNotEmpty &&
+            user.aadharNumber != null &&
+            user.aadharNumber!.isNotEmpty;
+        if (hasKyc) {
+          Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+        } else {
+          Navigator.pushReplacementNamed(context, AppRoutes.kyc);
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Biometric login failed.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -38,6 +114,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      // Save credentials locally so biometric login can perform a real API login
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('biometric_email', _emailController.text.trim());
+      await prefs.setString('biometric_password', _passwordController.text);
+
       final user = authProvider.user;
       final bool hasKyc = user != null &&
           user.panNumber != null &&
@@ -179,6 +260,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 child: const Text('Login'),
                               ),
+                        if (_canCheckBiometrics) ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: _submitBiometric,
+                            icon: const Icon(Icons.fingerprint, color: AppTheme.primaryPurple),
+                            label: const Text('Use Biometrics', style: TextStyle(color: AppTheme.primaryPurple)),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              side: const BorderSide(color: AppTheme.primaryPurple),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

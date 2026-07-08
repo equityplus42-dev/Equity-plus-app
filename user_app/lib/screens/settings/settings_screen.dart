@@ -1,9 +1,48 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _biometricEnabled = false;
+  bool _notificationsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+    });
+  }
+
+  Future<void> _toggleBiometrics(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('biometric_enabled', value);
+    setState(() {
+      _biometricEnabled = value;
+    });
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', value);
+    setState(() {
+      _notificationsEnabled = value;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,13 +69,21 @@ class SettingsScreen extends StatelessWidget {
               icon: Icons.notifications_active_outlined,
               title: 'Push Notifications',
               subtitle: 'Alert on downline activities',
-              trailing: Switch(value: true, onChanged: (_) {}, activeColor: AppTheme.primaryPurple),
+              trailing: Switch(
+                value: _notificationsEnabled,
+                onChanged: _toggleNotifications,
+                activeColor: AppTheme.primaryPurple,
+              ),
             ),
             _buildSettingTile(
               icon: Icons.lock_outline,
               title: 'Biometric Security',
               subtitle: 'Unlock app with fingerprint',
-              trailing: Switch(value: false, onChanged: (_) {}, activeColor: AppTheme.primaryPurple),
+              trailing: Switch(
+                value: _biometricEnabled,
+                onChanged: _toggleBiometrics,
+                activeColor: AppTheme.primaryPurple,
+              ),
             ),
             
             const SizedBox(height: 30),
@@ -134,6 +181,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
+
 extension on Icon {
   Icon copyWith({IconData? icon}) {
     return Icon(

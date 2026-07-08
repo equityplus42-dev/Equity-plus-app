@@ -38,6 +38,21 @@ class StorageService {
   String? getUserEmail() => _prefs.getString(_keyUserEmail);
 
   Future<void> clearAll() async {
+    // Retain biometric preferences and credentials on logout so they can log back in using biometrics.
+    final biometricEnabled = _prefs.getBool('biometric_enabled') ?? false;
+    final biometricEmail = _prefs.getString('biometric_email');
+    final biometricPassword = _prefs.getString('biometric_password');
+
     await _prefs.clear();
+
+    if (biometricEnabled) {
+      await _prefs.setBool('biometric_enabled', true);
+      if (biometricEmail != null) {
+        await _prefs.setString('biometric_email', biometricEmail);
+      }
+      if (biometricPassword != null) {
+        await _prefs.setString('biometric_password', biometricPassword);
+      }
+    }
   }
 }
