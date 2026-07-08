@@ -6,6 +6,8 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>This app requires Face ID for secure authentication.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access to scan referral QR codes.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

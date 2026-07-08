@@ -95,6 +95,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _scanQrAndRegister() async {
+    final scannedCode = await Navigator.pushNamed(context, AppRoutes.qrScanner);
+    if (scannedCode != null && scannedCode is String && mounted) {
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.register,
+        arguments: scannedCode,
+      );
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -299,6 +310,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _scanQrAndRegister,
+                    icon: const Icon(Icons.qr_code_scanner, color: AppTheme.primaryPurple),
+                    label: const Text('Scan Referral QR to Register', style: TextStyle(color: AppTheme.primaryPurple)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      side: const BorderSide(color: AppTheme.primaryPurple),
+                    ),
                   ),
                 ],
               ),

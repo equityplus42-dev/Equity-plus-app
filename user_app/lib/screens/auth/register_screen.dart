@@ -22,6 +22,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _refCodeController = TextEditingController();
   bool _obscurePassword = true;
+  bool _initializedWithArgs = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedWithArgs) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null && args is String) {
+        _refCodeController.text = args;
+      }
+      _initializedWithArgs = true;
+    }
+  }
+
+  Future<void> _scanQrCode() async {
+    final scannedCode = await Navigator.pushNamed(context, AppRoutes.qrScanner);
+    if (scannedCode != null && scannedCode is String && mounted) {
+      setState(() {
+        _refCodeController.text = scannedCode;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -204,9 +226,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           controller: _refCodeController,
                           textCapitalization: TextCapitalization.characters,
                           textInputAction: TextInputAction.done,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Referral Code (Required)',
-                            prefixIcon: Icon(Icons.card_giftcard_outlined, size: 20),
+                            prefixIcon: const Icon(Icons.card_giftcard_outlined, size: 20),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.qr_code_scanner, color: AppTheme.primaryPurple),
+                              onPressed: _scanQrCode,
+                            ),
                             hintText: 'e.g. 3A0N94Y2',
                           ),
                           validator: (value) => value == null || value.trim().isEmpty ? 'Referral Code is required' : null,
