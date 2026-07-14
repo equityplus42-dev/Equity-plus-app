@@ -31,6 +31,36 @@ class AuthController {
       next(error);
     }
   }
+
+  async requestPasswordResetOtp(req, res, next) {
+    try {
+      const { email } = req.body;
+      const result = await authService.requestPasswordResetOtp(email);
+      return ApiResponse.success(res, result.message, { remainingAttempts: result.remainingAttempts });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyPasswordResetOtp(req, res, next) {
+    try {
+      const { email, otp } = req.body;
+      const result = await authService.verifyPasswordResetOtp(email, otp);
+      return ApiResponse.success(res, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async resetPassword(req, res, next) {
+    try {
+      const { email, otp, password } = req.body;
+      const result = await authService.resetPassword(email, otp, password);
+      return ApiResponse.success(res, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AuthController();

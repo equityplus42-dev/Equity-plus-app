@@ -64,4 +64,25 @@ class AuthRepository {
     } catch (_) {}
     await _storage.clearAll();
   }
+
+  Future<Map<String, dynamic>> requestOtp(String email) async {
+    return await _apiClient.post(ApiConstants.requestOtp, {
+      'email': email,
+    });
+  }
+
+  Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
+    return await _apiClient.post(ApiConstants.verifyOtp, {
+      'email': email,
+      'otp': otp,
+    });
+  }
+
+  Future<Map<String, dynamic>> resetPassword(String email, String otp, String password) async {
+    return await _apiClient.post(ApiConstants.resetPassword, {
+      'email': email,
+      'otp': otp,
+      'password': password,
+    });
+  }
 }

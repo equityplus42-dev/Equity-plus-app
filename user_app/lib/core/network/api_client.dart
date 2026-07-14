@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../constants/api_constants.dart';
 import '../storage/storage_service.dart';
 
@@ -112,10 +113,21 @@ class ApiClient {
         request.headers['Authorization'] = 'Bearer $token';
       }
       
+      // Infer content type from filename
+      MediaType contentType = MediaType('image', 'jpeg');
+      if (fileName.toLowerCase().endsWith('.png')) {
+        contentType = MediaType('image', 'png');
+      } else if (fileName.toLowerCase().endsWith('.gif')) {
+        contentType = MediaType('image', 'gif');
+      } else if (fileName.toLowerCase().endsWith('.webp')) {
+        contentType = MediaType('image', 'webp');
+      }
+
       final multipartFile = http.MultipartFile.fromBytes(
         'avatar', 
         fileBytes, 
-        filename: fileName
+        filename: fileName,
+        contentType: contentType,
       );
       request.files.add(multipartFile);
       

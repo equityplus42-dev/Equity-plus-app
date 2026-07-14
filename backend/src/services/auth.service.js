@@ -8,6 +8,7 @@ const jwtService = require('./jwt.service');
 const hierarchyService = require('./hierarchy.service');
 const referralService = require('./referral.service');
 const prisma = require('../config/database');
+const { sendOtpEmail } = require('../utils/mailer');
 
 class AuthService {
   /**
@@ -130,6 +131,100 @@ class AuthService {
     // Strip password
     const { password: _, ...userWithoutPassword } = user;
     return { user: userWithoutPassword, token };
+  }
+
+  /**
+   * Request Password Reset OTP
+   */
+  async requestPasswordResetOtp(email) {
+    const user = await authRepository.findByEmail(email);
+    if (!user || user.isDeleted) {
+      throw new Error('Email address not found');
+    }
+
+    // Limit to 5 attempts
+    if (user.otpCount >= 5) {
+      throw new Error('You have requested the OTP too many times (maximum 5 requests). Please contact support.');
+    }
+
+    // Generate random 4-digit OTP in range 0-1000
+    const otpVal = Math.floor(Math.random() * 1001); // Range 0-1000
+    const otp = String(otpVal).padStart(4, '0'); // Padded to 4 digits
+
+    // Set expiry to 15 minutes from now
+    const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    // Update database
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        otpCode: otp,
+        otpExpiresAt,
+        otpCount: user.otpCount + 1,
+      },
+    });
+
+    // Send email using nodemailer
+    await sendOtpEmail(email, otp);
+
+    return { 
+      message: 'OTP sent successfully', 
+      remainingAttempts: 5 - (user.otpCount + 1) 
+    };
+  }
+
+  /**
+   * Verify OTP
+   */
+  async verifyPasswordResetOtp(email, otp) {
+    const user = await authRepository.findByEmail(email);
+    if (!user || user.isDeleted) {
+      throw new Error('Email address not found');
+    }
+
+    if (!user.otpCode || user.otpCode !== otp) {
+      throw new Error('Invalid OTP');
+    }
+
+    if (user.otpExpiresAt && new Date() > user.otpExpiresAt) {
+      throw new Error('OTP has expired');
+    }
+
+    return { success: true, message: 'OTP verified successfully' };
+  }
+
+  /**
+   * Reset Password
+   */
+  async resetPassword(email, otp, newPassword) {
+    const user = await authRepository.findByEmail(email);
+    if (!user || user.isDeleted) {
+      throw new Error('Email address not found');
+    }
+
+    if (!user.otpCode || user.otpCode !== otp) {
+      throw new Error('Invalid OTP');
+    }
+
+    if (user.otpExpiresAt && new Date() > user.otpExpiresAt) {
+      throw new Error('OTP has expired');
+    }
+
+    // Hash the new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update user password and clear OTP/otpCount
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        otpCode: null,
+        otpExpiresAt: null,
+        otpCount: 0,
+      },
+    });
+
+    return { success: true, message: 'Password reset successful' };
   }
 }
 

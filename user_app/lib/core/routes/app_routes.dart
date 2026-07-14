@@ -12,12 +12,14 @@ import '../../screens/settings/settings_screen.dart';
 import '../../screens/support/support_screen.dart';
 import '../../screens/auth/kyc_screen.dart';
 import '../../screens/auth/qr_scanner_screen.dart';
+import '../../screens/auth/forgot_password_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String login = '/login';
   static const String register = '/register';
+  static const String forgotPassword = '/forgot-password';
   static const String dashboard = '/dashboard';
   static const String referrals = '/referrals';
   static const String hierarchy = '/hierarchy';
@@ -34,6 +36,7 @@ class AppRoutes {
       onboarding: (context) => const OnboardingScreen(),
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
+      forgotPassword: (context) => const ForgotPasswordScreen(),
       dashboard: (context) => const DashboardScreen(),
       referrals: (context) => const ReferralsScreen(),
       hierarchy: (context) => const HierarchyScreen(),
