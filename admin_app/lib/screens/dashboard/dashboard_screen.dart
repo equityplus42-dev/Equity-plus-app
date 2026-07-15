@@ -5,7 +5,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
-import '../../widgets/floating_overlay_panel.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import 'package:google_fonts/google_fonts.dart';
@@ -25,7 +24,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isDevMode = false;
   int _tapCount = 0;
   Timer? _refreshTimer;
-  OverlayStateMode _floatingMode = OverlayStateMode.closed;
 
   @override
   void initState() {
@@ -250,91 +248,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dashboard = Provider.of<AdminDashboardProvider>(context);
 
     return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            decoration: AppTheme.bgGradient,
-            child: SafeArea(
-              child: dashboard.isLoading
-                  ? const Center(
-                      child: SpinKitFadingCube(
-                        color: AppTheme.primaryPurple,
-                        size: 50.0,
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () => dashboard.fetchDashboardStats(silent: true),
-                      color: AppTheme.primaryPurple,
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Container(
+        decoration: AppTheme.bgGradient,
+        child: SafeArea(
+          child: dashboard.isLoading
+              ? const Center(
+                  child: SpinKitFadingCube(
+                    color: AppTheme.primaryPurple,
+                    size: 50.0,
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => dashboard.fetchDashboardStats(silent: true),
+                  color: AppTheme.primaryPurple,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Header
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _tapCount++;
-                                      if (_tapCount >= 7) {
-                                        _tapCount = 0;
-                                        _promptDevPassword();
-                                      }
-                                    });
-                                  },
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'System Control',
-                                        style: GoogleFonts.outfit(fontSize: 14, color: AppTheme.softGrey),
-                                      ),
-                                      Text(
-                                        'Administrator Hub',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.lightText,
-                                        ),
-                                      ),
-                                    ],
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _tapCount++;
+                                  if (_tapCount >= 7) {
+                                    _tapCount = 0;
+                                    _promptDevPassword();
+                                  }
+                                });
+                              },
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'System Control',
+                                    style: GoogleFonts.outfit(fontSize: 14, color: AppTheme.softGrey),
                                   ),
-                                ),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(
-                                        _floatingMode == OverlayStateMode.closed
-                                            ? Icons.picture_in_picture_alt_outlined
-                                            : Icons.featured_play_list_outlined,
-                                        color: AppTheme.primaryPurple,
-                                      ),
-                                      tooltip: 'Toggle Tree PiP',
-                                      onPressed: () {
-                                        setState(() {
-                                          if (_floatingMode == OverlayStateMode.closed) {
-                                            _floatingMode = OverlayStateMode.minimized;
-                                          } else {
-                                            _floatingMode = OverlayStateMode.closed;
-                                          }
-                                        });
-                                      },
+                                  Text(
+                                    'Administrator Hub',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.lightText,
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-                                      onPressed: () async {
-                                        await authProvider.logout();
-                                        if (!context.mounted) return;
-                                        Navigator.pushReplacementNamed(context, AppRoutes.login);
-                                      },
-                                    ),
-                                  ],
-                                )
-                              ],
+                                  ),
+                                ],
+                              ),
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+                              onPressed: () async {
+                                await authProvider.logout();
+                                if (!context.mounted) return;
+                                Navigator.pushReplacementNamed(context, AppRoutes.login);
+                              },
+                            )
+                          ],
+                        ),
                         
                         const SizedBox(height: 30),
                         
@@ -492,14 +466,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           title: 'Global Hierarchy Tree',
                           desc: 'Visualize system-wide relational nodes paths',
                           color: AppTheme.neonCyan,
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.hierarchy).then((result) {
-                            dashboard.fetchDashboardStats(silent: true);
-                            if (result == 'dock') {
-                              setState(() {
-                                _floatingMode = OverlayStateMode.minimized;
-                              });
-                            }
-                          }),
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.hierarchy),
                         ),
                         if (_isDevMode) ...[
                           _buildMenuTile(
@@ -525,22 +492,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-            ),
-          ),
-          FloatingOverlayPanel(
-            initialMode: _floatingMode,
-            onClose: () {
-              setState(() {
-                _floatingMode = OverlayStateMode.closed;
-              });
-            },
-            onModeChanged: (mode) {
-              setState(() {
-                _floatingMode = mode;
-              });
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

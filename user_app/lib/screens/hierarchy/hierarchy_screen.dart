@@ -141,6 +141,13 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
       appBar: AppBar(
         title: const Text('Network Hierarchy Tree'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_in_picture_alt_outlined),
+            tooltip: 'Dock to PiP',
+            onPressed: () {
+              Navigator.pop(context, 'dock');
+            },
+          ),
           if (!hierarchyProvider.isLoading && hierarchyProvider.hierarchyTree.isNotEmpty)
             IconButton(
               icon: Icon(_isTreeView ? Icons.list : Icons.bubble_chart_outlined),

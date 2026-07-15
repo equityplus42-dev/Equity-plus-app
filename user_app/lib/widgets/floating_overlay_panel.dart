@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import '../providers/admin_hierarchy_provider.dart';
+import '../providers/hierarchy_provider.dart';
+import '../models/hierarchy_model.dart';
 import '../screens/hierarchy/canvas_tree_view.dart';
 import '../core/theme/app_theme.dart';
 
@@ -25,12 +26,11 @@ class FloatingOverlayPanel extends StatefulWidget {
   State<FloatingOverlayPanel> createState() => _FloatingOverlayPanelState();
 }
 
-class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with SingleTickerProviderStateMixin {
+class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> {
   OverlayStateMode _currentMode = OverlayStateMode.closed;
-  Offset _minimizedPosition = const Offset(-1, -1); // Uninitialized
+  Offset _minimizedPosition = const Offset(-1, -1);
   bool _isDragging = false;
 
-  // Minimized size constants
   final double _minWidth = 170.0;
   final double _minHeight = 120.0;
 
@@ -58,7 +58,7 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
 
   void _loadData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AdminHierarchyProvider>(context, listen: false).fetchGlobalHierarchy();
+      Provider.of<HierarchyProvider>(context, listen: false).fetchHierarchy();
     });
   }
 
@@ -74,12 +74,11 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
 
   void _snapToEdge(Size screenSize) {
     final double midX = screenSize.width / 2;
-    double targetX = 16.0; // Left snap position
+    double targetX = 16.0;
     if (_minimizedPosition.dx + _minWidth / 2 > midX) {
-      targetX = screenSize.width - _minWidth - 16.0; // Right snap position
+      targetX = screenSize.width - _minWidth - 16.0;
     }
 
-    // Keep Y within screen bounds
     double targetY = _minimizedPosition.dy;
     const double topMargin = 80.0;
     final double bottomMargin = screenSize.height - _minHeight - 100.0;
@@ -100,7 +99,6 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
 
-    // Initialize position at bottom right if uninitialized
     if (_minimizedPosition.dx == -1 && _minimizedPosition.dy == -1) {
       _minimizedPosition = Offset(
         screenSize.width - _minWidth - 16.0,
@@ -115,12 +113,10 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
     }
   }
 
-  // Renders the full expanded Canvas View hierarchy tree inside a glassmorphic overlay
   Widget _buildExpandedView(Size screenSize) {
     return Positioned.fill(
       child: Stack(
         children: [
-          // Semi-transparent backdrop blur
           GestureDetector(
             onTap: () => _setMode(OverlayStateMode.minimized),
             child: Container(
@@ -146,11 +142,9 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
                 borderRadius: BorderRadius.circular(24),
                 child: Column(
                   children: [
-                    // Header Bar
                     _buildExpandedHeader(),
-                    // Canvas / Loader
                     Expanded(
-                      child: Consumer<AdminHierarchyProvider>(
+                      child: Consumer<HierarchyProvider>(
                         builder: (context, provider, child) {
                           if (provider.isLoading) {
                             return const Center(
@@ -184,20 +178,17 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
                               ),
                             );
                           }
-                          if (provider.globalTree.isEmpty) {
+                          if (provider.hierarchyTree.isEmpty) {
                             return Center(
                               child: Text(
-                                'No nodes available in the tree.',
+                                'No partners in your downline yet.',
                                 style: GoogleFonts.outfit(color: AppTheme.softGrey),
                               ),
                             );
                           }
                           return CanvasTreeView(
-                            tree: provider.globalTree,
-                            onNodeTap: (node) {
-                              // Display node info dialog
-                              _showNodeDetails(node);
-                            },
+                            tree: provider.hierarchyTree,
+                            onNodeTap: _showNodeDetails,
                           );
                         },
                       ),
@@ -231,7 +222,7 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
               const Icon(Icons.account_tree_outlined, color: AppTheme.primaryPurple),
               const SizedBox(width: 12),
               Text(
-                'Live Tree Monitor',
+                'My Downline Tree',
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -249,7 +240,7 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
               ),
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.redAccent),
-                tooltip: 'Close Monitor',
+                tooltip: 'Close Tree',
                 onPressed: widget.onClose,
               ),
             ],
@@ -259,7 +250,6 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
     );
   }
 
-  // Renders a floating, draggable glassmorphic card representing the minimized state
   Widget _buildMinimizedView(Size screenSize) {
     return AnimatedPositioned(
       duration: _isDragging ? Duration.zero : const Duration(milliseconds: 250),
@@ -303,7 +293,6 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
           ),
           child: Column(
             children: [
-              // Minimized Drag Header
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
@@ -319,7 +308,7 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
                           width: 6,
                           height: 6,
                           decoration: const BoxDecoration(
-                            color: AppTheme.neonGreen,
+                            color: AppTheme.neonCyan,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -350,14 +339,13 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
                   ],
                 ),
               ),
-              // Body/Preview
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(10.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.hub_outlined, color: AppTheme.primaryPurple, size: 24),
+                      const Icon(Icons.hub_outlined, color: AppTheme.neonCyan, size: 24),
                       const SizedBox(height: 6),
                       Text(
                         'Tap to View Map',
@@ -385,7 +373,7 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
     );
   }
 
-  void _showNodeDetails(dynamic node) {
+  void _showNodeDetails(HierarchyNodeModel node) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -413,9 +401,10 @@ class _FloatingOverlayPanelState extends State<FloatingOverlayPanel> with Single
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDetailRow('Email', node.email),
             _buildDetailRow('Level', 'Level ${node.level}'),
-            _buildDetailRow('Parent Code', node.parentId ?? 'NONE'),
+            _buildDetailRow('Referral Code', node.referralCode),
+            if (node.state.isNotEmpty) _buildDetailRow('State', node.state),
+            if (node.district.isNotEmpty) _buildDetailRow('District', node.district),
           ],
         ),
         actions: [
