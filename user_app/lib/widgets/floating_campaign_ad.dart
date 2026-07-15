@@ -113,17 +113,18 @@ class _FloatingCampaignAdState extends State<FloatingCampaignAd> {
             Container(
               width: cardWidth,
               height: cardHeight,
-              decoration: AppTheme.glassCardDecoration().copyWith(
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: AppTheme.primaryPurple.withOpacity(0.6),
+                  color: AppTheme.primaryPurple.withOpacity(0.8),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primaryPurple.withOpacity(0.15),
-                    blurRadius: 12,
-                    spreadRadius: 1,
+                    color: AppTheme.primaryPurple.withOpacity(0.3),
+                    blurRadius: 16,
+                    spreadRadius: 2,
                   )
                 ],
               ),
@@ -201,7 +202,7 @@ class _FloatingCampaignAdState extends State<FloatingCampaignAd> {
                     // Title & Description Text
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -210,19 +211,20 @@ class _FloatingCampaignAdState extends State<FloatingCampaignAd> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.outfit(
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.lightText,
+                                color: Colors.white,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               description,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                color: AppTheme.softGrey,
+                                fontSize: 11,
+                                color: Colors.white70,
+                                height: 1.25,
                               ),
                             ),
                           ],
