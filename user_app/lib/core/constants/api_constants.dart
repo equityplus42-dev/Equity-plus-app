@@ -1,7 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
-  static const String _localUrl = kIsWeb ? 'http://localhost:5000/api/v1' : 'http://192.168.31.64:5000/api/v1';
+  // Emulator default: 10.0.2.2 routes to host machine's localhost.
+  // For physical device run: flutter run --dart-define=LOCAL_API_URL=http://192.168.31.64:5000/api/v1
+  static const String _localUrl = String.fromEnvironment(
+    'LOCAL_API_URL',
+    defaultValue: 'http://10.0.2.2:5000/api/v1',
+  );
   static const String _prodUrl = 'https://equity-plus-app-git-main-equilty-plus.vercel.app/api/v1';
 
   static const String baseUrl = kDebugMode ? _localUrl : _prodUrl;
