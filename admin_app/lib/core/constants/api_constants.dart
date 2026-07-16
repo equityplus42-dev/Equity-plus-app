@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
-  static const String baseUrl = kIsWeb ? 'http://localhost:5000/api/v1' : 'http://192.168.31.64:5000/api/v1';
+  static const String _localUrl = kIsWeb ? 'http://localhost:5000/api/v1' : 'http://192.168.31.64:5000/api/v1';
+  static const String _prodUrl = 'https://equity-plus-app-git-main-equilty-plus.vercel.app/api/v1';
+
+  static const String baseUrl = kDebugMode ? _localUrl : _prodUrl;
 
   // Auth endpoints
   static const String login = '/auth/login';
