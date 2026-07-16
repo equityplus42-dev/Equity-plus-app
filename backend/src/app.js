@@ -14,8 +14,22 @@ const swaggerDocument = require('./config/swagger.json');
 
 const app = express();
 
-// 1. Helmet (Security headers)
-app.use(helmet());
+// 1. Helmet (Security headers) — allow CDN for Swagger UI assets
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", 'https://cdnjs.cloudflare.com'],
+        workerSrc: ["'self'", 'blob:'],
+      },
+    },
+  })
+);
 
 // 2. Compression (Payload compression)
 app.use(compression());
