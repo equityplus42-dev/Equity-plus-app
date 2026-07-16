@@ -44,8 +44,14 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Serve Swagger documentation
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// Serve Swagger documentation (use CDN assets to avoid MIME type issues on Vercel serverless)
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css',
+  customJs: [
+    'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js',
+  ],
+}));
 
 // 6. Bind API routes (mounted under /api/v1/ via the routes aggregator)
 app.use('/api', apiRouter);
