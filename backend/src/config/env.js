@@ -7,7 +7,6 @@ const requiredEnv = ['DATABASE_URL'];
 requiredEnv.forEach((key) => {
   if (!process.env[key]) {
     console.error(`FATAL ERROR: Environment variable ${key} is required but missing.`);
-    process.exit(1);
   }
 });
 
