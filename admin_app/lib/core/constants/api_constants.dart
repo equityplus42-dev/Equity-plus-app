@@ -9,7 +9,7 @@ class ApiConstants {
     'LOCAL_API_URL',
     defaultValue: 'http://10.0.2.2:5000/api/v1',
   );
-  static const String _prodUrl = 'https://equity-plus-app-git-main-equilty-plus.vercel.app/api/v1';
+  static const String _prodUrl = 'https://equity-plus-app.vercel.app/api/v1';
 
   static const String baseUrl = useLocalBackend ? _localUrl : _prodUrl;
 
