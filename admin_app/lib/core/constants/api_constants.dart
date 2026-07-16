@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
-  static const String baseUrl = kIsWeb ? 'http://localhost:5000/api/v1' : 'http://10.0.2.2:5000/api/v1';
+  static const String baseUrl = kIsWeb ? 'http://localhost:5000/api/v1' : 'http://192.168.31.64:5000/api/v1';
 
   // Auth endpoints
   static const String login = '/auth/login';
