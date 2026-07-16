@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
-
 class ApiConstants {
+  // Set to true to connect to your local backend.
+  // Set to false (default) to connect to the live Vercel backend.
+  static const bool useLocalBackend = false;
+
   // Emulator default: 10.0.2.2 routes to host machine's localhost.
   // For physical device run: flutter run --dart-define=LOCAL_API_URL=http://192.168.31.64:5000/api/v1
   static const String _localUrl = String.fromEnvironment(
@@ -9,7 +11,7 @@ class ApiConstants {
   );
   static const String _prodUrl = 'https://equity-plus-app-git-main-equilty-plus.vercel.app/api/v1';
 
-  static const String baseUrl = kDebugMode ? _localUrl : _prodUrl;
+  static const String baseUrl = useLocalBackend ? _localUrl : _prodUrl;
 
   // Auth endpoints
   static const String login = '/auth/login';
