@@ -9,8 +9,8 @@ async function startServer() {
     await prisma.$connect();
     logger.info('Database connection established successfully.');
 
-    // Start listening
-    app.listen(env.PORT, () => {
+    // Start listening (explicitly bind to 0.0.0.0 to allow physical devices on the local network to connect)
+    app.listen(env.PORT, '0.0.0.0', () => {
       logger.info(`Server is running in ${env.NODE_ENV} mode on port ${env.PORT}`);
     });
   } catch (error) {
