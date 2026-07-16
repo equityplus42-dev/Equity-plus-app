@@ -3,19 +3,22 @@ const env = require('../config/env');
 
 const isDevelopment = env.NODE_ENV === 'development';
 
-const pinoInstance = pino({
-  level: env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
-  transport: isDevelopment
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'SYS:standard',
-          ignore: 'pid,hostname',
-        },
-      }
-    : undefined,
-});
+// In production (e.g. Vercel serverless), use plain JSON output — no pino-pretty.
+// pino-pretty transport uses worker_threads which are not available in serverless.
+let pinoInstance;
+if (isDevelopment) {
+  try {
+    const pretty = require('pino-pretty');
+    pinoInstance = pino(
+      { level: env.LOG_LEVEL || 'debug' },
+      pretty({ colorize: true, translateTime: 'SYS:standard', ignore: 'pid,hostname' })
+    );
+  } catch (_) {
+    pinoInstance = pino({ level: env.LOG_LEVEL || 'debug' });
+  }
+} else {
+  pinoInstance = pino({ level: env.LOG_LEVEL || 'info' });
+}
 
 /**
  * Format arguments into a standard structured log object
