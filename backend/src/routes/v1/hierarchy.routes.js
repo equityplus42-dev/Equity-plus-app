@@ -7,6 +7,7 @@ const validationMiddleware = require('../../middleware/validation.middleware');
 const { getHierarchySchema } = require('../../validators/hierarchy.validator');
 
 router.get('/', authMiddleware, validationMiddleware(getHierarchySchema, 'query'), hierarchyController.getUserHierarchy);
+router.get('/my-downline', authMiddleware, validationMiddleware(getHierarchySchema, 'query'), hierarchyController.getUserHierarchy);
 router.get('/global', authMiddleware, adminMiddleware, hierarchyController.getGlobalHierarchy);
 
 module.exports = router;
