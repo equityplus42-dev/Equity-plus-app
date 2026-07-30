@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   try {
-    const adminEmail = 'admin@equilty.com';
+    const adminEmail = 'admin@equityplus.com';
     const rawPassword = 'AdminPassword123!';
     
     // Check if an admin exists
