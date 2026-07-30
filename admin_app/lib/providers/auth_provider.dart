@@ -88,4 +88,26 @@ class AuthProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _apiClient.post(ApiConstants.changePassword, {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      });
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
 }

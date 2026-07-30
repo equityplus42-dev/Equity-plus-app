@@ -226,6 +226,39 @@ class AuthService {
 
     return { success: true, message: 'Password reset successful' };
   }
+
+  /**
+   * Change Password for authenticated user
+   */
+  async changePassword(userId, { currentPassword, newPassword }) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || user.isDeleted) {
+      throw new Error('User not found');
+    }
+
+    const isMatch = await comparePassword(currentPassword, user.password);
+    if (!isMatch) {
+      throw new Error('Current password is incorrect');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new Error('New password cannot be the same as current password');
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    return { success: true, message: 'Password changed successfully' };
+  }
 }
 
 module.exports = new AuthService();

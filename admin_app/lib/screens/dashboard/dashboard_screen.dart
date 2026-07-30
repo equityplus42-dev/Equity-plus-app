@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:async';
+import '../../widgets/change_password_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -467,6 +468,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           desc: 'Visualize system-wide relational nodes paths',
                           color: AppTheme.neonCyan,
                           onTap: () => Navigator.pushNamed(context, AppRoutes.hierarchy),
+                        ),
+                        _buildMenuTile(
+                          icon: Icons.lock_reset_outlined,
+                          title: 'Change Account Password',
+                          desc: 'Update your administrator account password',
+                          color: AppTheme.primaryPurple,
+                          onTap: () => ChangePasswordDialog.show(context),
                         ),
                         if (_isDevMode) ...[
                           _buildMenuTile(

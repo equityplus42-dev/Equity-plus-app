@@ -61,6 +61,16 @@ class AuthController {
       next(error);
     }
   }
+
+  async changePassword(req, res, next) {
+    try {
+      const result = await authService.changePassword(req.user.id, req.body);
+      await auditLogService.log(req, 'CHANGE_PASSWORD', req.user.id, { email: req.user.email });
+      return ApiResponse.success(res, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AuthController();

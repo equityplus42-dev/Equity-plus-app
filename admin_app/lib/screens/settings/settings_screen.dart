@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
+import '../../widgets/change_password_dialog.dart';
 import '../../providers/admin_settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -262,6 +263,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        'ACCOUNT SECURITY',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.softGrey,
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: AppTheme.glassCardDecoration(),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryPurple.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.lock_reset_outlined, color: AppTheme.primaryPurple),
+                          ),
+                          title: Text(
+                            'Change Admin Password',
+                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.lightText),
+                          ),
+                          subtitle: Text(
+                            'Update your login credentials securely',
+                            style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+                          ),
+                          trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
+                          onTap: () => ChangePasswordDialog.show(context),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+
                       Text(
                         'REWARD POINTS CONSTANTS',
                         style: GoogleFonts.outfit(
