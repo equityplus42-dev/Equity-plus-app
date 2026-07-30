@@ -14,18 +14,7 @@ async function main() {
     });
 
     if (existingAdmin) {
-      console.log('An admin already exists!');
-      console.log('Email:', existingAdmin.email);
-      // We don't print the password because it's hashed, but we can reset it if needed.
-      // Let's just update the password for the existing admin to ensure the user can log in.
-      const hashedPassword = await bcrypt.hash(rawPassword, 10);
-      await prisma.user.update({
-        where: { id: existingAdmin.id },
-        data: { password: hashedPassword }
-      });
-      console.log('Password has been reset for this admin account.');
-      console.log('Email:', existingAdmin.email);
-      console.log('Password:', rawPassword);
+      console.log(`Admin account already exists (${existingAdmin.email}). Existing password preserved.`);
       return;
     }
 
