@@ -1,6 +1,50 @@
-# Business Logic
+# Business Logic Specification
 
-> This document describes the core business workflows of the Loop Referral Network system. It is intended for developers writing new features or debugging existing behavior.
+This document details the core domain rules, reward calculations, approval workflows, tree placement algorithms, snapshot refund eligibility rules, and **multilingual video production specifications** for the Equity Plus Platform.
+
+---
+
+## Multilingual Video System & Product Layer
+
+### 1. Mandatory Registration Language Selection & Permanent Rule
+- **Registration Selection**: Every user must select a preferred language folder dynamically loaded from the admin-created language list during registration.
+- **Permanent Lock**: Post account approval, users cannot directly edit their assigned language from their profile or settings.
+
+### 2. Language Change Request Workflow (`LanguageChangeRequest`)
+- Users may submit a formal request to change their assigned language with a stated reason.
+- Only **1 pending request** is permitted at a time per user.
+- **Admin Review & Snapshot Strategy**:
+  - Admin receives request and reviews (`APPROVED` or `REJECTED`).
+  - On Approval, if user has an active video snapshot, admin selects:
+    - **OPTION A**: Keep existing snapshot.
+    - **OPTION B**: Reset snapshot & progress (purges existing progress, taking a fresh snapshot on next entry into Video Hub).
+  - Admin may also directly change a user's language from the User Directory using the same Option A / Option B strategy.
+
+### 3. Product / Course Layer (`Product`)
+- Hierarchy: `Product` $\rightarrow$ `Language` $\rightarrow$ `Videos`.
+- Products can be created, updated, or archived by admins.
+- Users are assigned products, giving them access to videos under their assigned product and language.
+
+### 4. Video Reordering & Video Lifecycle
+- **Ordering**: Admin can reorder videos (Move Up / Move Down) and persist `orderIndex`.
+- **Lifecycle States**: `DRAFT`, `UPLOADED`, `AVAILABLE`, `ASSIGNED`, `IN_USE`, `ARCHIVED`.
+- Only active videos in `AVAILABLE`, `ASSIGNED`, or `IN_USE` states are served to approved users.
+
+### 5. Assigned Video Protection & Secure Access
+- **Deletion Protection**: Once a video is assigned to any paid user's frozen snapshot (`SnapshotVideo`), backend strictly **rejects** deletion attempts. Admin UI displays: **"Assigned to Paid Users — Deletion Disabled"**.
+- **Secure Access Verification**: Video stream access (`GET /videos/:id/access`) verifies user authentication, active approval, matching assigned language, matching product, disclaimer acceptance, and snapshot permission.
+
+### 7. Video Versioning System (`VideoVersion`)
+- Each video retains immutable version history ($V1 \rightarrow V2 \rightarrow V3$).
+- Version creation or restoration updates the active video pointer.
+- Deleting or updating a video version never modifies existing user snapshots (`SnapshotVideo`).
+
+### 8. Playback Session System (`PlaybackSession`)
+- Every video playback instance creates a unique `PlaybackSession` with device ID, platform, IP, watch seconds, pause count, resume count, seek count, background count, and network interruptions.
+- Session pings synchronize position cross-device seamlessly.
+
+### 9. Targeted Announcement System (`Announcement`)
+- Admins can broadcast announcements targeting `ALL`, `PRODUCT`, `LANGUAGE`, or specific `USER`.
 
 ---
 
@@ -417,3 +461,45 @@ isRead: true → disappears from unread badge count
 ```
 
 Notifications are **never deleted** — they are only marked as read. This provides a complete notification history.
+
+---
+
+## Multilingual Video System & Snapshot Refund Engine
+
+The video system delivers localized video learning courses while enforcing a strict, permanent **Snapshot-Based Refund Eligibility Engine**.
+
+### Core Architecture & Snapshot Rules
+
+1. **Snapshot Creation (`UserVideoSnapshot`)**:
+   - Created **ONCE** when an approved user first accesses the Video Learning Hub.
+   - Captures and freezes:
+     - User's assigned language.
+     - Exact list of active videos (`SnapshotVideo` table with `videoId` and `videoDurationSeconds`).
+     - `snapshotVideoCount` and `snapshotTotalDurationSeconds`.
+   - **Immutability**: Admin uploading new videos later does **NOT** alter the snapshot's video count, total duration, or refund calculation.
+
+2. **Locked vs. Unlocked Videos**:
+   - User initially sees **ONLY** the videos captured in their snapshot.
+   - Videos uploaded by admins after the snapshot remain **LOCKED** (with a lock badge, blurred thumbnail, and unlock notice: *"Unlock after 25% learning progress or 30 days"*).
+   - **Auto-Unlock Trigger**: When Overall Progress reaches $\ge 25\%$ OR 30 days pass since join date, all newer videos automatically unlock (`newVideosUnlocked = true`).
+
+3. **Duration-Based Progress & Refund Eligibility**:
+   - `Overall Progress % = (Total Watched Seconds across Snapshot Videos / Snapshot Total Duration Seconds) * 100`.
+   - Any watch progress update (even $0.1\text{s}$) updates `UserVideoProgress` and recalculates overall percentage.
+   - **Permanent Refund Forfeiture**:
+     - Refund becomes permanently ineligible (`refundEligible = false`, `refundLostAt = timestamp`) if:
+       - `CurrentDate >= JoinDate + 30 Days` OR
+       - `Overall Snapshot Progress >= 25%`
+     - Once marked ineligible, this state **NEVER** reverts.
+
+4. **Video Deletion & Duration Edit Safety**:
+   - Admin deleting a video from the system does NOT change the user's snapshot calculation because calculations rely on the frozen `SnapshotVideo` table.
+   - Admin editing a video's duration does NOT alter the snapshot's frozen original total duration.
+
+5. **Disclaimer Versioning**:
+   - System setting `videoDisclaimerVersion` (default 1) is tracked against `UserVideoSnapshot.disclaimerVersion`.
+   - If admin increments `videoDisclaimerVersion`, users are required to re-accept the updated terms disclaimer modal before viewing video content.
+
+6. **Admin Reset Action**:
+   - Endpoint `POST /api/v1/admin/users/:id/reset-video-progress` purges the user's snapshot and video progress records, enabling a fresh snapshot on next entry.
+

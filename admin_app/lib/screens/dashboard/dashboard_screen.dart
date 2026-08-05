@@ -470,11 +470,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onTap: () => Navigator.pushNamed(context, AppRoutes.hierarchy),
                         ),
                         _buildMenuTile(
+                          icon: Icons.video_library_outlined,
+                          title: 'Multilingual Video Library',
+                          desc: 'Manage language folders and upload video content',
+                          color: AppTheme.neonGreen,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.videos),
+                        ),
+                        _buildMenuTile(
+                          icon: Icons.mark_chat_unread_outlined,
+                          title: 'Language Change Requests',
+                          desc: 'Review and approve user requested language changes',
+                          color: Colors.amber,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.languageRequests),
+                        ),
+                        _buildMenuTile(
+                          icon: Icons.inventory_2_outlined,
+                          title: 'Product Layer Management',
+                          desc: 'Create and manage courses, products, and video assignments',
+                          color: AppTheme.neonCyan,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.products),
+                        ),
+                        _buildMenuTile(
                           icon: Icons.lock_reset_outlined,
                           title: 'Change Account Password',
                           desc: 'Update your administrator account password',
                           color: AppTheme.primaryPurple,
                           onTap: () => ChangePasswordDialog.show(context),
+                        ),
+                        _buildMenuTile(
+                          icon: Icons.bar_chart_rounded,
+                          title: 'Video Analytics Dashboard',
+                          desc: 'Engagement, completion rates, & refund threshold metrics',
+                          color: AppTheme.neonCyan,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.videoAnalytics),
+                        ),
+                        _buildMenuTile(
+                          icon: Icons.campaign_rounded,
+                          title: 'Announcements Broadcast',
+                          desc: 'Broadcast target-based announcements to users',
+                          color: Colors.amberAccent,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.announcements),
+                        ),
+                        _buildMenuTile(
+                          icon: Icons.security_rounded,
+                          title: 'Platform Audit Logs',
+                          desc: 'Trace video uploads, deletion blocks, & security events',
+                          color: AppTheme.neonGreen,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.auditLogs),
                         ),
                         if (_isDevMode) ...[
                           _buildMenuTile(

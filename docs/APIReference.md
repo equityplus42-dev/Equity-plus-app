@@ -801,3 +801,161 @@ Server and database health check. Used by monitoring services and deployment pip
   "database": "Disconnected"
 }
 ```
+
+---
+
+## Video & Snapshot Endpoints
+
+### `GET /api/v1/videos`
+Fetch user video library (unlocked & locked lists based on snapshot).
+
+### `GET /api/v1/videos/progress`
+Fetch snapshot metrics, overall percentage progress, remaining percentage, remaining days, and refund eligibility status.
+
+#### Success Response — HTTP 200
+```json
+{
+  "success": true,
+  "data": {
+    "snapshot": {
+      "takenAt": "2026-08-05T07:00:00.000Z",
+      "videoCount": 20,
+      "totalDurationSeconds": 18600,
+      "refundEligible": true,
+      "newVideosUnlocked": false
+    },
+    "progress": {
+      "totalWatchedSecs": 4650,
+      "percentage": 25.0,
+      "remainingPercentage": 75.0,
+      "daysJoined": 5,
+      "remainingDays": 25
+    },
+    "eligible": false,
+    "unlocked": true
+  }
+}
+```
+
+### `GET /api/v1/videos/locked`
+Fetch locked videos uploaded by admin after snapshot creation.
+
+### `POST /api/v1/admin/users/:id/reset-video-progress`
+Purges user's snapshot and video progress records to trigger a fresh snapshot on next entry. **Admin only**.
+
+---
+
+## Language Change Request Endpoints
+
+### Submit Language Change Request
+`POST /api/v1/language-requests/my`
+
+Headers: `Authorization: Bearer <user_token>`
+
+Request Body:
+```json
+{
+  "requestedLanguageId": "lang-uuid",
+  "reason": "Requesting Tamil language for learning."
+}
+```
+
+### Get My Language Change Requests
+`GET /api/v1/language-requests/my`
+
+Headers: `Authorization: Bearer <user_token>`
+
+### Get Admin Language Change Requests
+`GET /api/v1/language-requests/admin?status=PENDING`
+
+Headers: `Authorization: Bearer <admin_token>`
+
+### Review Language Change Request (Approve / Reject)
+`PATCH /api/v1/language-requests/admin/:id/review`
+
+Headers: `Authorization: Bearer <admin_token>`
+
+Request Body:
+```json
+{
+  "status": "APPROVED",
+  "adminRemarks": "Approved requested language change.",
+  "resetProgressOption": "OPTION_B"
+}
+```
+
+---
+
+## Product Layer Endpoints
+
+### Get All Products
+`GET /api/v1/products`
+
+Headers: `Authorization: Bearer <token>`
+
+### Create Product (Admin)
+`POST /api/v1/products/admin`
+
+Headers: `Authorization: Bearer <admin_token>`
+
+Request Body:
+```json
+{
+  "name": "Master Trader Package",
+  "code": "PROD_MASTER",
+  "description": "Full advanced trading course"
+}
+```
+
+### Archive Product (Admin)
+`PATCH /api/v1/products/admin/:id/archive`
+
+Headers: `Authorization: Bearer <admin_token>`
+
+### Assign User Product (Admin)
+`PUT /api/v1/products/admin/users/:id/product`
+
+Headers: `Authorization: Bearer <admin_token>`
+
+Request Body:
+```json
+{
+  "productId": "prod-uuid"
+}
+```
+
+---
+
+## Video Reordering & Secure Playback
+
+### Reorder Videos (Admin)
+`PATCH /api/v1/videos/admin/reorder`
+
+Headers: `Authorization: Bearer <admin_token>`
+
+Request Body:
+```json
+{
+  "videoOrders": [
+    { "id": "vid-1", "orderIndex": 0 },
+    { "id": "vid-2", "orderIndex": 1 }
+  ]
+}
+```
+
+### Get Secure Video Playback Authorization
+`GET /api/v1/videos/:id/access`
+
+Headers: `Authorization: Bearer <user_token>`
+
+### Record Seek-Protected Playback Heartbeat
+`POST /api/v1/videos/:id/heartbeat`
+
+Headers: `Authorization: Bearer <user_token>`
+
+Request Body:
+```json
+{
+  "sessionWatchedSecs": 5
+}
+```

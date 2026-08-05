@@ -430,6 +430,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        _buildMenuCard(
+                          icon: Icons.video_library_outlined,
+                          title: 'Video Learning Hub',
+                          subtitle: 'Watch courses in your assigned language',
+                          color: AppTheme.neonGreen,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.videos),
+                        ),
+                        const SizedBox(height: 16),
                         Row(
                           children: [
                             Expanded(

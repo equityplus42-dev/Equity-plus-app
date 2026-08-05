@@ -181,16 +181,21 @@ class ExampleProvider extends ChangeNotifier {
 | `HierarchyProvider` | Downline tree data |
 | `NotificationProvider` | Notification list, unread count |
 
-### Admin App Providers
+### Admin App Structure (`/admin_app`)
+- **Providers**: `AuthProvider`, `AdminDashboardProvider`, `AdminUsersProvider`, `AdminLanguagesProvider`, `AdminVideosProvider`, `AdminLanguageRequestsProvider`, `AdminProductsProvider`.
+- **Screens**:
+  - `AdminLanguageRequestsScreen`: Review language change requests with Option A / Option B snapshot reset options.
+  - `AdminProductsScreen`: Product & Course Layer CRUD management.
+  - `AdminVideoManagementScreen`: Multilingual Video Library, video reordering, and Assigned Video Protection badges.
+  - `UsersScreen`: User Directory with direct language assignment, snapshot analytics modal, and progress reset trigger.
 
-| Provider | State It Manages |
-|----------|----------------|
-| `AuthProvider` | Same as user app — admin login/logout |
-| `AdminDashboardProvider` | System-wide stats |
-| `AdminApprovalsProvider` | Pending referral list, approve/reject actions |
-| `AdminUsersProvider` | Full user list with search and soft-delete |
-| `AdminSettingsProvider` | System settings read/write |
-| `AdminHierarchyProvider` | Full global hierarchy tree |
+### User App Structure (`/user_app`)
+- **Providers**: `AuthProvider`, `UserVideoProvider`.
+- **Screens**:
+  - `RegisterScreen`: Registration flow featuring mandatory dynamic Preferred Language selector.
+  - `UserLanguageRequestScreen`: Request language change, state reason, and view request status history.
+  - `UserVideoLibraryScreen`: Video Learning Hub displaying Snapshot Progress Banner, Refund Status Banner, Remaining Watch Seconds to 25%, Unlocked Videos, and Locked Videos.
+  - `VideoPlayerScreen`: In-app video playback with seek-protected heartbeat logging.
 
 ### AuthProvider Detail
 

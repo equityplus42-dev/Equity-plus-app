@@ -19,7 +19,7 @@ class AuthRepository {
     });
   }
 
-  async createUser({ email, password, referralCode, referralUrl, qrCode, referrerId, firstName, lastName, phoneNumber, isApproved = false }) {
+  async createUser({ email, password, referralCode, referralUrl, qrCode, referrerId, firstName, lastName, phoneNumber, isApproved = false, assignedLanguageId }) {
     return prisma.user.create({
       data: {
         email,
@@ -34,6 +34,7 @@ class AuthRepository {
             firstName,
             lastName,
             phoneNumber,
+            assignedLanguageId,
           },
         },
       },

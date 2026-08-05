@@ -8,6 +8,10 @@ import 'providers/admin_approvals_provider.dart';
 import 'providers/admin_users_provider.dart';
 import 'providers/admin_settings_provider.dart';
 import 'providers/admin_hierarchy_provider.dart';
+import 'providers/admin_languages_provider.dart';
+import 'providers/admin_videos_provider.dart';
+import 'providers/admin_language_requests_provider.dart';
+import 'providers/admin_products_provider.dart';
 
 class AdminApp extends StatelessWidget {
   const AdminApp({super.key});
@@ -22,6 +26,10 @@ class AdminApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminUsersProvider()),
         ChangeNotifierProvider(create: (_) => AdminSettingsProvider()),
         ChangeNotifierProvider(create: (_) => AdminHierarchyProvider()),
+        ChangeNotifierProvider(create: (_) => AdminLanguagesProvider()),
+        ChangeNotifierProvider(create: (_) => AdminVideosProvider()),
+        ChangeNotifierProvider(create: (_) => AdminLanguageRequestsProvider()),
+        ChangeNotifierProvider(create: (_) => AdminProductsProvider()),
       ],
       child: MaterialApp(
         title: 'Vridhi Admin',

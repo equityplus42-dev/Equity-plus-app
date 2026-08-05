@@ -8,6 +8,7 @@ import 'providers/profile_provider.dart';
 import 'providers/referral_provider.dart';
 import 'providers/hierarchy_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/user_video_provider.dart';
 
 class ReferralApp extends StatelessWidget {
   const ReferralApp({super.key});
@@ -22,6 +23,7 @@ class ReferralApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReferralProvider()),
         ChangeNotifierProvider(create: (_) => HierarchyProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => UserVideoProvider()),
       ],
       child: MaterialApp(
         title: 'Vridhi Network',

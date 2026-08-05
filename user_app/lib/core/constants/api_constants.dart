@@ -38,4 +38,18 @@ class ApiConstants {
   static const String notifications = '/notifications';
   static const String readAllNotifications = '/notifications/read-all';
   static String readNotification(String id) => '/notifications/$id/read';
+
+  // Video & Disclaimer endpoints
+  static const String userVideos = '/videos';
+  static const String acceptDisclaimer = '/videos/disclaimer/accept';
+  static String recordVideoProgress(String id) => '/videos/$id/progress';
+  static const String refundStatus = '/videos/refund-status';
+  static const String videoProgressStatus = '/videos/progress';
+  static const String lockedVideos = '/videos/locked';
+  static String secureVideoAccess(String videoId) => '/videos/$videoId/access';
+  static String recordPlaybackHeartbeat(String videoId) => '/videos/$videoId/heartbeat';
+
+  // Language Change Requests & Public Languages
+  static const String publicLanguages = '/languages';
+  static const String languageRequestsMy = '/language-requests/my';
 }

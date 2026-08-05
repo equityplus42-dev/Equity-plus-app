@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/network/api_client.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -56,8 +57,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  List<Map<String, dynamic>> _availableLanguages = [];
+  String? _selectedLanguageId;
+  bool _isLoadingLanguages = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLanguages();
+  }
+
+  Future<void> _fetchLanguages() async {
+    try {
+      final response = await ApiClient().get('/languages');
+      final List data = response['data'] ?? [];
+      if (mounted) {
+        setState(() {
+          _availableLanguages = data.cast<Map<String, dynamic>>();
+          if (_availableLanguages.isNotEmpty) {
+            _selectedLanguageId = _availableLanguages.first['id'];
+          }
+          _isLoadingLanguages = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingLanguages = false;
+        });
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedLanguageId == null || _selectedLanguageId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your preferred language.')),
+      );
+      return;
+    }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.register(
@@ -67,6 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       lastName: _lastNameController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       referralCode: _refCodeController.text.trim(),
+      preferredLanguageId: _selectedLanguageId!,
     );
 
     if (!mounted) return;
@@ -221,6 +261,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             return null;
                           },
                         ),
+                        const SizedBox(height: 16),
+                        _isLoadingLanguages
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Center(child: SpinKitRing(color: AppTheme.primaryPurple, size: 24)),
+                              )
+                            : DropdownButtonFormField<String>(
+                                value: _selectedLanguageId,
+                                dropdownColor: AppTheme.cardBg,
+                                style: GoogleFonts.outfit(color: AppTheme.lightText),
+                                decoration: const InputDecoration(
+                                  labelText: 'Preferred Language (Required)',
+                                  prefixIcon: Icon(Icons.language, color: AppTheme.primaryPurple, size: 20),
+                                ),
+                                items: _availableLanguages.map((l) {
+                                  return DropdownMenuItem<String>(
+                                    value: l['id'],
+                                    child: Text('${l['name']} (${l['code']})'),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedLanguageId = val;
+                                    });
+                                  }
+                                },
+                                validator: (val) => val == null || val.isEmpty ? 'Preferred Language is required' : null,
+                              ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _refCodeController,

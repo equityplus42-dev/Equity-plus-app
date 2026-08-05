@@ -14,14 +14,26 @@ class AuthService {
   /**
    * Register a new user
    */
-  async register({ email, password, referralCode, firstName, lastName, phoneNumber }) {
+  async register({ email, password, referralCode, firstName, lastName, phoneNumber, preferredLanguageId }) {
     // 1. Check if user already exists
-    const existingUser = await authRepository.findByEmail(email);
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
     if (existingUser) {
       throw new Error('Email is already registered');
     }
 
-    // 2. Validate referral code (MANDATORY)
+    // 2. Validate preferred language
+    if (!preferredLanguageId) {
+      throw new Error('Preferred language is required');
+    }
+    const lang = await prisma.language.findUnique({ where: { id: preferredLanguageId } });
+    if (!lang) {
+      throw new Error('Selected preferred language folder does not exist');
+    }
+
+    // 3. Validate referral code (MANDATORY)
     if (!referralCode) {
       throw new Error('Referral code is mandatory for registration');
     }
@@ -70,6 +82,7 @@ class AuthService {
       lastName,
       phoneNumber,
       isApproved,
+      assignedLanguageId: preferredLanguageId,
     });
 
     // 6. Create node in hierarchy if auto-approved

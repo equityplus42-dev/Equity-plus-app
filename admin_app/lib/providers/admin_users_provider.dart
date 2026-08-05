@@ -116,4 +116,25 @@ class AdminUsersProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> fetchUserSnapshot(String userId) async {
+    try {
+      final response = await _apiClient.get(ApiConstants.getUserSnapshotAdmin(userId));
+      return response['data'];
+    } catch (e) {
+      debugPrint('Error fetching user snapshot: $e');
+      return null;
+    }
+  }
+
+  Future<bool> resetUserVideoProgress(String userId) async {
+    try {
+      await _apiClient.post(ApiConstants.resetUserVideoProgress(userId), {});
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
 }

@@ -32,4 +32,20 @@ class ApiConstants {
   static String approveReferral(String id) => '/admin/referrals/$id/approve';
   static String rejectReferral(String id) => '/admin/referrals/$id/reject';
   static String toggleUserApproval(String userId) => '/admin/users/$userId/approval';
+
+  // Language & Video endpoints
+  static const String languages = '/languages';
+  static const String adminVideos = '/videos/admin';
+  static String assignUserLanguage(String userId) => '/videos/admin/users/$userId/language';
+  static String resetUserVideoProgress(String userId) => '/videos/admin/users/$userId/reset-video-progress';
+  static String getUserSnapshotAdmin(String userId) => '/videos/admin/users/$userId/snapshot';
+  static const String reorderVideos = '/videos/admin/reorder';
+
+  // Language Change Requests & Products endpoints
+  static const String languageRequestsAdmin = '/language-requests/admin';
+  static String reviewLanguageRequest(String id) => '/language-requests/admin/$id/review';
+  static const String products = '/products';
+  static const String productsAdmin = '/products/admin';
+  static String archiveProduct(String id) => '/products/admin/$id/archive';
+  static String assignUserProduct(String userId) => '/products/admin/users/$userId/product';
 }

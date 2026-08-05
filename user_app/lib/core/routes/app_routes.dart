@@ -13,6 +13,9 @@ import '../../screens/support/support_screen.dart';
 import '../../screens/auth/kyc_screen.dart';
 import '../../screens/auth/qr_scanner_screen.dart';
 import '../../screens/auth/forgot_password_screen.dart';
+import '../../screens/videos/user_video_library_screen.dart';
+import '../../screens/language_requests/user_language_request_screen.dart';
+import '../../screens/videos/watch_history_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -29,6 +32,9 @@ class AppRoutes {
   static const String support = '/support';
   static const String kyc = '/kyc';
   static const String qrScanner = '/qr-scanner';
+  static const String videos = '/videos';
+  static const String languageRequest = '/language-request';
+  static const String watchHistory = '/watch-history';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -46,6 +52,9 @@ class AppRoutes {
       support: (context) => const SupportScreen(),
       kyc: (context) => const KycScreen(),
       qrScanner: (context) => const QrScannerScreen(),
+      videos: (context) => const UserVideoLibraryScreen(),
+      languageRequest: (context) => const UserLanguageRequestScreen(),
+      watchHistory: (context) => const WatchHistoryScreen(),
     };
   }
 }

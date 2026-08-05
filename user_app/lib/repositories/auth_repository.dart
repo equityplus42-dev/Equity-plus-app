@@ -33,6 +33,7 @@ class AuthRepository {
     String? firstName,
     String? lastName,
     String? phoneNumber,
+    required String preferredLanguageId,
   }) async {
     final response = await _apiClient.post(ApiConstants.register, {
       'email': email,
@@ -41,6 +42,7 @@ class AuthRepository {
       if (firstName != null && firstName.isNotEmpty) 'firstName': firstName,
       if (lastName != null && lastName.isNotEmpty) 'lastName': lastName,
       if (phoneNumber != null && phoneNumber.isNotEmpty) 'phoneNumber': phoneNumber,
+      'preferredLanguageId': preferredLanguageId,
     });
     
     final data = response['data'];

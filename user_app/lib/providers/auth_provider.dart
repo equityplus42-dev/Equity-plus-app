@@ -44,10 +44,11 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> register({
     required String email,
     required String password,
-    String? referralCode,
+    required String referralCode,
     String? firstName,
     String? lastName,
     String? phoneNumber,
+    required String preferredLanguageId,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -61,6 +62,7 @@ class AuthProvider extends ChangeNotifier {
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber,
+        preferredLanguageId: preferredLanguageId,
       );
       _isLoading = false;
       notifyListeners();

@@ -501,4 +501,96 @@ The `auditLog.service.js` wraps all DB writes in a `try/catch`. Audit log failur
 │ value                        │
 │ description                  │
 └──────────────────────────────┘
+
+---
+
+## Video Snapshot System Models
+
+### UserVideoSnapshot Model
+
+Stores the permanent frozen snapshot taken on user's first entry into the Video Learning Hub.
+
+```prisma
+model UserVideoSnapshot {
+  id                           String          @id @default(uuid())
+  userId                       String          @unique
+  user                         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  languageId                   String
+  language                     Language        @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  snapshotTakenAt              DateTime        @default(now())
+  snapshotVideoCount           Int
+  snapshotTotalDurationSeconds Int
+  refundThresholdPercentage    Int             @default(25)
+  refundEligible               Boolean         @default(true)
+  refundLostAt                 DateTime?
+  newVideosUnlocked            Boolean         @default(false)
+  disclaimerVersion            Int             @default(1)
+  acceptedDisclaimerAt         DateTime?
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+  snapshotVideos               SnapshotVideo[]
+
+  @@index([userId])
+  @@index([languageId])
+}
+```
+
+### SnapshotVideo Model
+
+Stores the frozen set of video IDs and durations associated with a snapshot.
+
+```prisma
+model SnapshotVideo {
+  id                   String            @id @default(uuid())
+  snapshotId           String
+  snapshot             UserVideoSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  videoId              String
+  videoDurationSeconds Int
+  createdAt            DateTime          @default(now())
+
+  @@index([snapshotId])
+  @@index([videoId])
+}
+```
+
+### `LanguageChangeRequest` Model
+Stores user requests to change assigned video language.
+
+```prisma
+model LanguageChangeRequest {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation("UserLanguageRequests", fields: [userId], references: [id], onDelete: Cascade)
+  currentLanguageId   String
+  currentLanguage     Language  @relation("CurrentLanguageRequests", fields: [currentLanguageId], references: [id], onDelete: Cascade)
+  requestedLanguageId String
+  requestedLanguage   Language  @relation("RequestedLanguageRequests", fields: [requestedLanguageId], references: [id], onDelete: Cascade)
+  reason              String    @db.Text
+  status              String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  adminRemarks        String?   @db.Text
+  requestedAt         DateTime  @default(now())
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  reviewer            User?     @relation("ReviewedLanguageRequests", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+}
+```
+
+### `Product` Model
+Represents top-level course packages and products.
+
+```prisma
+model Product {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  code        String    @unique
+  description String?   @db.Text
+  status      String    @default("AVAILABLE") // DRAFT, AVAILABLE, ARCHIVED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  videos      Video[]
+  profiles    Profile[]
+}
 ```

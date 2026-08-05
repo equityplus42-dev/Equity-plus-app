@@ -10,6 +10,15 @@ const hierarchyRoutes = require('./hierarchy.routes');
 const notificationRoutes = require('./notification.routes');
 const searchRoutes = require('./search.routes');
 const settingsRoutes = require('./settings.routes');
+const languageRoutes = require('./language.routes');
+const videoRoutes = require('./video.routes');
+const languageRequestRoutes = require('./languageRequest.routes');
+const productRoutes = require('./product.routes');
+const videoVersionRoutes = require('./videoVersion.routes');
+const playbackSessionRoutes = require('./playbackSession.routes');
+const videoAnalyticsRoutes = require('./videoAnalytics.routes');
+const announcementRoutes = require('./announcement.routes');
+const uploadPipelineRoutes = require('./uploadPipeline.routes');
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
@@ -18,6 +27,15 @@ router.use('/profile', profileRoutes);
 router.use('/referrals', referralRoutes);
 router.use('/hierarchy', hierarchyRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/languages', languageRoutes);
+router.use('/videos', videoRoutes);
+router.use('/language-requests', languageRequestRoutes);
+router.use('/products', productRoutes);
+router.use('/versions', videoVersionRoutes);
+router.use('/sessions', playbackSessionRoutes);
+router.use('/analytics', videoAnalyticsRoutes);
+router.use('/announcements', announcementRoutes);
+router.use('/upload-pipeline', uploadPipelineRoutes);
 const prisma = require('../../config/database');
 
 router.get('/health', async (req, res) => {

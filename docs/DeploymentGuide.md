@@ -92,14 +92,14 @@ cp .env.example .env
 ### 3. Synchronize Database Schema
 
 ```bash
-# Push schema changes to TiDB/MySQL (no migration files)
+# Push schema changes (including UserVideoSnapshot, SnapshotVideo, LanguageChangeRequest, Product) to TiDB/MySQL
 npx prisma db push
 
 # Regenerate Prisma client after any schema change
 npx prisma generate
 ```
 
-> **Note**: `npx prisma migrate` is **not** used with TiDB Cloud. Always use `npx prisma db push` followed by `npx prisma generate`.
+> **Note**: `npx prisma migrate` is **not** used with TiDB Cloud. Always use `npx prisma db push` followed by `npx prisma generate`. The `UserVideoSnapshot`, `SnapshotVideo`, `LanguageChangeRequest`, and `Product` models are automatically synchronized.
 
 ### 4. Seed the Database (Optional)
 

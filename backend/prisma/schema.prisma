@@ -40,28 +40,223 @@ model User {
   hierarchyNode           HierarchyNode?
   notifications           Notification[]
   auditLogs               AuditLog[]
+  videoProgress           UserVideoProgress[]
+  videoSnapshot           UserVideoSnapshot?
+  languageRequests        LanguageChangeRequest[] @relation("UserLanguageRequests")
+  reviewedRequests        LanguageChangeRequest[] @relation("ReviewedLanguageRequests")
+  playbackSessions        PlaybackSession[]
 
   @@index([referrerId])
 }
 
 model Profile {
-  id           String   @id @default(uuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName    String?
-  lastName     String?
-  phoneNumber  String?
-  whatsApp     String?
-  state        String?
-  district     String?
-  avatarUrl    String?
-  bio          String?  @db.Text
-  panNumber    String?
-  aadharNumber String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName            String?
+  lastName             String?
+  phoneNumber          String?
+  whatsApp             String?
+  state                String?
+  district             String?
+  avatarUrl            String?
+  bio                  String?   @db.Text
+  panNumber            String?
+  aadharNumber         String?
+  assignedLanguageId   String?
+  assignedLanguage     Language? @relation(fields: [assignedLanguageId], references: [id], onDelete: SetNull)
+  assignedProductId    String?
+  assignedProduct      Product?  @relation(fields: [assignedProductId], references: [id], onDelete: SetNull)
+  disclaimerAcceptedAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@index([phoneNumber])
+  @@index([assignedLanguageId])
+  @@index([assignedProductId])
+}
+
+model Product {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  code        String    @unique
+  description String?   @db.Text
+  status      String    @default("AVAILABLE") // DRAFT, AVAILABLE, ARCHIVED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  videos      Video[]
+  profiles    Profile[]
+}
+
+model Language {
+  id                      String                  @id @default(uuid())
+  name                    String                  @unique // e.g. English, Hindi, Bengali
+  code                    String                  @unique // e.g. en, hi, bn
+  isDefault               Boolean                 @default(false)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  videos                  Video[]
+  profiles                Profile[]
+  snapshots               UserVideoSnapshot[]
+  currentLangRequests     LanguageChangeRequest[] @relation("CurrentLanguageRequests")
+  requestedLangRequests   LanguageChangeRequest[] @relation("RequestedLanguageRequests")
+}
+
+model Video {
+  id                   String              @id @default(uuid())
+  title                String
+  description          String?             @db.Text
+  videoUrl             String              @db.VarChar(512)
+  thumbnailUrl String?             @db.VarChar(512)
+  duration     Int                 @default(0)
+  languageId   String
+  language     Language            @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  status       String              @default("AVAILABLE") // DRAFT, UPLOADED, AVAILABLE, ASSIGNED, IN_USE, ARCHIVED
+  orderIndex   Int                 @default(0)
+  currentVersionNumber Int                 @default(1)
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  progressList UserVideoProgress[]
+  versions     VideoVersion[]
+  sessions     PlaybackSession[]
+
+  @@index([languageId])
+  @@index([productId])
+}
+
+model VideoVersion {
+  id            String   @id @default(uuid())
+  videoId       String
+  video         Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  versionNumber Int      @default(1)
+  title         String
+  description   String?  @db.Text
+  videoUrl      String   @db.VarChar(512)
+  thumbnailUrl  String?  @db.VarChar(512)
+  duration      Int      @default(0)
+  changeLog     String?  @db.Text
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  @@unique([videoId, versionNumber])
+  @@index([videoId])
+}
+
+model PlaybackSession {
+  id                   String    @id @default(uuid())
+  sessionId            String    @unique
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId              String
+  video                Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  snapshotId           String?
+  deviceId             String?
+  deviceName           String?
+  platform             String?
+  ipAddress            String?
+  startedAt            DateTime  @default(now())
+  endedAt              DateTime?
+  watchSeconds         Int       @default(0)
+  lastPositionSecs     Int       @default(0)
+  pauseCount           Int       @default(0)
+  resumeCount          Int       @default(0)
+  seekCount            Int       @default(0)
+  backgroundCount      Int       @default(0)
+  networkInterruptions Int       @default(0)
+  closedNormally       Boolean   @default(false)
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([startedAt])
+}
+
+model Announcement {
+  id          String    @id @default(uuid())
+  title       String
+  message     String    @db.Text
+  targetType  String    @default("ALL") // ALL, PRODUCT, LANGUAGE, USER
+  targetId    String?
+  scheduledAt DateTime?
+  isSent      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  createdById String?
+
+  @@index([targetType])
+  @@index([isSent])
+}
+
+model UserVideoProgress {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId     String
+  video       Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  watchedSecs Int      @default(0)
+  isCompleted Boolean  @default(false)
+  lastWatched DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, videoId])
+  @@index([userId])
+}
+
+model LanguageChangeRequest {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation("UserLanguageRequests", fields: [userId], references: [id], onDelete: Cascade)
+  currentLanguageId   String
+  currentLanguage     Language  @relation("CurrentLanguageRequests", fields: [currentLanguageId], references: [id], onDelete: Cascade)
+  requestedLanguageId String
+  requestedLanguage   Language  @relation("RequestedLanguageRequests", fields: [requestedLanguageId], references: [id], onDelete: Cascade)
+  reason              String    @db.Text
+  status              String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  adminRemarks        String?   @db.Text
+  requestedAt         DateTime  @default(now())
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  reviewer            User?     @relation("ReviewedLanguageRequests", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model UserVideoSnapshot {
+  id                           String          @id @default(uuid())
+  userId                       String          @unique
+  user                         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  languageId                   String
+  language                     Language        @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  snapshotTakenAt              DateTime        @default(now())
+  snapshotVideoCount           Int
+  snapshotTotalDurationSeconds Int
+  refundThresholdPercentage    Int             @default(25)
+  refundEligible               Boolean         @default(true)
+  refundLostAt                 DateTime?
+  newVideosUnlocked            Boolean         @default(false)
+  disclaimerVersion            Int             @default(1)
+  acceptedDisclaimerAt         DateTime?
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+  snapshotVideos               SnapshotVideo[]
+
+  @@index([userId])
+  @@index([languageId])
+}
+
+model SnapshotVideo {
+  id                   String            @id @default(uuid())
+  snapshotId           String
+  snapshot             UserVideoSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  videoId              String
+  videoDurationSeconds Int
+  createdAt            DateTime          @default(now())
+
+  @@index([snapshotId])
+  @@index([videoId])
 }
 
 model Referral {

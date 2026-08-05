@@ -9,6 +9,12 @@ import '../../screens/reports/reports_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/notifications/notifications_screen.dart';
 import '../../screens/support/support_screen.dart';
+import '../../screens/videos/admin_video_management_screen.dart';
+import '../../screens/language_requests/admin_language_requests_screen.dart';
+import '../../screens/products/admin_products_screen.dart';
+import '../../screens/analytics/admin_video_analytics_screen.dart';
+import '../../screens/announcements/admin_announcements_screen.dart';
+import '../../screens/audit/admin_audit_logs_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -21,6 +27,12 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String notifications = '/notifications';
   static const String support = '/support';
+  static const String videos = '/videos';
+  static const String languageRequests = '/language-requests';
+  static const String products = '/products';
+  static const String videoAnalytics = '/video-analytics';
+  static const String announcements = '/announcements';
+  static const String auditLogs = '/audit-logs';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -34,6 +46,12 @@ class AppRoutes {
       settings: (context) => const SettingsScreen(),
       notifications: (context) => const NotificationsScreen(),
       support: (context) => const SupportScreen(),
+      videos: (context) => const AdminVideoManagementScreen(),
+      languageRequests: (context) => const AdminLanguageRequestsScreen(),
+      products: (context) => const AdminProductsScreen(),
+      videoAnalytics: (context) => const AdminVideoAnalyticsScreen(),
+      announcements: (context) => const AdminAnnouncementsScreen(),
+      auditLogs: (context) => const AdminAuditLogsScreen(),
     };
   }
 }
