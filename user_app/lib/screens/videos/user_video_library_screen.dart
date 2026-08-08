@@ -143,7 +143,7 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
                                   _buildStatItem('Progress', '${progress.percentage.toStringAsFixed(1)}%', AppTheme.neonCyan),
                                   _buildStatItem('Remaining', '${progress.remainingPercentage.toStringAsFixed(1)}%', AppTheme.primaryPink),
                                   _buildStatItem('Unlocked', '${videoProvider.unlockedVideos.length} / ${videoProvider.allVideos.length}', AppTheme.neonGreen),
-                                  _buildStatItem('To 25% Limit', '${progress.remainingSecsTo25Percent}s', Colors.amberAccent),
+                                  _buildStatItem('To 25% Limit', progress.remainingSecsLabel, Colors.amberAccent),
                                 ],
                               ),
                             ],

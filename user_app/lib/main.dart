@@ -6,7 +6,7 @@ import 'core/storage/storage_service.dart';
 void main() async {
   // Ensure framework services are active
   WidgetsFlutterBinding.ensureInitialized();
-  GoogleFonts.config.allowRuntimeFetching = false;
+  GoogleFonts.config.allowRuntimeFetching = true;
   
   // Initialize storage preferences
   final storage = StorageService();

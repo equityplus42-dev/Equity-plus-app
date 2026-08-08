@@ -12,5 +12,7 @@ router.post('/admin', authMiddleware, roleMiddleware(['ADMIN']), productControll
 router.put('/admin/:id', authMiddleware, roleMiddleware(['ADMIN']), productController.updateProduct);
 router.patch('/admin/:id/archive', authMiddleware, roleMiddleware(['ADMIN']), productController.archiveProduct);
 router.put('/admin/users/:id/product', authMiddleware, roleMiddleware(['ADMIN']), productController.assignUserProduct);
+router.get('/admin/access/pending', authMiddleware, roleMiddleware(['ADMIN']), productController.getPendingProductAccesses);
+router.patch('/admin/access/:id/approve', authMiddleware, roleMiddleware(['ADMIN']), productController.approveProductAccess);
 
 module.exports = router;

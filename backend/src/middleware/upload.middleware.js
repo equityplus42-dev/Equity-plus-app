@@ -1,4 +1,5 @@
 const upload = require('../config/multer');
+const { mediaUpload } = require('../config/multer');
 const ApiResponse = require('../utils/apiResponse');
 
 const uploadSingleImage = (fieldName) => {
@@ -12,6 +13,18 @@ const uploadSingleImage = (fieldName) => {
   };
 };
 
+const uploadSingleMedia = (fieldName) => {
+  return (req, res, next) => {
+    mediaUpload.single(fieldName)(req, res, (err) => {
+      if (err) {
+        return ApiResponse.error(res, err.message, 400);
+      }
+      next();
+    });
+  };
+};
+
 module.exports = {
   uploadSingleImage,
+  uploadSingleMedia,
 };

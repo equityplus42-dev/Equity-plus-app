@@ -21,7 +21,12 @@ class AuthService {
     });
 
     if (existingUser) {
-      throw new Error('Email is already registered');
+      if (existingUser.isDeleted) {
+        // User was soft-deleted previously. Purge old deleted record so they can re-register cleanly
+        await this.purgeDeletedUser(existingUser.id);
+      } else {
+        throw new Error('Email is already registered');
+      }
     }
 
     // 2. Validate preferred language
@@ -271,6 +276,31 @@ class AuthService {
     });
 
     return { success: true, message: 'Password changed successfully' };
+  }
+
+  /**
+   * Purge a previously soft-deleted user and associated child records
+   */
+  async purgeDeletedUser(userId) {
+    try {
+      await prisma.$transaction([
+        prisma.userVideoProgress.deleteMany({ where: { userId } }),
+        prisma.snapshotVideo.deleteMany({ where: { snapshot: { userId } } }),
+        prisma.userVideoSnapshot.deleteMany({ where: { userId } }),
+        prisma.languageChangeRequest.deleteMany({ where: { userId } }),
+        prisma.playbackSession.deleteMany({ where: { userId } }),
+        prisma.notification.deleteMany({ where: { userId } }),
+        prisma.referral.deleteMany({ where: { OR: [{ refereeId: userId }, { referrerId: userId }] } }),
+        prisma.hierarchyNode.deleteMany({ where: { userId } }),
+        prisma.profile.deleteMany({ where: { userId } }),
+        prisma.user.delete({ where: { id: userId } }),
+      ]);
+    } catch (e) {
+      console.error('[AuthService] Error purging deleted user:', e);
+      try {
+        await prisma.user.delete({ where: { id: userId } });
+      } catch (_) {}
+    }
   }
 }
 

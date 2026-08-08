@@ -95,15 +95,24 @@ class SnapshotProgressModel {
     required this.remainingSecsTo25Percent,
   });
 
+  /// Human-readable label for the time remaining to reach 25% threshold.
+  String get remainingSecsLabel {
+    if (remainingSecsTo25Percent <= 0) return 'Reached';
+    if (remainingSecsTo25Percent < 60) return '${remainingSecsTo25Percent}s';
+    final mins = remainingSecsTo25Percent ~/ 60;
+    final secs = remainingSecsTo25Percent % 60;
+    return secs > 0 ? '${mins}m ${secs}s' : '${mins}m';
+  }
+
   factory SnapshotProgressModel.fromJson(Map<String, dynamic> json) {
     return SnapshotProgressModel(
-      totalWatchedSecs: json['totalWatchedSecs'] ?? 0,
-      totalSnapshotDurationSecs: json['totalSnapshotDurationSecs'] ?? 0,
+      totalWatchedSecs: (json['totalWatchedSecs'] as num?)?.toInt() ?? 0,
+      totalSnapshotDurationSecs: (json['totalSnapshotDurationSecs'] as num?)?.toInt() ?? 0,
       percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
       remainingPercentage: (json['remainingPercentage'] as num?)?.toDouble() ?? 100.0,
-      daysJoined: json['daysJoined'] ?? 0,
-      remainingDays: json['remainingDays'] ?? 30,
-      remainingSecsTo25Percent: json['remainingSecsTo25Percent'] ?? 0,
+      daysJoined: (json['daysJoined'] as num?)?.toInt() ?? 0,
+      remainingDays: (json['remainingDays'] as num?)?.toInt() ?? 30,
+      remainingSecsTo25Percent: (json['remainingSecsTo25Percent'] as num?)?.toInt() ?? 0,
     );
   }
 }

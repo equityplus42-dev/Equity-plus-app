@@ -19,6 +19,8 @@ const playbackSessionRoutes = require('./playbackSession.routes');
 const videoAnalyticsRoutes = require('./videoAnalytics.routes');
 const announcementRoutes = require('./announcement.routes');
 const uploadPipelineRoutes = require('./uploadPipeline.routes');
+const paymentRoutes = require('./payment.routes');
+const refundRoutes = require('./refund.routes');
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
@@ -36,6 +38,8 @@ router.use('/sessions', playbackSessionRoutes);
 router.use('/analytics', videoAnalyticsRoutes);
 router.use('/announcements', announcementRoutes);
 router.use('/upload-pipeline', uploadPipelineRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/refunds', refundRoutes);
 const prisma = require('../../config/database');
 
 router.get('/health', async (req, res) => {

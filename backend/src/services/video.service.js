@@ -77,7 +77,7 @@ class VideoService {
     });
 
     const snapshotVideoCount = activeVideos.length;
-    const snapshotTotalDurationSeconds = activeVideos.reduce((sum, v) => sum + (v.duration || 0), 0);
+    const snapshotTotalDurationSeconds = activeVideos.reduce((sum, v) => sum + (v.duration && v.duration > 0 ? v.duration : 60), 0);
     const systemDisclaimerVer = await this.getSystemDisclaimerVersion();
 
     snapshot = await prisma.userVideoSnapshot.create({
@@ -94,7 +94,7 @@ class VideoService {
         snapshotVideos: {
           create: activeVideos.map((v) => ({
             videoId: v.id,
-            videoDurationSeconds: v.duration || 0,
+            videoDurationSeconds: v.duration && v.duration > 0 ? v.duration : 60,
           })),
         },
       },
@@ -175,10 +175,23 @@ class VideoService {
     const daysJoined = Math.floor(Math.abs(now - joinedAt) / (1000 * 60 * 60 * 24));
     const snapshotVideoIds = snapshot.snapshotVideos.map((sv) => sv.videoId);
 
+    // Fetch actual current durations from Video table (source of truth, not stale snapshot values)
+    const snapshotVideoRecords = await prisma.video.findMany({
+      where: { id: { in: snapshotVideoIds } },
+      select: { id: true, duration: true },
+    });
+    const videoDurationMap = new Map(
+      snapshotVideoRecords.map((v) => [v.id, v.duration && v.duration > 0 ? v.duration : 0])
+    );
+
+    // Effective total duration from real video durations (never trust stale snapshotTotalDurationSeconds)
+    let effectiveTotalDurationSecs = 0;
+    for (const videoId of snapshotVideoIds) {
+      effectiveTotalDurationSecs += videoDurationMap.get(videoId) || 0;
+    }
+
     const userProgressRecords = await prisma.userVideoProgress.findMany({
-      where: {
-        userId,
-      },
+      where: { userId },
     });
 
     const progressMap = new Map();
@@ -187,11 +200,19 @@ class VideoService {
     for (const record of userProgressRecords) {
       progressMap.set(record.videoId, record);
       if (snapshotVideoIds.includes(record.videoId)) {
-        const sv = snapshot.snapshotVideos.find((s) => s.videoId === record.videoId);
-        const capDuration = sv ? sv.videoDurationSeconds : 0;
-        const effectiveWatched = capDuration > 0 ? Math.min(record.watchedSecs, capDuration) : record.watchedSecs;
+        const actualDuration = videoDurationMap.get(record.videoId) || 0;
+        // Cap watched seconds to actual video duration so you can't exceed 100%
+        const effectiveWatched = actualDuration > 0
+          ? Math.min(record.watchedSecs, actualDuration)
+          : record.watchedSecs;
         totalWatchedSecs += effectiveWatched;
       }
+    }
+
+    // Override snapshot's stored duration with dynamically computed value so evaluateRefundAndUnlockStatus
+    // always works with accurate data
+    if (effectiveTotalDurationSecs > 0 && snapshot.snapshotTotalDurationSeconds !== effectiveTotalDurationSecs) {
+      snapshot = { ...snapshot, snapshotTotalDurationSeconds: effectiveTotalDurationSecs };
     }
 
     const { snapshot: evaluatedSnapshot, overallProgress } = await this.evaluateRefundAndUnlockStatus(
@@ -269,10 +290,9 @@ class VideoService {
       }
     }
 
-    const remainingSecsTo25Percent = Math.max(
-      0,
-      Math.ceil(evaluatedSnapshot.snapshotTotalDurationSeconds * 0.25) - totalWatchedSecs
-    );
+    // Use effectiveTotalDurationSecs (live from Video table) for accurate 25% threshold
+    const threshold25Secs = Math.ceil(effectiveTotalDurationSecs * 0.25);
+    const remainingSecsTo25Percent = Math.max(0, threshold25Secs - totalWatchedSecs);
 
     return {
       assignedLanguage: evaluatedSnapshot.language,
@@ -283,14 +303,14 @@ class VideoService {
       snapshot: {
         takenAt: evaluatedSnapshot.snapshotTakenAt,
         videoCount: evaluatedSnapshot.snapshotVideoCount,
-        totalDurationSeconds: evaluatedSnapshot.snapshotTotalDurationSeconds,
+        totalDurationSeconds: effectiveTotalDurationSecs, // live value
         refundEligible: evaluatedSnapshot.refundEligible,
         refundLostAt: evaluatedSnapshot.refundLostAt,
         newVideosUnlocked: evaluatedSnapshot.newVideosUnlocked,
       },
       progress: {
         totalWatchedSecs,
-        totalSnapshotDurationSecs: evaluatedSnapshot.snapshotTotalDurationSeconds,
+        totalSnapshotDurationSecs: effectiveTotalDurationSecs, // live value
         percentage: overallProgress,
         remainingPercentage: Math.max(0, Math.round((100 - overallProgress) * 100) / 100),
         daysJoined,
@@ -320,20 +340,30 @@ class VideoService {
       throw new Error('Video not found');
     }
 
+    // Fetch existing record so we never decrease watchedSecs (e.g. after seeking back)
+    const existing = await prisma.userVideoProgress.findUnique({
+      where: { userId_videoId: { userId, videoId } },
+    });
+    const safeWatched = Math.max(Math.max(watchedSecs, 0), existing ? existing.watchedSecs : 0);
+    const videoDuration = video.duration && video.duration > 0 ? video.duration : 0;
+    const isCompleted = videoDuration > 0
+      ? safeWatched >= videoDuration * 0.8
+      : safeWatched >= 30;
+
     const record = await prisma.userVideoProgress.upsert({
       where: {
         userId_videoId: { userId, videoId },
       },
       update: {
-        watchedSecs: Math.max(watchedSecs, 0),
+        watchedSecs: safeWatched,
         lastWatched: new Date(),
-        isCompleted: watchedSecs >= (video.duration > 0 ? video.duration * 0.8 : 30),
+        isCompleted,
       },
       create: {
         userId,
         videoId,
-        watchedSecs: Math.max(watchedSecs, 0),
-        isCompleted: watchedSecs >= (video.duration > 0 ? video.duration * 0.8 : 30),
+        watchedSecs: safeWatched,
+        isCompleted,
       },
     });
 
@@ -402,6 +432,15 @@ class VideoService {
     // Verify language assignment
     if (user.profile?.assignedLanguageId && user.profile.assignedLanguageId !== video.languageId) {
       throw new Error('Video language does not match user assigned language');
+    }
+
+    // Verify product access authorization server-side
+    if (video.productId) {
+      const productAccessService = require('./productAccess.service');
+      const hasAccess = await productAccessService.hasActiveAccess(userId, video.productId);
+      if (!hasAccess) {
+        throw new Error('Active product access required to stream this video');
+      }
     }
 
     // Verify snapshot permission

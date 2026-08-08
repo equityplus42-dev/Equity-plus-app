@@ -45,10 +45,14 @@ app.use(express.urlencoded({ extended: true }));
 // 4. Pino structured request logging
 app.use(loggerMiddleware);
 
-// 5. Rate limiting
+// 5. Rate limiting (skips 127.0.0.1 loopback for development and ADB testing)
 const limiter = rateLimit({
   windowMs: apiConfig.RATE_LIMIT.WINDOW_MS,
   max: apiConfig.RATE_LIMIT.MAX_REQUESTS,
+  skip: (req) => {
+    const ip = req.ip || req.connection?.remoteAddress || '';
+    return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  },
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.',

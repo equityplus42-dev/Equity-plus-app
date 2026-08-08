@@ -466,6 +466,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Expanded(
                               child: _buildMenuCard(
+                                icon: Icons.receipt_long_outlined,
+                                title: 'Payments',
+                                subtitle: 'Receipts & history',
+                                color: AppTheme.neonGreen,
+                                onTap: () => Navigator.pushNamed(context, AppRoutes.paymentHistory),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildMenuCard(
+                                icon: Icons.currency_exchange_outlined,
+                                title: 'Refunds',
+                                subtitle: 'Apply & track status',
+                                color: AppTheme.primaryPink,
+                                onTap: () => Navigator.pushNamed(context, AppRoutes.refundRequest),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMenuCard(
                                 icon: Icons.settings_applications_outlined,
                                 title: 'App Settings',
                                 subtitle: 'Theme & security',

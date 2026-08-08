@@ -203,7 +203,8 @@ class _AdminLanguageRequestsScreenState extends State<AdminLanguageRequestsScree
             const SizedBox(height: 16),
 
             // Filter Chips
-            Padding(
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
                 children: ['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map((st) {

@@ -4,8 +4,8 @@ const languageController = require('../../controllers/language.controller');
 const authMiddleware = require('../../middleware/auth.middleware');
 const roleMiddleware = require('../../middleware/role.middleware');
 
-// Public / Authenticated route to get all languages
-router.get('/', authMiddleware, languageController.getAllLanguages);
+// Public route to get all languages for registration & video hub
+router.get('/', languageController.getAllLanguages);
 
 // Admin only routes
 router.post('/', authMiddleware, roleMiddleware(['ADMIN']), languageController.createLanguage);

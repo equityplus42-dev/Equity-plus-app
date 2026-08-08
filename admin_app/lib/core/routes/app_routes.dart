@@ -16,6 +16,11 @@ import '../../screens/analytics/admin_video_analytics_screen.dart';
 import '../../screens/announcements/admin_announcements_screen.dart';
 import '../../screens/audit/admin_audit_logs_screen.dart';
 
+import '../../screens/products/admin_product_hub_screen.dart';
+import '../../screens/videos/admin_video_hub_screen.dart';
+import '../../screens/payments/admin_payments_screen.dart';
+import '../../screens/refunds/admin_refunds_screen.dart';
+
 class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
@@ -27,12 +32,16 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String notifications = '/notifications';
   static const String support = '/support';
+  static const String productHub = '/product-hub';
+  static const String videoHub = '/video-hub';
   static const String videos = '/videos';
   static const String languageRequests = '/language-requests';
   static const String products = '/products';
   static const String videoAnalytics = '/video-analytics';
   static const String announcements = '/announcements';
   static const String auditLogs = '/audit-logs';
+  static const String payments = '/payments';
+  static const String refunds = '/refunds';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -46,12 +55,16 @@ class AppRoutes {
       settings: (context) => const SettingsScreen(),
       notifications: (context) => const NotificationsScreen(),
       support: (context) => const SupportScreen(),
+      productHub: (context) => const AdminProductHubScreen(),
+      videoHub: (context) => const AdminVideoHubScreen(),
       videos: (context) => const AdminVideoManagementScreen(),
       languageRequests: (context) => const AdminLanguageRequestsScreen(),
       products: (context) => const AdminProductsScreen(),
       videoAnalytics: (context) => const AdminVideoAnalyticsScreen(),
       announcements: (context) => const AdminAnnouncementsScreen(),
       auditLogs: (context) => const AdminAuditLogsScreen(),
+      payments: (context) => const AdminPaymentsScreen(),
+      refunds: (context) => const AdminRefundsScreen(),
     };
   }
 }

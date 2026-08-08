@@ -41,11 +41,15 @@ async function runTests() {
     console.log('- Registering root User A...');
     const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
     const refCode = admin ? admin.referralCode : 'ADMINREF';
+    let lang = await prisma.language.findFirst();
+    if (!lang) {
+      lang = await prisma.language.create({ data: { name: 'English', code: 'en' } });
+    }
     
     const resA = await fetch(`${baseUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: emailA, password: 'Password123!', firstName: 'User', lastName: 'A', referralCode: refCode })
+      body: JSON.stringify({ email: emailA, password: 'Password123!', firstName: 'User', lastName: 'A', referralCode: refCode, preferredLanguageId: lang.id })
     });
     assert.strictEqual(resA.status, 201);
     const jsonA = await resA.json();
@@ -63,7 +67,8 @@ async function runTests() {
         firstName: 'User',
         lastName: 'B',
         phoneNumber: '9876543210',
-        referralCode: userA.referralCode
+        referralCode: userA.referralCode,
+        preferredLanguageId: lang.id,
       })
     });
     assert.strictEqual(resB.status, 201);
@@ -81,7 +86,8 @@ async function runTests() {
         firstName: 'User',
         lastName: 'C',
         phoneNumber: '8765432109',
-        referralCode: userB.referralCode
+        referralCode: userB.referralCode,
+        preferredLanguageId: lang.id,
       })
     });
     assert.strictEqual(resC.status, 201);

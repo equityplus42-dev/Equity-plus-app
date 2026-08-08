@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../providers/admin_languages_provider.dart';
 import '../../providers/admin_videos_provider.dart';
+import '../../core/storage/storage_service.dart';
+import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 
 class AdminVideoManagementScreen extends StatefulWidget {
@@ -114,6 +119,10 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     final thumbController = TextEditingController();
     String dialogLanguageId = _selectedLanguageId ?? langProvider.languages.first.id;
 
+    bool isUploadingFile = false;
+    String? selectedFileName;
+    int uploadedVideoDuration = 0;
+
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
@@ -169,11 +178,85 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                   ),
                 ),
                 const SizedBox(height: 14),
+                // Device File Picker Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: isUploadingFile
+                        ? null
+                        : () async {
+                            final picker = ImagePicker();
+                            final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
+                            if (video != null) {
+                              setDialogState(() {
+                                isUploadingFile = true;
+                                selectedFileName = video.name;
+                              });
+
+                              try {
+                                final token = StorageService().getToken();
+                                final uri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/media');
+                                final request = http.MultipartRequest('POST', uri);
+                                if (token != null) {
+                                  request.headers['Authorization'] = 'Bearer $token';
+                                }
+                                final bytes = await video.readAsBytes();
+                                request.files.add(http.MultipartFile.fromBytes(
+                                  'file',
+                                  bytes,
+                                  filename: video.name,
+                                ));
+
+                                final streamedResponse = await request.send();
+                                final response = await http.Response.fromStream(streamedResponse);
+
+                                if (response.statusCode == 200 || response.statusCode == 201) {
+                                  final data = jsonDecode(response.body);
+                                  final uploadedUrl = data['data']?['url'] ?? data['url'];
+                                  final int dur = (data['data']?['duration'] ?? data['duration'] ?? 0) as int;
+                                  if (uploadedUrl != null) {
+                                    urlController.text = uploadedUrl;
+                                    uploadedVideoDuration = dur;
+                                    if (titleController.text.trim().isEmpty) {
+                                      titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                    }
+                                  }
+                                }
+                              } catch (e) {
+                                debugPrint('Error uploading video file: $e');
+                              } finally {
+                                setDialogState(() {
+                                  isUploadingFile = false;
+                                });
+                              }
+                            }
+                          },
+                    icon: isUploadingFile
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.neonGreen),
+                          )
+                        : const Icon(Icons.video_collection_outlined, color: AppTheme.neonGreen),
+                    label: Text(
+                      isUploadingFile
+                          ? 'Uploading video from device...'
+                          : (selectedFileName != null ? 'Selected: $selectedFileName' : 'Select Video from Device'),
+                      style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cardBg,
+                      side: const BorderSide(color: AppTheme.neonGreen),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
                 TextField(
                   controller: urlController,
                   style: GoogleFonts.outfit(color: AppTheme.lightText),
                   decoration: const InputDecoration(
-                    labelText: 'Video URL (MP4 / HLS / Cloudinary)',
+                    labelText: 'Video URL (Auto-filled or manual)',
                     prefixIcon: Icon(Icons.video_library, color: AppTheme.neonCyan),
                   ),
                 ),
@@ -213,6 +296,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                   videoUrl: url,
                   thumbnailUrl: thumbController.text.trim(),
                   languageId: dialogLanguageId,
+                  duration: uploadedVideoDuration > 0 ? uploadedVideoDuration : null,
                 );
 
                 if (dialogCtx.mounted) Navigator.pop(dialogCtx);

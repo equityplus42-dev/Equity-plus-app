@@ -12,6 +12,14 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+const mediaFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only video or image uploads are allowed.'), false);
+  }
+};
+
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
@@ -20,4 +28,13 @@ const upload = multer({
   },
 });
 
+const mediaUpload = multer({
+  storage: storage,
+  fileFilter: mediaFilter,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+  },
+});
+
 module.exports = upload;
+module.exports.mediaUpload = mediaUpload;

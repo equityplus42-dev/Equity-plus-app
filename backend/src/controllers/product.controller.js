@@ -53,6 +53,42 @@ class ProductController {
       next(error);
     }
   }
+
+  async getPendingProductAccesses(req, res, next) {
+    try {
+      const prisma = require('../config/database');
+      const accesses = await prisma.userProductAccess.findMany({
+        where: { status: 'PENDING_APPROVAL' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              referralCode: true,
+              profile: { select: { firstName: true, lastName: true, phoneNumber: true } },
+            },
+          },
+          product: { select: { id: true, name: true, code: true } },
+          payment: { select: { id: true, orderId: true, amount: true, createdAt: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return ApiResponse.success(res, 'Pending product accesses retrieved', accesses);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async approveProductAccess(req, res, next) {
+    try {
+      const { id } = req.params;
+      const productAccessService = require('../services/productAccess.service');
+      const updated = await productAccessService.approveProductAccess(req.user.id, id);
+      return ApiResponse.success(res, 'User product access approved and activated', updated);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new ProductController();

@@ -71,21 +71,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final response = await ApiClient().get('/languages');
       final List data = response['data'] ?? [];
-      if (mounted) {
+      if (mounted && data.isNotEmpty) {
         setState(() {
           _availableLanguages = data.cast<Map<String, dynamic>>();
-          if (_availableLanguages.isNotEmpty) {
-            _selectedLanguageId = _availableLanguages.first['id'];
-          }
+          _selectedLanguageId = _availableLanguages.first['id'];
           _isLoadingLanguages = false;
         });
+        return;
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _isLoadingLanguages = false;
-        });
-      }
+    } catch (e) {
+      debugPrint('Error fetching languages: $e');
+    }
+
+    // Fallback default languages if offline or network fetch fails
+    if (mounted) {
+      setState(() {
+        _availableLanguages = [
+          {'id': 'en', 'name': 'English', 'code': 'en'},
+          {'id': 'hi', 'name': 'Hindi', 'code': 'hi'},
+          {'id': 'bn', 'name': 'Bengali', 'code': 'bn'},
+        ];
+        _selectedLanguageId = 'en';
+        _isLoadingLanguages = false;
+      });
     }
   }
 

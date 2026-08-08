@@ -45,6 +45,9 @@ model User {
   languageRequests        LanguageChangeRequest[] @relation("UserLanguageRequests")
   reviewedRequests        LanguageChangeRequest[] @relation("ReviewedLanguageRequests")
   playbackSessions        PlaybackSession[]
+  payments                Payment[]
+  productAccesses         UserProductAccess[]
+  refundRequests          RefundRequest[]
 
   @@index([referrerId])
 }
@@ -77,15 +80,18 @@ model Profile {
 }
 
 model Product {
-  id          String    @id @default(uuid())
-  name        String    @unique
-  code        String    @unique
-  description String?   @db.Text
-  status      String    @default("AVAILABLE") // DRAFT, AVAILABLE, ARCHIVED
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id          String              @id @default(uuid())
+  name        String              @unique
+  code        String              @unique
+  description String?             @db.Text
+  price       Int                 @default(1000) // Price in rupees (e.g. 1000 INR)
+  status      String              @default("AVAILABLE") // DRAFT, AVAILABLE, ARCHIVED
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   videos      Video[]
   profiles    Profile[]
+  payments    Payment[]
+  productAccesses UserProductAccess[]
 }
 
 model Language {
@@ -242,6 +248,7 @@ model UserVideoSnapshot {
   createdAt                    DateTime        @default(now())
   updatedAt                    DateTime        @updatedAt
   snapshotVideos               SnapshotVideo[]
+  refundRequests               RefundRequest[]
 
   @@index([userId])
   @@index([languageId])
@@ -296,7 +303,7 @@ model Notification {
   title     String
   message   String   @db.Text
   isRead    Boolean  @default(false)
-  type      String   @default("SYSTEM") // SYSTEM, REFERRAL_SIGNUP, REFERRAL_APPROVED, REWARD
+  type      String   @default("SYSTEM") // SYSTEM, REFERRAL_SIGNUP, REFERRAL_APPROVED, REWARD, PAYMENT, REFUND
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -327,4 +334,77 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+model Payment {
+  id            String              @id @default(uuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  orderId       String              @unique
+  paymentId     String?             @unique
+  signature     String?             @db.Text
+  amount        Int                 // Amount in paise
+  currency      String              @default("INR")
+  status        String              @default("CREATED") // CREATED, PENDING, SUCCESS, FAILED, CANCELLED, VERIFICATION_FAILED, REFUNDED, PARTIALLY_REFUNDED
+  failureReason String?             @db.Text
+  verifiedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  productAccesses UserProductAccess[]
+  refundRequests  RefundRequest[]
+
+  @@index([userId])
+  @@index([productId])
+  @@index([orderId])
+  @@index([status])
+}
+
+model UserProductAccess {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  paymentId   String?
+  payment     Payment?  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  status      String    @default("PENDING_APPROVAL") // PENDING_PAYMENT, PAYMENT_SUCCESS, PENDING_APPROVAL, ACTIVE, SUSPENDED, REVOKED, EXPIRED
+  assignedAt  DateTime  @default(now())
+  approvedAt  DateTime?
+  approvedBy  String?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+}
+
+model RefundRequest {
+  id                String             @id @default(uuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId         String
+  payment           Payment            @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  snapshotId        String?
+  snapshot          UserVideoSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+  amount            Int
+  reason            String             @db.Text
+  bankDetails       String?            @db.Text
+  additionalDetails String?            @db.Text
+  status            String             @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, PROCESSED, CANCELLED
+  adminRemarks      String?            @db.Text
+  requestedAt       DateTime           @default(now())
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  processedAt       DateTime?
+  processedBy       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([paymentId])
+  @@index([status])
 }

@@ -87,6 +87,7 @@ class AdminVideosProvider extends ChangeNotifier {
     required String videoUrl,
     String? thumbnailUrl,
     required String languageId,
+    int? duration,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -99,6 +100,7 @@ class AdminVideosProvider extends ChangeNotifier {
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'languageId': languageId,
+        if (duration != null && duration > 0) 'duration': duration,
       });
       await fetchVideos(languageId: languageId);
       return true;

@@ -12,6 +12,7 @@ import 'providers/admin_languages_provider.dart';
 import 'providers/admin_videos_provider.dart';
 import 'providers/admin_language_requests_provider.dart';
 import 'providers/admin_products_provider.dart';
+import 'providers/admin_payments_provider.dart';
 
 class AdminApp extends StatelessWidget {
   const AdminApp({super.key});
@@ -30,6 +31,7 @@ class AdminApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminVideosProvider()),
         ChangeNotifierProvider(create: (_) => AdminLanguageRequestsProvider()),
         ChangeNotifierProvider(create: (_) => AdminProductsProvider()),
+        ChangeNotifierProvider(create: (_) => AdminPaymentsProvider()),
       ],
       child: MaterialApp(
         title: 'Vridhi Admin',

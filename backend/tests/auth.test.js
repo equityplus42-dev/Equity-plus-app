@@ -28,6 +28,10 @@ async function runTests() {
     console.log('- Testing user registration...');
     const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
     const refCode = admin ? admin.referralCode : 'ADMINREF';
+    let lang = await prisma.language.findFirst();
+    if (!lang) {
+      lang = await prisma.language.create({ data: { name: 'English', code: 'en' } });
+    }
     
     const registerRes = await fetch(`${baseUrl}/auth/register`, {
       method: 'POST',
@@ -38,6 +42,7 @@ async function runTests() {
         firstName: 'John',
         lastName: 'Doe',
         referralCode: refCode,
+        preferredLanguageId: lang.id,
       }),
     });
     
