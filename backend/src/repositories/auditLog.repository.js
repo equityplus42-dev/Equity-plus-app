@@ -2,9 +2,14 @@ const prisma = require('../config/database');
 
 class AuditLogRepository {
   async createLog({ userId, action, ipAddress, userAgent, details }) {
+    let validUserId = null;
+    if (userId) {
+      const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+      if (userExists) validUserId = userId;
+    }
     return prisma.auditLog.create({
       data: {
-        userId,
+        userId: validUserId,
         action,
         ipAddress,
         userAgent,
