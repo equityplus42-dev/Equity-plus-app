@@ -711,22 +711,13 @@ class VideoService {
       throw new Error('Video not found');
     }
 
-    // Check if this video is in any user's snapshot
-    const isAssigned = await prisma.snapshotVideo.findFirst({
-      where: { videoId: id },
+    const videoAssignmentService = require('./videoAssignment.service');
+    return videoAssignmentService.forceDeleteVideo({
+      videoId: id,
+      adminId: 'ADMIN',
+      reqIp: '127.0.0.1',
+      userAgent: 'AdminApp',
     });
-
-    if (isAssigned) {
-      // Soft-delete: deactivate immediately so users can't see it,
-      // but keep DB record for refund audit trail integrity.
-      return prisma.video.update({
-        where: { id },
-        data: { isActive: false },
-      });
-    }
-
-    // Safe to hard-delete — not referenced in any snapshot
-    return prisma.video.delete({ where: { id } });
   }
 
   /**
