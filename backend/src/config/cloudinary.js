@@ -23,9 +23,9 @@ const videoConfig = {
 };
 
 if (videoConfig.cloud_name && videoConfig.api_key && videoConfig.api_secret) {
-  logger.info(`Video Cloudinary ready: cloud="${videoConfig.cloud_name}" (dedicated video account)`);
+  logger.info(`Dedicated Video Cloudinary ready: cloud="${videoConfig.cloud_name}" (STRICT EXCLUSIVE VIDEO ACCOUNT)`);
 } else {
-  logger.warn('Video Cloudinary env vars missing. Video uploads will use primary Cloudinary or mock fallback.');
+  logger.error('CRITICAL: Dedicated Video Cloudinary (CLOUDINARY_VIDEO_*) env vars missing! Video uploads will fail.');
 }
 
 // ── Helper: Upload using a specific config (bypasses singleton limitation) ──────

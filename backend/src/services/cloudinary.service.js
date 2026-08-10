@@ -27,29 +27,26 @@ class CloudinaryService {
   }
 
   /**
-   * Upload video buffer to DEDICATED VIDEO Cloudinary account
+   * Upload video buffer STRICTLY to DEDICATED VIDEO Cloudinary account
    * Account: cloud_name = qv1eskbe (from CLOUDINARY_VIDEO_* env vars)
+   * NO fallback permitted.
    * @param {Buffer} buffer
    * @param {string} folder
    * @returns {Promise<{url: string, duration: number}>}
    */
   async uploadVideo(buffer, folder = 'videos') {
     const hasVideoConfig = videoConfig.cloud_name && videoConfig.api_key && videoConfig.api_secret;
-    const hasPrimaryConfig = primaryConfig.cloud_name && primaryConfig.api_key && primaryConfig.api_secret;
 
-    if (!hasVideoConfig && !hasPrimaryConfig) {
-      console.warn('[CloudinaryService] No Cloudinary configured. Returning mock video URL.');
-      return {
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        duration: 0,
-      };
+    if (!hasVideoConfig) {
+      throw new Error(
+        '[CloudinaryService] Dedicated Video Cloudinary (CLOUDINARY_VIDEO_*) configuration is missing. ' +
+        'Video uploads require the dedicated video account (cloud: qv1eskbe). No fallback is permitted.'
+      );
     }
 
-    // Use video-specific account if available; fall back to primary
-    const configToUse = hasVideoConfig ? videoConfig : primaryConfig;
-    console.info(`[CloudinaryService] Uploading video to Cloudinary account: ${configToUse.cloud_name}`);
+    console.info(`[CloudinaryService] Uploading video strictly to Dedicated Video Cloudinary account: ${videoConfig.cloud_name}`);
 
-    const result = await uploadWithConfig(configToUse, buffer, {
+    const result = await uploadWithConfig(videoConfig, buffer, {
       folder,
       resource_type: 'video',
     });
