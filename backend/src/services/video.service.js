@@ -205,9 +205,16 @@ class VideoService {
       activeSnapshotRecords.map((v) => [v.id, v.duration && v.duration > 0 ? v.duration : 0])
     );
 
-    // AUTO-REFILL: If some snapshot videos were deactivated/deleted by admin,
+    // Fetch active manual assignments for this user
+    const activeDirectAssignments = await prisma.videoAssignment.findMany({
+      where: { userId, status: 'ACTIVE' },
+      select: { videoId: true },
+    });
+    const directAssignedVideoIds = new Set(activeDirectAssignments.map((a) => a.videoId));
+
+    // AUTO-REFILL: If some snapshot videos were deactivated/deleted by admin or snapshot had fewer than 3 videos,
     // promote newly uploaded active videos to fill the visible slots (up to INITIAL_BATCH_SIZE=3).
-    // This ensures the user always sees the latest active content.
+    // Persist to DB so user's snapshot is officially updated and stays in sync.
     const INITIAL_BATCH_SIZE = 3;
     const activeSlotCount = snapshotVideoIds.length;
 
@@ -227,8 +234,36 @@ class VideoService {
       });
 
       for (const rv of refillVideos) {
+        await prisma.snapshotVideo.create({
+          data: {
+            snapshotId: snapshot.id,
+            videoId: rv.id,
+            videoDurationSeconds: rv.duration && rv.duration > 0 ? rv.duration : 60,
+          },
+        });
         snapshotVideoIds.push(rv.id);
         videoDurationMap.set(rv.id, rv.duration && rv.duration > 0 ? rv.duration : 0);
+      }
+
+      if (refillVideos.length > 0) {
+        const updatedSnapshotVideos = await prisma.snapshotVideo.findMany({
+          where: { snapshotId: snapshot.id },
+        });
+        const newTotalDuration = updatedSnapshotVideos.reduce(
+          (sum, sv) => sum + sv.videoDurationSeconds,
+          0
+        );
+        snapshot = await prisma.userVideoSnapshot.update({
+          where: { id: snapshot.id },
+          data: {
+            snapshotVideoCount: updatedSnapshotVideos.length,
+            snapshotTotalDurationSeconds: newTotalDuration,
+          },
+          include: {
+            snapshotVideos: true,
+            language: true,
+          },
+        });
       }
     }
 
@@ -302,7 +337,8 @@ class VideoService {
 
     for (const v of allActiveVideos) {
       const isSnapshotVideo = snapshotVideoIds.includes(v.id);
-      const isUnlocked = isSnapshotVideo || evaluatedSnapshot.newVideosUnlocked;
+      const isDirectAssigned = directAssignedVideoIds.has(v.id);
+      const isUnlocked = isSnapshotVideo || isDirectAssigned || evaluatedSnapshot.newVideosUnlocked;
       const prog = progressMap.get(v.id);
 
       if (isUnlocked) {
