@@ -694,6 +694,15 @@ class _HierarchyScreenState extends State<HierarchyScreen> {
                                 )
                               : _buildSearchResults(searchResults, globalTree.first),
                         )
+                      else if (globalTree.isEmpty)
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              'No referral hierarchy tree available yet.',
+                              style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 16),
+                            ),
+                          ),
+                        )
                       else ...[
                         // Breadcrumbs path
                         Padding(

@@ -10,6 +10,7 @@ import '../../providers/admin_videos_provider.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
+import 'admin_video_assignments_screen.dart';
 
 class AdminVideoManagementScreen extends StatefulWidget {
   const AdminVideoManagementScreen({super.key});
@@ -18,12 +19,14 @@ class AdminVideoManagementScreen extends StatefulWidget {
   State<AdminVideoManagementScreen> createState() => _AdminVideoManagementScreenState();
 }
 
-class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen> {
+class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   String? _selectedLanguageId;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final langProvider = Provider.of<AdminLanguagesProvider>(context, listen: false);
       await langProvider.fetchLanguages();
@@ -37,6 +40,12 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   void _showAddLanguageDialog() {
@@ -357,6 +366,8 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                   setState(() {
                     _selectedLanguageId = dialogLanguageId;
                   });
+                  Provider.of<AdminLanguagesProvider>(context, listen: false).fetchLanguages();
+                  Provider.of<AdminVideosProvider>(context, listen: false).fetchVideos(languageId: dialogLanguageId);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Video uploaded successfully! 🎥'),
@@ -380,7 +391,17 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Multilingual Video Library'),
+        title: const Text('Multilingual Video Hub'),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppTheme.neonCyan,
+          labelColor: AppTheme.neonCyan,
+          unselectedLabelColor: AppTheme.softGrey,
+          tabs: const [
+            Tab(icon: Icon(Icons.video_library), text: 'VIDEOS'),
+            Tab(icon: Icon(Icons.assignment_ind), text: 'ASSIGNMENTS'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_location_alt_outlined),
@@ -395,90 +416,93 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
         icon: const Icon(Icons.video_call, color: Colors.white),
         label: Text('Upload Video', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
-      body: Container(
-        decoration: AppTheme.bgGradient,
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          Container(
+            decoration: AppTheme.bgGradient,
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
 
-            // Language Folders Horizontal Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  Text(
-                    'FOLDERS:',
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.softGrey,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 40,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: langProvider.languages.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == langProvider.languages.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: ChoiceChip(
-                                label: Row(
-                                  children: [
-                                    const Icon(Icons.add, size: 16, color: AppTheme.neonCyan),
-                                    const SizedBox(width: 4),
-                                    Text('+ New Language', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
-                                  ],
-                                ),
-                                selected: false,
-                                backgroundColor: AppTheme.cardBg,
-                                onSelected: (_) => _showAddLanguageDialog(),
-                              ),
-                            );
-                          }
-
-                          final lang = langProvider.languages[index];
-                          final isSelected = lang.id == _selectedLanguageId;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: ChoiceChip(
-                              label: Text('${lang.name} (${lang.videoCount})'),
-                              selected: isSelected,
-                              selectedColor: AppTheme.primaryPurple,
-                              backgroundColor: AppTheme.cardBg,
-                              labelStyle: GoogleFonts.outfit(
-                                color: isSelected ? Colors.white : AppTheme.lightText,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    _selectedLanguageId = lang.id;
-                                  });
-                                  videoProvider.fetchVideos(languageId: lang.id);
-                                }
-                              },
-                            ),
-                          );
-                        },
+                // Folder Section Row
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    children: [
+                      Text(
+                        'FOLDERS:',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.softGrey,
+                          letterSpacing: 1.5,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 40,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: langProvider.languages.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index == langProvider.languages.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: ChoiceChip(
+                                    label: Row(
+                                      children: [
+                                        const Icon(Icons.add, size: 16, color: AppTheme.neonCyan),
+                                        const SizedBox(width: 4),
+                                        Text('+ New Language', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
+                                      ],
+                                    ),
+                                    selected: false,
+                                    backgroundColor: AppTheme.cardBg,
+                                    onSelected: (_) => _showAddLanguageDialog(),
+                                  ),
+                                );
+                              }
+
+                              final lang = langProvider.languages[index];
+                              final isSelected = lang.id == _selectedLanguageId;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: ChoiceChip(
+                                  label: Text('${lang.name} (${lang.videoCount})'),
+                                  selected: isSelected,
+                                  selectedColor: AppTheme.primaryPurple,
+                                  backgroundColor: AppTheme.cardBg,
+                                  labelStyle: GoogleFonts.outfit(
+                                    color: isSelected ? Colors.white : AppTheme.lightText,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _selectedLanguageId = lang.id;
+                                      });
+                                      videoProvider.fetchVideos(languageId: lang.id);
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            const SizedBox(height: 16),
-            const Divider(color: Colors.white10),
+                const SizedBox(height: 12),
+                const Divider(color: Colors.white10),
 
-            // Video List Body
-            Expanded(
-              child: videoProvider.isLoading
+                // Video List Body
+                Expanded(
+                  child: videoProvider.isLoading
                   ? const Center(child: SpinKitRing(color: AppTheme.primaryPurple))
                   : videoProvider.videos.isEmpty
                       ? Center(
@@ -605,7 +629,17 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                                   );
 
                                                   if (confirm == true) {
-                                                    videoProvider.deleteVideo(video.id, languageId: _selectedLanguageId);
+                                                    final langProv = Provider.of<AdminLanguagesProvider>(context, listen: false);
+                                                    final success = await videoProvider.deleteVideo(video.id, languageId: _selectedLanguageId);
+                                                    langProv.fetchLanguages();
+                                                    if (success && mounted) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text('Video deleted successfully'),
+                                                          backgroundColor: AppTheme.neonCyan,
+                                                        ),
+                                                      );
+                                                    }
                                                   }
                                                 },
                                         ),
@@ -632,7 +666,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                                 const Icon(Icons.lock, size: 12, color: Colors.amber),
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  'Assigned to Paid Users — Deletion Disabled',
+                                                  'Used in User Snapshots — Deletion Protected',
                                                   style: GoogleFonts.outfit(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
@@ -679,10 +713,13 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                             );
                           },
                         ),
-            ),
-          ],
+                      ),
+            ],
+          ),
         ),
-      ),
-    );
+        const AdminVideoAssignmentsScreen(),
+      ],
+    ),
+  );
   }
 }

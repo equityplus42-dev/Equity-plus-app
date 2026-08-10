@@ -9,6 +9,15 @@ class PlaybackSessionService {
       throw new Error('Video not found');
     }
 
+    // Verify video is unlocked for user
+    const userVideoData = await videoService.getUserVideos(userId);
+    const isUnlocked = userVideoData.unlockedVideos.some((v) => v.id === videoId);
+    if (!isUnlocked) {
+      const err = new Error('Video is currently locked. Complete 25% learning progress or wait 30 days to unlock.');
+      err.statusCode = 403;
+      throw err;
+    }
+
     const sessionId = `SESS_${uuidv4()}`;
 
     const session = await prisma.playbackSession.create({

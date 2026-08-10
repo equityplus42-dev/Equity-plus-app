@@ -354,8 +354,87 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
                               },
                             ),
 
-                      // Future videos are hidden server-side until unlocked (25% progress).
-                      // No locked section needed here.
+                      if (videoProvider.lockedVideos.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Text(
+                          'LOCKED VIDEOS (${videoProvider.lockedVideos.length})',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: videoProvider.lockedVideos.length,
+                          itemBuilder: (context, index) {
+                            final lv = videoProvider.lockedVideos[index];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 14),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardBg.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.lock, color: Colors.amber, size: 24),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                lv.title,
+                                                style: GoogleFonts.outfit(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme.lightText.withOpacity(0.7),
+                                                ),
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.withOpacity(0.2),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                'LOCKED',
+                                                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          lv.unlockNotice.isNotEmpty ? lv.unlockNotice : 'Unlocks after 25% learning progress or 30 days.',
+                                          style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ),

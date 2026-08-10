@@ -18,7 +18,10 @@ class LanguageService {
       orderBy: { name: 'asc' },
       include: {
         _count: {
-          select: { videos: true, profiles: true },
+          select: {
+            videos: { where: { isActive: true } },
+            profiles: true,
+          },
         },
       },
     });

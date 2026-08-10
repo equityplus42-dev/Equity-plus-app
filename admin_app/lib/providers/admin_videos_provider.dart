@@ -128,11 +128,16 @@ class AdminVideosProvider extends ChangeNotifier {
 
   Future<bool> deleteVideo(String id, {String? languageId}) async {
     try {
+      // Instantly remove locally from provider state by exact video ID
+      _videos.removeWhere((v) => v.id == id);
+      notifyListeners();
+
       await _apiClient.delete('${ApiConstants.adminVideos}/$id');
       await fetchVideos(languageId: languageId);
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
+      await fetchVideos(languageId: languageId);
       notifyListeners();
       return false;
     }

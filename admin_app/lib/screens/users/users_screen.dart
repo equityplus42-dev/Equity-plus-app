@@ -4,6 +4,7 @@ import '../../providers/admin_users_provider.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/admin_languages_provider.dart';
 import '../../providers/admin_videos_provider.dart';
+import '../../providers/admin_video_assignments_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
@@ -241,6 +242,76 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 
+  void _showUserVideoAccessDialog(String userId, String userName) async {
+    final assignProv = Provider.of<AdminVideoAssignmentsProvider>(context, listen: false);
+    final data = await assignProv.fetchUserVideoAccessDetailsAdmin(userId);
+
+    if (!mounted) return;
+
+    final langName = data?['assignedLanguage']?['name'] ?? 'Not Assigned';
+    final prodName = data?['assignedProduct']?['name'] ?? 'None';
+    final snapshot = data?['snapshotSummary'];
+    final List historical = data?['historicalSnapshotVideos'] ?? [];
+    final List current = data?['currentAssignments'] ?? [];
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppTheme.cardBg,
+        title: Text('Video Access: $userName', style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold, fontSize: 16)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSnapshotMetricRow('Assigned Language:', langName, color: AppTheme.neonCyan),
+              _buildSnapshotMetricRow('Assigned Product:', prodName, color: AppTheme.primaryPink),
+              const Divider(color: Colors.white10),
+              Text('HISTORICAL SNAPSHOT VIDEOS', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
+              const SizedBox(height: 4),
+              if (snapshot == null)
+                Text('No snapshot created yet.', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey))
+              else ...[
+                Text('${snapshot['snapshotVideoCount']} snapshot videos • ${snapshot['snapshotTotalDurationSeconds']}s total duration', style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey)),
+                const SizedBox(height: 6),
+                ...historical.map((hv) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.shield, size: 12, color: Colors.amber),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(hv['title'], style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.lightText))),
+                        ],
+                      ),
+                    )),
+              ],
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white10),
+              Text('CURRENT VIDEO ASSIGNMENTS', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.neonGreen)),
+              const SizedBox(height: 4),
+              if (current.isEmpty)
+                Text('No active extra video assignments.', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey))
+              else
+                ...current.map((ca) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, size: 12, color: AppTheme.neonGreen),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(ca['title'], style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.lightText))),
+                        ],
+                      ),
+                    )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSnapshotMetricRow(String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -468,11 +539,16 @@ class _UsersScreenState extends State<UsersScreen> {
                                     const SizedBox(width: 12),
                                     Column(
                                       children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.analytics_outlined, color: AppTheme.neonCyan),
-                                          tooltip: 'View Snapshot & Progress',
-                                          onPressed: () => _showUserSnapshotDetailsDialog(u.id, u.fullName),
-                                        ),
+                                         IconButton(
+                                           icon: const Icon(Icons.analytics_outlined, color: AppTheme.neonCyan),
+                                           tooltip: 'View Snapshot & Progress',
+                                           onPressed: () => _showUserSnapshotDetailsDialog(u.id, u.fullName),
+                                         ),
+                                         IconButton(
+                                           icon: const Icon(Icons.assignment_ind_outlined, color: AppTheme.neonGreen),
+                                           tooltip: 'View Video Access',
+                                           onPressed: () => _showUserVideoAccessDialog(u.id, u.fullName),
+                                         ),
                                         IconButton(
                                           icon: const Icon(Icons.language, color: AppTheme.primaryPurple),
                                           tooltip: 'Assign Language',

@@ -48,6 +48,7 @@ model User {
   payments                Payment[]
   productAccesses         UserProductAccess[]
   refundRequests          RefundRequest[]
+  videoAssignments        VideoAssignment[]
 
   @@index([referrerId])
 }
@@ -125,9 +126,11 @@ model Video {
   isActive     Boolean             @default(true)
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
-  progressList UserVideoProgress[]
-  versions     VideoVersion[]
-  sessions     PlaybackSession[]
+  progressList   UserVideoProgress[]
+  versions       VideoVersion[]
+  sessions       PlaybackSession[]
+  assignments    VideoAssignment[]
+  snapshotVideos SnapshotVideo[]
 
   @@index([languageId])
   @@index([productId])
@@ -259,6 +262,7 @@ model SnapshotVideo {
   snapshotId           String
   snapshot             UserVideoSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
   videoId              String
+  video                Video             @relation(fields: [videoId], references: [id], onDelete: Cascade)
   videoDurationSeconds Int
   createdAt            DateTime          @default(now())
 
@@ -406,5 +410,27 @@ model RefundRequest {
 
   @@index([userId])
   @@index([paymentId])
+  @@index([status])
+}
+
+model VideoAssignment {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId      String
+  video        Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  productId    String?
+  languageId   String?
+  status       String    @default("ACTIVE") // ACTIVE, SUSPENDED, REVOKED, EXPIRED
+  assignedAt   DateTime  @default(now())
+  assignedBy   String?
+  unassignedAt DateTime?
+  unassignedBy String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
   @@index([status])
 }

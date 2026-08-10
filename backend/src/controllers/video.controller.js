@@ -27,8 +27,8 @@ class VideoController {
 
   async getAllVideosAdmin(req, res, next) {
     try {
-      const { languageId } = req.query;
-      const videos = await videoService.getAllVideosAdmin(languageId);
+      const { languageId, includeArchived } = req.query;
+      const videos = await videoService.getAllVideosAdmin(languageId, includeArchived === 'true');
       return ApiResponse.success(res, 'Admin videos fetched successfully', videos);
     } catch (error) {
       next(error);

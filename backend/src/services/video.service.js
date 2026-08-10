@@ -176,7 +176,7 @@ class VideoService {
    */
   async getUserVideos(userId, queryOptions = {}) {
     const { query, filter, sortBy } = queryOptions;
-    const snapshot = await this.getOrCreateUserSnapshot(userId);
+    let snapshot = await this.getOrCreateUserSnapshot(userId);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -298,43 +298,58 @@ class VideoService {
     });
 
     const unlockedVideos = [];
-    // lockedVideos intentionally omitted — hidden videos are NOT sent to frontend at all
+    const lockedVideos = [];
 
     for (const v of allActiveVideos) {
       const isSnapshotVideo = snapshotVideoIds.includes(v.id);
       const isUnlocked = isSnapshotVideo || evaluatedSnapshot.newVideosUnlocked;
-
-      // HIDDEN: Videos that are not yet unlocked are completely omitted from the response
-      if (!isUnlocked) continue;
-
       const prog = progressMap.get(v.id);
 
-      const videoData = {
-        id: v.id,
-        title: v.title,
-        description: v.description,
-        videoUrl: v.videoUrl,
-        thumbnailUrl: v.thumbnailUrl,
-        duration: v.duration,
-        languageName: v.language.name,
-        productName: v.product?.name || null,
-        status: v.status,
-        orderIndex: v.orderIndex,
-        watchedSecs: prog ? prog.watchedSecs : 0,
-        isCompleted: prog ? prog.isCompleted : false,
-        isLocked: false, // by definition — locked ones are hidden, never returned
-        unlockNotice: null,
-      };
+      if (isUnlocked) {
+        const videoData = {
+          id: v.id,
+          title: v.title,
+          description: v.description,
+          videoUrl: v.videoUrl,
+          thumbnailUrl: v.thumbnailUrl,
+          duration: v.duration,
+          languageName: v.language.name,
+          productName: v.product?.name || null,
+          status: v.status,
+          orderIndex: v.orderIndex,
+          watchedSecs: prog ? prog.watchedSecs : 0,
+          isCompleted: prog ? prog.isCompleted : false,
+          isLocked: false,
+          unlockNotice: null,
+          createdAt: v.createdAt,
+        };
 
-      const passesFilter =
-        !filter ||
-        filter === 'ALL' ||
-        (filter === 'COMPLETED' && videoData.isCompleted) ||
-        (filter === 'CONTINUE_WATCHING' && videoData.watchedSecs > 0 && !videoData.isCompleted) ||
-        (filter === 'UNLOCKED' && !videoData.isLocked);
+        const passesFilter =
+          !filter ||
+          filter === 'ALL' ||
+          (filter === 'COMPLETED' && videoData.isCompleted) ||
+          (filter === 'CONTINUE_WATCHING' && videoData.watchedSecs > 0 && !videoData.isCompleted) ||
+          (filter === 'UNLOCKED' && !videoData.isLocked);
 
-      if (passesFilter) {
-        unlockedVideos.push(videoData);
+        if (passesFilter) {
+          unlockedVideos.push(videoData);
+        }
+      } else {
+        lockedVideos.push({
+          id: v.id,
+          title: v.title,
+          description: v.description,
+          videoUrl: null, // Playback disabled for locked videos
+          thumbnailUrl: v.thumbnailUrl,
+          duration: v.duration,
+          languageName: v.language.name,
+          productName: v.product?.name || null,
+          status: v.status,
+          orderIndex: v.orderIndex,
+          isLocked: true,
+          unlockNotice: 'Uploaded after your learning snapshot. Unlocks after 25% learning progress or 30 days.',
+          createdAt: v.createdAt,
+        });
       }
     }
 
@@ -348,17 +363,14 @@ class VideoService {
       isDisclaimerAccepted: !disclaimerNeedsReacceptance && !!evaluatedSnapshot.acceptedDisclaimerAt,
       disclaimerNeedsReacceptance,
       currentDisclaimerVersion: systemDisclaimerVer,
-      snapshot: {
-        takenAt: evaluatedSnapshot.snapshotTakenAt,
-        videoCount: evaluatedSnapshot.snapshotVideoCount,
-        totalDurationSeconds: effectiveTotalDurationSecs, // live value
+      userSnapshot: {
+        snapshotId: evaluatedSnapshot.id,
+        snapshotTakenAt: evaluatedSnapshot.snapshotTakenAt,
+        snapshotVideoCount: evaluatedSnapshot.snapshotVideoCount,
+        snapshotTotalDurationSeconds: effectiveTotalDurationSecs,
+        refundThresholdPercentage: evaluatedSnapshot.refundThresholdPercentage,
         refundEligible: evaluatedSnapshot.refundEligible,
-        refundLostAt: evaluatedSnapshot.refundLostAt,
         newVideosUnlocked: evaluatedSnapshot.newVideosUnlocked,
-      },
-      progress: {
-        totalWatchedSecs,
-        totalSnapshotDurationSecs: effectiveTotalDurationSecs, // live value
         percentage: overallProgress,
         remainingPercentage: Math.max(0, Math.round((100 - overallProgress) * 100) / 100),
         daysJoined,
@@ -366,7 +378,8 @@ class VideoService {
         remainingSecsTo25Percent,
       },
       unlockedVideos,
-      lockedVideos: [], // Hidden: locked future videos are NOT returned to the client
+      lockedVideos,
+      videos: unlockedVideos,
     };
   }
 
@@ -566,6 +579,16 @@ class VideoService {
       throw new Error('Specified language folder not found');
     }
 
+    let finalOrderIndex = orderIndex !== undefined && orderIndex !== null ? parseInt(orderIndex, 10) : null;
+    if (finalOrderIndex === null || isNaN(finalOrderIndex)) {
+      const maxVideo = await prisma.video.findFirst({
+        where: { languageId, isActive: true },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+      finalOrderIndex = maxVideo ? maxVideo.orderIndex + 1 : 0;
+    }
+
     return prisma.video.create({
       data: {
         title,
@@ -576,7 +599,7 @@ class VideoService {
         languageId,
         productId: productId || null,
         status,
-        orderIndex: orderIndex ? parseInt(orderIndex, 10) : 0,
+        orderIndex: finalOrderIndex,
       },
       include: { language: true, product: true },
     });
@@ -603,10 +626,14 @@ class VideoService {
   /**
    * Admin view of all videos (Includes assigned snapshot protection check)
    */
-  async getAllVideosAdmin(languageId) {
+  async getAllVideosAdmin(languageId, includeArchived = false) {
     const where = {};
     if (languageId) {
       where.languageId = languageId;
+    }
+    if (!includeArchived) {
+      where.isActive = true;
+      where.status = { not: 'ARCHIVED' };
     }
 
     const videos = await prisma.video.findMany({
