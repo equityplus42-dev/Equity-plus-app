@@ -58,13 +58,22 @@ class VideoService {
       if (defaultLang) {
         languageId = defaultLang.id;
       } else {
-        const firstLang = await prisma.language.findFirst();
+        const firstLang = await prisma.language.findFirst({
+          orderBy: { createdAt: 'asc' },
+        });
         if (firstLang) {
           languageId = firstLang.id;
         } else {
           throw new Error('No language folders available in system');
         }
       }
+
+      // Auto-assign the detected language to the user's profile permanently
+      await prisma.profile.upsert({
+        where: { userId },
+        update: { assignedLanguageId: languageId },
+        create: { userId, assignedLanguageId: languageId },
+      });
     }
 
     const activeVideos = await prisma.video.findMany({
@@ -76,8 +85,15 @@ class VideoService {
       orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
     });
 
-    const snapshotVideoCount = activeVideos.length;
-    const snapshotTotalDurationSeconds = activeVideos.reduce((sum, v) => sum + (v.duration && v.duration > 0 ? v.duration : 60), 0);
+    // Only snapshot the FIRST 3 videos — remaining videos unlock after 25% watch progress
+    const INITIAL_BATCH_SIZE = 3;
+    const snapshotVideos = activeVideos.slice(0, INITIAL_BATCH_SIZE);
+
+    const snapshotVideoCount = snapshotVideos.length;
+    const snapshotTotalDurationSeconds = snapshotVideos.reduce(
+      (sum, v) => sum + (v.duration && v.duration > 0 ? v.duration : 60),
+      0
+    );
     const systemDisclaimerVer = await this.getSystemDisclaimerVersion();
 
     snapshot = await prisma.userVideoSnapshot.create({
@@ -92,7 +108,7 @@ class VideoService {
         disclaimerVersion: systemDisclaimerVer,
         acceptedDisclaimerAt: user.profile?.disclaimerAcceptedAt || null,
         snapshotVideos: {
-          create: activeVideos.map((v) => ({
+          create: snapshotVideos.map((v) => ({
             videoId: v.id,
             videoDurationSeconds: v.duration && v.duration > 0 ? v.duration : 60,
           })),
@@ -173,16 +189,48 @@ class VideoService {
     const now = new Date();
     const joinedAt = new Date(user.createdAt);
     const daysJoined = Math.floor(Math.abs(now - joinedAt) / (1000 * 60 * 60 * 24));
-    const snapshotVideoIds = snapshot.snapshotVideos.map((sv) => sv.videoId);
+    const rawSnapshotVideoIds = snapshot.snapshotVideos.map((sv) => sv.videoId);
 
-    // Fetch actual current durations from Video table (source of truth, not stale snapshot values)
-    const snapshotVideoRecords = await prisma.video.findMany({
-      where: { id: { in: snapshotVideoIds } },
+    // Cross-reference snapshot IDs with live Video table to strip deleted/deactivated videos
+    // This ensures users never see stale references to videos the admin has deleted.
+    const activeSnapshotRecords = await prisma.video.findMany({
+      where: {
+        id: { in: rawSnapshotVideoIds },
+        isActive: true,
+      },
       select: { id: true, duration: true },
     });
+    const snapshotVideoIds = activeSnapshotRecords.map((v) => v.id);
     const videoDurationMap = new Map(
-      snapshotVideoRecords.map((v) => [v.id, v.duration && v.duration > 0 ? v.duration : 0])
+      activeSnapshotRecords.map((v) => [v.id, v.duration && v.duration > 0 ? v.duration : 0])
     );
+
+    // AUTO-REFILL: If some snapshot videos were deactivated/deleted by admin,
+    // promote newly uploaded active videos to fill the visible slots (up to INITIAL_BATCH_SIZE=3).
+    // This ensures the user always sees the latest active content.
+    const INITIAL_BATCH_SIZE = 3;
+    const activeSlotCount = snapshotVideoIds.length;
+
+    if (activeSlotCount < INITIAL_BATCH_SIZE && !snapshot.newVideosUnlocked) {
+      const rawSnapshotVideoIds = snapshot.snapshotVideos.map((sv) => sv.videoId);
+      const refillVideos = await prisma.video.findMany({
+        where: {
+          languageId: snapshot.languageId,
+          isActive: true,
+          status: { in: ['AVAILABLE', 'ASSIGNED', 'IN_USE'] },
+          // Exclude videos already in snapshot (whether active or not)
+          id: { notIn: rawSnapshotVideoIds },
+        },
+        orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
+        take: INITIAL_BATCH_SIZE - activeSlotCount,
+        select: { id: true, duration: true },
+      });
+
+      for (const rv of refillVideos) {
+        snapshotVideoIds.push(rv.id);
+        videoDurationMap.set(rv.id, rv.duration && rv.duration > 0 ? rv.duration : 0);
+      }
+    }
 
     // Effective total duration from real video durations (never trust stale snapshotTotalDurationSeconds)
     let effectiveTotalDurationSecs = 0;
@@ -250,10 +298,15 @@ class VideoService {
     });
 
     const unlockedVideos = [];
-    const lockedVideos = [];
+    // lockedVideos intentionally omitted — hidden videos are NOT sent to frontend at all
 
     for (const v of allActiveVideos) {
       const isSnapshotVideo = snapshotVideoIds.includes(v.id);
+      const isUnlocked = isSnapshotVideo || evaluatedSnapshot.newVideosUnlocked;
+
+      // HIDDEN: Videos that are not yet unlocked are completely omitted from the response
+      if (!isUnlocked) continue;
+
       const prog = progressMap.get(v.id);
 
       const videoData = {
@@ -269,8 +322,8 @@ class VideoService {
         orderIndex: v.orderIndex,
         watchedSecs: prog ? prog.watchedSecs : 0,
         isCompleted: prog ? prog.isCompleted : false,
-        isLocked: !isSnapshotVideo && !evaluatedSnapshot.newVideosUnlocked,
-        unlockNotice: 'Unlock after 25% learning progress or 30 days.',
+        isLocked: false, // by definition — locked ones are hidden, never returned
+        unlockNotice: null,
       };
 
       const passesFilter =
@@ -278,15 +331,10 @@ class VideoService {
         filter === 'ALL' ||
         (filter === 'COMPLETED' && videoData.isCompleted) ||
         (filter === 'CONTINUE_WATCHING' && videoData.watchedSecs > 0 && !videoData.isCompleted) ||
-        (filter === 'LOCKED' && videoData.isLocked) ||
         (filter === 'UNLOCKED' && !videoData.isLocked);
 
       if (passesFilter) {
-        if (isSnapshotVideo || evaluatedSnapshot.newVideosUnlocked) {
-          unlockedVideos.push(videoData);
-        } else {
-          lockedVideos.push(videoData);
-        }
+        unlockedVideos.push(videoData);
       }
     }
 
@@ -318,16 +366,16 @@ class VideoService {
         remainingSecsTo25Percent,
       },
       unlockedVideos,
-      lockedVideos,
+      lockedVideos: [], // Hidden: locked future videos are NOT returned to the client
     };
   }
 
   /**
-   * Get locked videos uploaded after snapshot
+   * Get locked videos — always returns empty; locked videos are hidden from users.
    */
   async getLockedVideos(userId) {
-    const data = await this.getUserVideos(userId);
-    return data.lockedVideos;
+    // Locked videos are intentionally hidden from users until unlocked.
+    return [];
   }
 
   /**
@@ -582,7 +630,10 @@ class VideoService {
   }
 
   /**
-   * Delete video by ID (Enforces Assigned Video Protection)
+   * Delete video by ID
+   * - If NOT in any user snapshot: hard delete from DB
+   * - If IN a user snapshot: soft-delete (set isActive=false) to preserve refund audit trail
+   *   but IMMEDIATELY removes it from user visibility (getUserVideos filters isActive:false)
    */
   async deleteVideo(id) {
     const video = await prisma.video.findUnique({ where: { id } });
@@ -590,15 +641,21 @@ class VideoService {
       throw new Error('Video not found');
     }
 
-    // Protection Check: Block deletion if video is assigned in any paid user snapshot
+    // Check if this video is in any user's snapshot
     const isAssigned = await prisma.snapshotVideo.findFirst({
       where: { videoId: id },
     });
 
     if (isAssigned) {
-      throw new Error('Cannot delete video assigned to paid user snapshots');
+      // Soft-delete: deactivate immediately so users can't see it,
+      // but keep DB record for refund audit trail integrity.
+      return prisma.video.update({
+        where: { id },
+        data: { isActive: false },
+      });
     }
 
+    // Safe to hard-delete — not referenced in any snapshot
     return prisma.video.delete({ where: { id } });
   }
 

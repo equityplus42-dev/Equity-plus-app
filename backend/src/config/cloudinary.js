@@ -1,41 +1,55 @@
-const cloudinary = require('cloudinary').v2;
+const { v2: cloudinaryV2 } = require('cloudinary');
 const env = require('./env');
 const logger = require('../utils/logger');
 
-// Primary Cloudinary instance (Avatars, Thumbnails, Campaigns, Marketing images)
-const cloudName = env.CLOUDINARY_CLOUD_NAME;
-const apiKey = env.CLOUDINARY_API_KEY;
-const apiSecret = env.CLOUDINARY_API_SECRET;
+// ── Primary Cloudinary Config (Avatars, Thumbnails, Marketing images) ──────────
+const primaryConfig = {
+  cloud_name: env.CLOUDINARY_CLOUD_NAME,
+  api_key: env.CLOUDINARY_API_KEY,
+  api_secret: env.CLOUDINARY_API_SECRET,
+};
 
-if (cloudName && apiKey && apiSecret) {
-  cloudinary.config({
-    cloud_name: cloudName,
-    api_key: apiKey,
-    api_secret: apiSecret,
-  });
-  logger.info('Primary Cloudinary configured successfully.');
+if (primaryConfig.cloud_name && primaryConfig.api_key && primaryConfig.api_secret) {
+  logger.info(`Primary Cloudinary ready: cloud="${primaryConfig.cloud_name}"`);
 } else {
-  logger.warn('Primary Cloudinary environment variables missing. Image uploads will use fallback mocks.');
+  logger.warn('Primary Cloudinary env vars missing. Image uploads will use fallback mock URLs.');
 }
 
-// Dedicated Video Cloudinary instance (Separate Account for Video Streaming Assets)
-const videoCloudinary = require('cloudinary').v2;
-const videoCloudName = env.CLOUDINARY_VIDEO_CLOUD_NAME;
-const videoApiKey = env.CLOUDINARY_VIDEO_API_KEY;
-const videoApiSecret = env.CLOUDINARY_VIDEO_API_SECRET;
+// ── Dedicated Video Cloudinary Config (Separate Account for Video Streaming) ───
+const videoConfig = {
+  cloud_name: env.CLOUDINARY_VIDEO_CLOUD_NAME,
+  api_key: env.CLOUDINARY_VIDEO_API_KEY,
+  api_secret: env.CLOUDINARY_VIDEO_API_SECRET,
+};
 
-if (videoCloudName && videoApiKey && videoApiSecret) {
-  videoCloudinary.config({
-    cloud_name: videoCloudName,
-    api_key: videoApiKey,
-    api_secret: videoApiSecret,
-  });
-  logger.info('Video Cloudinary account configured successfully.');
+if (videoConfig.cloud_name && videoConfig.api_key && videoConfig.api_secret) {
+  logger.info(`Video Cloudinary ready: cloud="${videoConfig.cloud_name}" (dedicated video account)`);
 } else {
-  logger.warn('Video Cloudinary environment variables missing. Video uploads will fallback to primary Cloudinary or mocks.');
+  logger.warn('Video Cloudinary env vars missing. Video uploads will use primary Cloudinary or mock fallback.');
+}
+
+// ── Helper: Upload using a specific config (bypasses singleton limitation) ──────
+function uploadWithConfig(config, buffer, options) {
+  const { Readable } = require('stream');
+  return new Promise((resolve, reject) => {
+    // Clone a temporary config and use it for this specific upload
+    cloudinaryV2.config(config);
+    const stream = cloudinaryV2.uploader.upload_stream(options, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
+    const readable = new Readable();
+    readable.push(buffer);
+    readable.push(null);
+    readable.pipe(stream);
+  });
 }
 
 module.exports = {
-  cloudinary,
-  videoCloudinary,
+  primaryConfig,
+  videoConfig,
+  uploadWithConfig,
+  cloudinaryV2,
 };
+
+

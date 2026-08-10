@@ -5,10 +5,13 @@ class LanguageService {
    * Get all languages
    */
   async getAllLanguages() {
-    // Seed defaults if empty
-    const count = await prisma.language.count();
-    if (count === 0) {
-      await this.seedDefaults();
+    try {
+      const count = await prisma.language.count();
+      if (count === 0) {
+        await this.seedDefaults();
+      }
+    } catch (err) {
+      console.error('Language count check error:', err.message);
     }
 
     return prisma.language.findMany({
@@ -32,11 +35,18 @@ class LanguageService {
     ];
 
     for (const lang of defaults) {
-      await prisma.language.upsert({
-        where: { code: lang.code },
-        update: {},
-        create: lang,
-      });
+      try {
+        const existing = await prisma.language.findFirst({
+          where: {
+            OR: [{ code: lang.code }, { name: lang.name }],
+          },
+        });
+        if (!existing) {
+          await prisma.language.create({ data: lang });
+        }
+      } catch (e) {
+        console.error(`Failed to seed default language ${lang.name}:`, e.message);
+      }
     }
   }
 
@@ -44,23 +54,48 @@ class LanguageService {
    * Create a custom language
    */
   async createLanguage({ name, code }) {
-    const existingName = await prisma.language.findUnique({ where: { name } });
-    if (existingName) {
-      throw new Error('Language with this name already exists');
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      const error = new Error('Language name is required');
+      error.statusCode = 400;
+      throw error;
     }
 
-    const cleanCode = (code || name.substring(0, 3)).toLowerCase().trim();
-    const existingCode = await prisma.language.findUnique({ where: { code: cleanCode } });
-    if (existingCode) {
-      throw new Error('Language code already exists');
-    }
+    const cleanName = name.trim();
+    const cleanCode = (code && typeof code === 'string' && code.trim() ? code.trim() : cleanName.substring(0, 3)).toLowerCase();
 
-    return prisma.language.create({
-      data: {
-        name: name.trim(),
-        code: cleanCode,
-      },
+    const existingName = await prisma.language.findFirst({
+      where: { name: { equals: cleanName } },
     });
+    if (existingName) {
+      const error = new Error(`Language "${cleanName}" already exists`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const existingCode = await prisma.language.findFirst({
+      where: { code: { equals: cleanCode } },
+    });
+    if (existingCode) {
+      const error = new Error(`Language code "${cleanCode}" already exists`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    try {
+      return await prisma.language.create({
+        data: {
+          name: cleanName,
+          code: cleanCode,
+        },
+      });
+    } catch (dbErr) {
+      if (dbErr.code === 'P2002') {
+        const error = new Error('Language with this name or code already exists');
+        error.statusCode = 400;
+        throw error;
+      }
+      throw dbErr;
+    }
   }
 
   /**
@@ -69,12 +104,23 @@ class LanguageService {
   async deleteLanguage(id) {
     const lang = await prisma.language.findUnique({ where: { id } });
     if (!lang) {
-      throw new Error('Language not found');
+      const error = new Error('Language not found');
+      error.statusCode = 404;
+      throw error;
     }
 
-    return prisma.language.delete({
-      where: { id },
-    });
+    try {
+      return await prisma.language.delete({
+        where: { id },
+      });
+    } catch (dbErr) {
+      if (dbErr.code === 'P2003') {
+        const error = new Error('Cannot delete language because videos or profiles are associated with it');
+        error.statusCode = 400;
+        throw error;
+      }
+      throw dbErr;
+    }
   }
 }
 

@@ -42,64 +42,116 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
   void _showAddLanguageDialog() {
     final nameController = TextEditingController();
     final codeController = TextEditingController();
+    bool isCreating = false;
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: AppTheme.cardBg,
-        title: Text(
-          'Add Language Folder',
-          style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              style: GoogleFonts.outfit(color: AppTheme.lightText),
-              decoration: const InputDecoration(
-                labelText: 'Language Name (e.g. Tamil, Marathi)',
-                prefixIcon: Icon(Icons.language, color: AppTheme.primaryPurple),
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.cardBg,
+          title: Text(
+            'Add Language Folder',
+            style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                style: GoogleFonts.outfit(color: AppTheme.lightText),
+                decoration: const InputDecoration(
+                  labelText: 'Language Name (e.g. Tamil, Marathi)',
+                  prefixIcon: Icon(Icons.language, color: AppTheme.primaryPurple),
+                ),
+                onChanged: (val) {
+                  if (codeController.text.isEmpty && val.trim().length >= 2) {
+                    setDialogState(() {
+                      codeController.text = val.trim().substring(0, val.trim().length >= 3 ? 3 : 2).toLowerCase();
+                    });
+                  }
+                },
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: codeController,
+                style: GoogleFonts.outfit(color: AppTheme.lightText),
+                decoration: const InputDecoration(
+                  labelText: 'Language Code (e.g. ta, mr)',
+                  prefixIcon: Icon(Icons.code, color: AppTheme.neonCyan),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isCreating ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: codeController,
-              style: GoogleFonts.outfit(color: AppTheme.lightText),
-              decoration: const InputDecoration(
-                labelText: 'Language Code (e.g. ta, mr)',
-                prefixIcon: Icon(Icons.code, color: AppTheme.neonCyan),
-              ),
+            ElevatedButton(
+              onPressed: isCreating
+                  ? null
+                  : () async {
+                      final name = nameController.text.trim();
+                      String code = codeController.text.trim();
+                      if (name.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Language name is required')),
+                        );
+                        return;
+                      }
+
+                      if (code.isEmpty) {
+                        code = name.substring(0, name.length >= 3 ? 3 : name.length).toLowerCase();
+                      }
+
+                      setDialogState(() {
+                        isCreating = true;
+                      });
+
+                      final langProvider = Provider.of<AdminLanguagesProvider>(context, listen: false);
+                      final success = await langProvider.createLanguage(name, code);
+
+                      if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+
+                      if (success && mounted) {
+                        final newLang = langProvider.languages.firstWhere(
+                          (l) => l.name.toLowerCase() == name.toLowerCase(),
+                          orElse: () => langProvider.languages.last,
+                        );
+                        setState(() {
+                          _selectedLanguageId = newLang.id;
+                        });
+                        if (mounted) {
+                          Provider.of<AdminVideosProvider>(context, listen: false)
+                              .fetchVideos(languageId: newLang.id);
+                        }
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Language folder "$name" created successfully! 🎉'),
+                            backgroundColor: AppTheme.neonGreen,
+                          ),
+                        );
+                      } else if (mounted) {
+                        final err = langProvider.errorMessage ?? 'Failed to create language folder';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $err'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+              child: isCreating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Create Folder'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final code = codeController.text.trim();
-              if (name.isEmpty) return;
-
-              final langProvider = Provider.of<AdminLanguagesProvider>(context, listen: false);
-              final success = await langProvider.createLanguage(name, code);
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-
-              if (success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Language "$name" folder added successfully! 🎉'),
-                    backgroundColor: AppTheme.neonGreen,
-                  ),
-                );
-              }
-            },
-            child: const Text('Create Folder'),
-          ),
-        ],
       ),
     );
   }
