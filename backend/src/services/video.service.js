@@ -438,31 +438,38 @@ class VideoService {
     }
 
     // Fetch existing record so we never decrease watchedSecs (e.g. after seeking back)
-    const existing = await prisma.userVideoProgress.findUnique({
-      where: { userId_videoId: { userId, videoId } },
-    });
-    const safeWatched = Math.max(Math.max(watchedSecs, 0), existing ? existing.watchedSecs : 0);
-    const videoDuration = video.duration && video.duration > 0 ? video.duration : 0;
-    const isCompleted = videoDuration > 0
-      ? safeWatched >= videoDuration * 0.8
-      : safeWatched >= 30;
-
-    const record = await prisma.userVideoProgress.upsert({
-      where: {
-        userId_videoId: { userId, videoId },
-      },
-      update: {
-        watchedSecs: safeWatched,
-        lastWatched: new Date(),
-        isCompleted,
-      },
-      create: {
-        userId,
-        videoId,
-        watchedSecs: safeWatched,
-        isCompleted,
-      },
-    });
+    let record;
+    if (existing) {
+      record = await prisma.userVideoProgress.update({
+        where: { id: existing.id },
+        data: {
+          watchedSecs: safeWatched,
+          lastWatched: new Date(),
+          isCompleted,
+        },
+      });
+    } else {
+      try {
+        record = await prisma.userVideoProgress.create({
+          data: {
+            userId,
+            videoId,
+            watchedSecs: safeWatched,
+            isCompleted,
+          },
+        });
+      } catch (err) {
+        // Fallback for concurrent request collision (P2002)
+        record = await prisma.userVideoProgress.update({
+          where: { userId_videoId: { userId, videoId } },
+          data: {
+            watchedSecs: safeWatched,
+            lastWatched: new Date(),
+            isCompleted,
+          },
+        });
+      }
+    }
 
     const snapshotVideoIds = snapshot.snapshotVideos.map((sv) => sv.videoId);
     const userProgressRecords = await prisma.userVideoProgress.findMany({
