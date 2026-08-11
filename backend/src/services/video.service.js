@@ -438,6 +438,15 @@ class VideoService {
     }
 
     // Fetch existing record so we never decrease watchedSecs (e.g. after seeking back)
+    const existing = await prisma.userVideoProgress.findUnique({
+      where: { userId_videoId: { userId, videoId } },
+    });
+    const safeWatched = Math.max(Math.max(watchedSecs, 0), existing ? existing.watchedSecs : 0);
+    const videoDuration = video.duration && video.duration > 0 ? video.duration : 0;
+    const isCompleted = videoDuration > 0
+      ? safeWatched >= videoDuration * 0.8
+      : safeWatched >= 30;
+
     let record;
     if (existing) {
       record = await prisma.userVideoProgress.update({
