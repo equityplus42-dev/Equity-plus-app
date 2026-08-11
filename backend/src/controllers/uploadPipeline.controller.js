@@ -28,7 +28,10 @@ class UploadPipelineController {
         return ApiResponse.error(res, 'No file uploaded', 400);
       }
 
-      const isVideo = req.file.mimetype.startsWith('video/');
+      const path = require('path');
+      const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.mpeg', '.mpg']);
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      const isVideo = req.file.mimetype.startsWith('video/') || VIDEO_EXTENSIONS.has(ext);
       let fileUrl;
       let videoDuration = 0;
 

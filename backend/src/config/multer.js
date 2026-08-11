@@ -12,8 +12,17 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+const path = require('path');
+
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.mpeg', '.mpg']);
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tiff']);
+
 const mediaFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/')) {
+  const mimeOk = file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/');
+  const ext = path.extname(file.originalname).toLowerCase();
+  const extOk = VIDEO_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext);
+
+  if (mimeOk || extOk) {
     cb(null, true);
   } else {
     cb(new Error('Invalid file type. Only video or image uploads are allowed.'), false);

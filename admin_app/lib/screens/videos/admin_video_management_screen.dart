@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import '../../providers/admin_languages_provider.dart';
 import '../../providers/admin_videos_provider.dart';
@@ -251,10 +252,26 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                     filename: video.name,
                                   ));
                                 } else {
+                                  // Detect MIME type from extension for Windows Desktop
+                                  final ext = video.name.toLowerCase().split('.').last;
+                                  final mimeType = const {
+                                    'mp4': 'video/mp4',
+                                    'mov': 'video/quicktime',
+                                    'avi': 'video/x-msvideo',
+                                    'mkv': 'video/x-matroska',
+                                    'webm': 'video/webm',
+                                    'flv': 'video/x-flv',
+                                    'wmv': 'video/x-ms-wmv',
+                                    'm4v': 'video/mp4',
+                                    '3gp': 'video/3gpp',
+                                    'mpeg': 'video/mpeg',
+                                    'mpg': 'video/mpeg',
+                                  }[ext] ?? 'video/mp4';
                                   request.files.add(await http.MultipartFile.fromPath(
                                     'file',
                                     video.path,
                                     filename: video.name,
+                                    contentType: MediaType.parse(mimeType),
                                   ));
                                 }
 
