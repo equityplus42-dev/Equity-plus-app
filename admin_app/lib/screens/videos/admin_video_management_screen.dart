@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -242,12 +243,20 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                 if (token != null) {
                                   request.headers['Authorization'] = 'Bearer $token';
                                 }
-                                final bytes = await video.readAsBytes();
-                                request.files.add(http.MultipartFile.fromBytes(
-                                  'file',
-                                  bytes,
-                                  filename: video.name,
-                                ));
+                                if (kIsWeb) {
+                                  final bytes = await video.readAsBytes();
+                                  request.files.add(http.MultipartFile.fromBytes(
+                                    'file',
+                                    bytes,
+                                    filename: video.name,
+                                  ));
+                                } else {
+                                  request.files.add(await http.MultipartFile.fromPath(
+                                    'file',
+                                    video.path,
+                                    filename: video.name,
+                                  ));
+                                }
 
                                 final streamedResponse = await request.send();
                                 final response = await http.Response.fromStream(streamedResponse);
@@ -266,7 +275,13 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                     });
                                   }
                                 } else {
-                                  debugPrint('Upload failed: ${response.statusCode} - ${response.body}');
+                                  final errData = jsonDecode(response.body);
+                                  final msg = errData['message'] ?? 'Upload failed (${response.statusCode})';
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Video upload error: $msg')),
+                                    );
+                                  }
                                 }
                               } catch (e) {
                                 debugPrint('Error uploading video file: $e');
