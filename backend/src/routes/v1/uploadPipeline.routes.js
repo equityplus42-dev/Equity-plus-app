@@ -6,6 +6,13 @@ const roleMiddleware = require('../../middleware/role.middleware');
 const { uploadSingleMedia } = require('../../middleware/upload.middleware');
 
 router.post('/admin', authMiddleware, roleMiddleware(['ADMIN']), uploadPipelineController.processUploadPipeline);
-router.post('/media', authMiddleware, roleMiddleware(['ADMIN']), uploadSingleMedia('file'), uploadPipelineController.uploadMedia);
+
+// No timeout for video uploads — large 4K files can take minutes to upload
+const noTimeout = (req, res, next) => {
+  req.socket.setTimeout(0);
+  res.setTimeout(0);
+  next();
+};
+router.post('/media', authMiddleware, roleMiddleware(['ADMIN']), noTimeout, uploadSingleMedia('file'), uploadPipelineController.uploadMedia);
 
 module.exports = router;

@@ -6,6 +6,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'dart:async';
 import 'dart:convert';
 import '../../providers/admin_languages_provider.dart';
 import '../../providers/admin_videos_provider.dart';
@@ -185,6 +186,8 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     String? selectedFileName;
     String? uploadedCloudinaryUrl;
     int uploadedVideoDuration = 0;
+    int elapsedSeconds = 0;
+    Timer? uploadTimer;
 
     showDialog(
       context: context,
@@ -232,9 +235,18 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                             final picker = ImagePicker();
                             final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
                             if (video != null) {
+                              elapsedSeconds = 0;
                               setDialogState(() {
                                 isUploadingFile = true;
                                 selectedFileName = video.name;
+                              });
+
+                              // Start live elapsed timer
+                              uploadTimer?.cancel();
+                              uploadTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+                                setDialogState(() {
+                                  elapsedSeconds++;
+                                });
                               });
 
                               try {
@@ -302,7 +314,14 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                 }
                               } catch (e) {
                                 debugPrint('Error uploading video file: $e');
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Upload error: $e')),
+                                  );
+                                }
                               } finally {
+                                uploadTimer?.cancel();
+                                uploadTimer = null;
                                 setDialogState(() {
                                   isUploadingFile = false;
                                 });
@@ -319,17 +338,40 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                             uploadedCloudinaryUrl != null ? Icons.check_circle : Icons.cloud_upload_outlined,
                             color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.neonCyan,
                           ),
-                    label: Text(
-                      isUploadingFile
-                          ? 'Uploading video file to Cloudinary...'
-                          : (uploadedCloudinaryUrl != null
-                              ? '✓ File Uploaded (${uploadedVideoDuration}s)'
-                              : (selectedFileName != null ? 'Selected: $selectedFileName' : 'Select / Drag Video File')),
-                      style: GoogleFonts.outfit(
-                        color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.lightText,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
+                    label: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isUploadingFile
+                              ? 'Uploading to Cloudinary (dedicated qv1eskbe)...'
+                              : (uploadedCloudinaryUrl != null
+                                  ? '✓ File Uploaded (${uploadedVideoDuration}s duration)'
+                                  : (selectedFileName != null ? 'Selected: $selectedFileName' : 'Select / Drag Video File')),
+                          style: GoogleFonts.outfit(
+                            color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.lightText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        if (isUploadingFile) ...[  
+                          const SizedBox(height: 4),
+                          Text(
+                            () {
+                              final mins = elapsedSeconds ~/ 60;
+                              final secs = elapsedSeconds % 60;
+                              final elapsed = mins > 0
+                                  ? '${mins}m ${secs.toString().padLeft(2, '0')}s elapsed'
+                                  : '${secs}s elapsed';
+                              return '⏱ $elapsed — large videos may take several minutes';
+                            }(),
+                            style: GoogleFonts.outfit(
+                              color: AppTheme.neonCyan,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.cardBg,

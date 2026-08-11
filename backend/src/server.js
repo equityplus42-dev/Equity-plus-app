@@ -23,9 +23,14 @@ async function connectWithRetry(retries = 5, delayMs = 2000) {
 async function startServer() {
   try {
     // Start listening immediately on 0.0.0.0 so HTTP server is online on port 5000
-    app.listen(env.PORT, '0.0.0.0', () => {
+    const server = app.listen(env.PORT, '0.0.0.0', () => {
       logger.info(`Server is running in ${env.NODE_ENV} mode on port ${env.PORT}`);
     });
+
+    // Allow unlimited time for large video file uploads (no request timeout)
+    server.timeout = 0;
+    server.keepAliveTimeout = 0;
+    server.headersTimeout = 0;
 
     // Connect to TiDB Cloud database asynchronously with retry
     await connectWithRetry();
