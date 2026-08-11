@@ -49,6 +49,21 @@ class CloudinaryService {
     const result = await uploadWithConfig(videoConfig, buffer, {
       folder,
       resource_type: 'video',
+      // ── Eager Transcoding ─────────────────────────────────────────────────────
+      // Pre-process the video into multiple quality renditions immediately on upload
+      // so no user ever triggers the first-play encoding lag.
+      eager: [
+        // HLS Adaptive Bitrate (Auto quality — best for native apps)
+        { streaming_profile: 'hd', format: 'm3u8' },
+        { streaming_profile: 'sd', format: 'm3u8' },
+        // Fixed quality MP4s (for quality selector in app)
+        { width: 1920, height: 1080, crop: 'limit', quality: 'auto', format: 'mp4' },
+        { width: 1280, height: 720,  crop: 'limit', quality: 'auto', format: 'mp4' },
+        { width: 854,  height: 480,  crop: 'limit', quality: 'auto', format: 'mp4' },
+        { width: 640,  height: 360,  crop: 'limit', quality: 'auto', format: 'mp4' },
+        { width: 426,  height: 240,  crop: 'limit', quality: 'auto', format: 'mp4' },
+      ],
+      eager_async: true, // Don't block upload response — process renditions in background
     });
 
     const durationSecs = result.duration ? Math.round(result.duration) : 0;

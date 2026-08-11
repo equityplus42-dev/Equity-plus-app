@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +9,62 @@ import '../../core/constants/api_constants.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Quality options with their Cloudinary transformation strings
+// ─────────────────────────────────────────────────────────────────────────────
+const List<String> kVideoQualities = ['Auto', '1080p', '720p', '480p', '360p', '240p'];
+const List<double> kVideoSpeeds   = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+/// Builds the final Cloudinary URL for a given quality label.
+/// - 'Auto' on native  → HLS adaptive (.m3u8, sp_hd streaming profile)
+/// - 'Auto' on web     → q_auto,f_auto optimised MP4 (Chrome has no native HLS)
+/// - '720p' etc.       → resolution-capped q_auto MP4
+String buildQualityUrl(String originalUrl, String quality) {
+  if (!originalUrl.contains('res.cloudinary.com')) return originalUrl;
+
+  final uri = Uri.parse(originalUrl);
+  final pathParts = uri.path.split('/');
+
+  // Find '/upload/' index in the path
+  final uploadIdx = pathParts.indexOf('upload');
+  if (uploadIdx == -1) return originalUrl;
+
+  // Parts before and after /upload/
+  final before = pathParts.sublist(0, uploadIdx + 1).join('/');
+  var after  = pathParts.sublist(uploadIdx + 1);
+
+  // Strip optional version segment (e.g. 'v1720000000')
+  if (after.isNotEmpty &&
+      after[0].startsWith('v') &&
+      int.tryParse(after[0].substring(1)) != null) {
+    after = after.sublist(1);
+  }
+
+  final publicId = after.join('/');            // e.g. 'videos/myvideo.mp4'
+  final base     = '${uri.scheme}://${uri.host}$before';
+
+  switch (quality) {
+    case 'Auto':
+      if (kIsWeb) {
+        // Web (Chrome) – no native HLS, use Cloudinary auto-optimised MP4
+        return '$base/q_auto,f_auto/$publicId';
+      } else {
+        // Native – serve HLS adaptive bitrate
+        final hlsId = publicId.replaceAll(RegExp(r'\.[^.]+$'), '.m3u8');
+        return '$base/sp_hd/$hlsId';
+      }
+    case '1080p': return '$base/w_1920,h_1080,c_limit,q_auto/$publicId';
+    case '720p':  return '$base/w_1280,h_720,c_limit,q_auto/$publicId';
+    case '480p':  return '$base/w_854,h_480,c_limit,q_auto/$publicId';
+    case '360p':  return '$base/w_640,h_360,c_limit,q_auto/$publicId';
+    case '240p':  return '$base/w_426,h_240,c_limit,q_auto/$publicId';
+    default:      return originalUrl;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VideoPlayerScreen
+// ─────────────────────────────────────────────────────────────────────────────
 class VideoPlayerScreen extends StatefulWidget {
   final UserVideoModel video;
 
@@ -20,10 +77,16 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   final ApiClient _apiClient = ApiClient();
   late VideoPlayerController _controller;
+
   bool _isInitialized = false;
-  bool _hasError = false;
+  bool _hasError      = false;
+
   DateTime? _lastPlayTimestamp;
-  String? _sessionId;
+  String?   _sessionId;
+
+  // ── Quality & Speed state (shared with fullscreen) ─────────────────────────
+  String _currentQuality = 'Auto';
+  double _currentSpeed   = 1.0;
 
   @override
   void initState() {
@@ -31,9 +94,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _initializeVideoAndSession();
   }
 
+  // ── Initialise controller ─────────────────────────────────────────────────
   Future<void> _initializeVideoAndSession() async {
     try {
-      // 1. Fetch cross-device latest resume position
+      // 1. Cross-device resume position
       int resumePos = widget.video.watchedSecs;
       try {
         final posRes = await _apiClient.get('/sessions/${widget.video.id}/resume');
@@ -48,56 +112,85 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           'platform': 'FLUTTER_MOBILE',
           'deviceName': 'User Device',
         });
-        if (sessRes['data'] != null) {
-          _sessionId = sessRes['data']['sessionId'];
-        }
+        if (sessRes['data'] != null) _sessionId = sessRes['data']['sessionId'];
       } catch (_) {}
 
-      // 3. Initialize Controller
-      String finalUrl = widget.video.videoUrl.trim();
-      if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
-        throw Exception('Invalid or missing video URL: "$finalUrl"');
-      }
-      Uri uri = Uri.parse(finalUrl);
-      _controller = VideoPlayerController.networkUrl(uri);
-      await _controller.initialize();
-
-      _controller.addListener(_videoListener);
-
-      if (resumePos > 0 && resumePos < _controller.value.duration.inSeconds) {
-        await _controller.seekTo(Duration(seconds: resumePos));
-      }
-
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-        _controller.play();
-      }
+      // 3. Initialise controller at current quality
+      await _createController(
+        buildQualityUrl(widget.video.videoUrl.trim(), _currentQuality),
+        resumePos: resumePos,
+        autoPlay: true,
+      );
     } catch (e) {
-      debugPrint('Video Player error: $e');
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-        });
-      }
+      debugPrint('Video Player init error: $e');
+      if (mounted) setState(() => _hasError = true);
     }
   }
 
+  Future<void> _createController(
+    String url, {
+    int resumePos = 0,
+    bool autoPlay = false,
+  }) async {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      throw Exception('Invalid or missing video URL: "$url"');
+    }
+    _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    await _controller.initialize();
+    _controller.addListener(_videoListener);
+    await _controller.setPlaybackSpeed(_currentSpeed);
+
+    if (resumePos > 0 && resumePos < _controller.value.duration.inSeconds) {
+      await _controller.seekTo(Duration(seconds: resumePos));
+    }
+    if (mounted) {
+      setState(() => _isInitialized = true);
+      if (autoPlay) _controller.play();
+    }
+  }
+
+  // ── Quality switching (preserve position + playing state) ─────────────────
+  Future<void> _switchQuality(String quality) async {
+    if (!_isInitialized || _currentQuality == quality) return;
+
+    final savedPos    = _controller.value.position;
+    final wasPlaying  = _controller.value.isPlaying;
+
+    setState(() {
+      _isInitialized  = false;
+      _currentQuality = quality;
+    });
+
+    _controller.removeListener(_videoListener);
+    await _controller.dispose();
+
+    try {
+      final url = buildQualityUrl(widget.video.videoUrl.trim(), quality);
+      await _createController(url, resumePos: savedPos.inSeconds);
+      if (wasPlaying && mounted) _controller.play();
+    } catch (e) {
+      debugPrint('Quality switch error: $e');
+      if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  // ── Speed change ──────────────────────────────────────────────────────────
+  Future<void> _setSpeed(double speed) async {
+    setState(() => _currentSpeed = speed);
+    if (_isInitialized) await _controller.setPlaybackSpeed(speed);
+  }
+
+  // ── Playback position save ─────────────────────────────────────────────────
   void _videoListener() {
     if (!_controller.value.isInitialized) return;
-
-    final isPlaying = _controller.value.isPlaying;
-    final now = DateTime.now();
+    final isPlaying  = _controller.value.isPlaying;
+    final now        = DateTime.now();
     final currentSecs = _controller.value.position.inSeconds;
 
     if (isPlaying) {
       if (_lastPlayTimestamp != null) {
-        final elapsed = now.difference(_lastPlayTimestamp!).inSeconds;
-        if (elapsed >= 5) {
+        if (now.difference(_lastPlayTimestamp!).inSeconds >= 5) {
           _lastPlayTimestamp = now;
-
-          // Save absolute position (not elapsed delta) so resume is always accurate
           _savePosition(currentSecs);
         }
       } else {
@@ -105,26 +198,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
     } else {
       if (_lastPlayTimestamp != null) {
-        // Paused — save current position immediately
         _savePosition(currentSecs);
         _lastPlayTimestamp = null;
       }
     }
   }
 
-  /// Saves the absolute playback position to both the session ping and progress API.
   void _savePosition(int absolutePositionSecs) {
     if (!mounted) return;
-
-    // 1. Session ping with absolute position
     if (_sessionId != null) {
       _apiClient.post('/sessions/ping/$_sessionId', {
         'watchSeconds': absolutePositionSecs,
         'lastPositionSecs': absolutePositionSecs,
       });
     }
-
-    // 2. Direct progress save with absolute position (bypasses heartbeat delta issues)
     _apiClient.post(
       ApiConstants.recordVideoProgress(widget.video.id),
       {'watchedSecs': absolutePositionSecs},
@@ -135,26 +222,254 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void dispose() {
     if (_isInitialized) {
       final currentSecs = _controller.value.position.inSeconds;
-
-      // Always save final position on exit (back button, fullscreen exit, etc.)
-      if (currentSecs > 0) {
-        _savePosition(currentSecs);
-      }
-
+      if (currentSecs > 0) _savePosition(currentSecs);
       if (_sessionId != null) {
         _apiClient.post('/sessions/end/$_sessionId', {
           'closedNormally': true,
           'lastPositionSecs': currentSecs,
         });
       }
-
       _controller.removeListener(_videoListener);
       _controller.dispose();
     }
-    // Restore portrait + system UI on exit
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
+  }
+
+  // ── YouTube-style Settings Sheet (Quality + Speed) ─────────────────────────
+  void _openSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF16152A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Drag handle ──────────────────────────────────────────
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      width: 38, height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  // ── Quality Section ──────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.hd_rounded, color: AppTheme.neonCyan, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Quality',
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.neonCyan.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _currentQuality,
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.neonCyan,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: Colors.white10),
+                  ...kVideoQualities.map((q) {
+                    final selected = _currentQuality == q;
+                    return ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+                      leading: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 20, height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected ? AppTheme.neonCyan : Colors.white30,
+                            width: 2,
+                          ),
+                        ),
+                        child: selected
+                            ? Center(
+                                child: Container(
+                                  width: 9, height: 9,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.neonCyan,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                      title: Text(
+                        q == 'Auto'
+                            ? (kIsWeb ? 'Auto (Optimized)' : 'Auto (HLS Adaptive)')
+                            : q,
+                        style: GoogleFonts.outfit(
+                          color: selected ? AppTheme.neonCyan : Colors.white,
+                          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                      ),
+                      trailing: q == 'Auto'
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white10,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                kIsWeb ? 'BEST' : 'HLS',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white54,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          : null,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _switchQuality(q);
+                      },
+                    );
+                  }),
+
+                  const SizedBox(height: 8),
+
+                  // ── Speed Section ────────────────────────────────────────
+                  const Divider(height: 1, color: Colors.white10),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.speed_rounded, color: AppTheme.primaryPurple, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Playback Speed',
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryPurple.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _currentSpeed == 1.0 ? 'Normal' : '${_currentSpeed}×',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryPurple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: Colors.white10),
+                  ...kVideoSpeeds.map((speed) {
+                    final selected = _currentSpeed == speed;
+                    return ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+                      leading: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 20, height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected ? AppTheme.primaryPurple : Colors.white30,
+                            width: 2,
+                          ),
+                        ),
+                        child: selected
+                            ? Center(
+                                child: Container(
+                                  width: 9, height: 9,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primaryPurple,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                      title: Text(
+                        speed == 1.0 ? 'Normal (1.0×)' : '${speed}×',
+                        style: GoogleFonts.outfit(
+                          color: selected ? AppTheme.primaryPurple : Colors.white,
+                          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                      ),
+                      onTap: () {
+                        setSheet(() {});
+                        _setSpeed(speed);
+                        // Don't pop — let user pick quality and speed in one go
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Fullscreen navigation ─────────────────────────────────────────────────
+  void _enterFullScreen() async {
+    final shouldPopToHub = await Navigator.of(context).push<bool>(
+      PageRouteBuilder(
+        opaque: true,
+        barrierColor: Colors.black,
+        pageBuilder: (_, __, ___) => _FullScreenVideoPage(
+          controller: _controller,
+          title: widget.video.title,
+          currentQuality: _currentQuality,
+          currentSpeed: _currentSpeed,
+          onOpenSettings: _openSettingsSheet,
+        ),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
+    if ((shouldPopToHub == true) && mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -174,125 +489,114 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             Expanded(
               child: Center(
                 child: _hasError
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 60),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Unable to play video',
-                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            widget.video.videoUrl,
-                            style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      )
+                    ? _buildErrorWidget()
                     : !_isInitialized
                         ? const CircularProgressIndicator(color: AppTheme.primaryPurple)
                         : YouTubeStyleVideoPlayer(
                             controller: _controller,
                             title: widget.video.title,
+                            currentQuality: _currentQuality,
+                            currentSpeed: _currentSpeed,
+                            onOpenSettings: _openSettingsSheet,
                             onEnterFullScreen: _enterFullScreen,
                           ),
               ),
             ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              color: AppTheme.cardBg,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.video.title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.lightText,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.neonCyan.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          widget.video.languageName,
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.neonCyan),
-                        ),
-                      ),
-                      if (widget.video.isCompleted) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.neonGreen.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'COMPLETED',
-                            style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.neonGreen),
-                          ),
-                        ),
-                      ]
-                    ],
-                  ),
-                  if (widget.video.description != null && widget.video.description!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.video.description!,
-                      style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.softGrey),
-                    ),
-                  ]
-                ],
-              ),
-            ),
+            _buildInfoPanel(),
           ],
         ),
       ),
     );
   }
 
-  /// Push a dedicated fullscreen route; the controller is shared so playback continues.
-  /// If the user taps the back arrow inside fullscreen, the route returns `true`
-  /// and we also pop VideoPlayerScreen to land back on the Video Learning Hub.
-  void _enterFullScreen() async {
-    final shouldPopToHub = await Navigator.of(context).push<bool>(
-      PageRouteBuilder(
-        opaque: true,
-        barrierColor: Colors.black,
-        pageBuilder: (_, __, ___) => _FullScreenVideoPage(
-          controller: _controller,
-          title: widget.video.title,
+  Widget _buildErrorWidget() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.error_outline, color: Colors.redAccent, size: 60),
+        const SizedBox(height: 16),
+        Text(
+          'Unable to play video',
+          style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
+        const SizedBox(height: 8),
+        Text(
+          widget.video.videoUrl,
+          style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoPanel() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      color: AppTheme.cardBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.video.title,
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.lightText,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _badge(widget.video.languageName, AppTheme.neonCyan),
+              if (widget.video.isCompleted) ...[
+                const SizedBox(width: 8),
+                _badge('COMPLETED', AppTheme.neonGreen),
+              ],
+            ],
+          ),
+          if (widget.video.description != null && widget.video.description!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              widget.video.description!,
+              style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.softGrey),
+            ),
+          ],
+        ],
       ),
     );
-
-    // Back arrow in fullscreen returns true → also exit the video player
-    if ((shouldPopToHub == true) && mounted) {
-      Navigator.of(context).pop();
-    }
   }
+
+  Widget _badge(String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      text,
+      style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dedicated Full-Screen Page (pushed as a new route)
+// Dedicated Full-Screen Page
 // ─────────────────────────────────────────────────────────────────────────────
 class _FullScreenVideoPage extends StatefulWidget {
   final VideoPlayerController controller;
   final String title;
+  final String currentQuality;
+  final double currentSpeed;
+  final VoidCallback onOpenSettings;
 
-  const _FullScreenVideoPage({required this.controller, required this.title});
+  const _FullScreenVideoPage({
+    required this.controller,
+    required this.title,
+    required this.currentQuality,
+    required this.currentSpeed,
+    required this.onOpenSettings,
+  });
 
   @override
   State<_FullScreenVideoPage> createState() => _FullScreenVideoPageState();
@@ -302,7 +606,6 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
   @override
   void initState() {
     super.initState();
-    // Force landscape + hide all system UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -312,7 +615,6 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
 
   @override
   void dispose() {
-    // Restore portrait + system UI when leaving fullscreen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
@@ -326,9 +628,10 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
         controller: widget.controller,
         title: widget.title,
         isFullScreen: true,
-        // ⛶ exit icon → just exit fullscreen, stay on video player
+        currentQuality: widget.currentQuality,
+        currentSpeed: widget.currentSpeed,
+        onOpenSettings: widget.onOpenSettings,
         onExitFullScreen: () => Navigator.of(context).pop(),
-        // ← back arrow → exit fullscreen AND video player → back to Hub
         onBackToHub: () => Navigator.of(context).pop(true),
       ),
     );
@@ -342,15 +645,20 @@ class YouTubeStyleVideoPlayer extends StatefulWidget {
   final VideoPlayerController controller;
   final String title;
   final bool isFullScreen;
+  final String currentQuality;
+  final double currentSpeed;
+  final VoidCallback onOpenSettings;
   final VoidCallback? onEnterFullScreen;
   final VoidCallback? onExitFullScreen;
-  /// Called when the top-left back arrow is tapped in fullscreen — go all the way back to hub
   final VoidCallback? onBackToHub;
 
   const YouTubeStyleVideoPlayer({
     super.key,
     required this.controller,
     required this.title,
+    required this.currentQuality,
+    required this.currentSpeed,
+    required this.onOpenSettings,
     this.isFullScreen = false,
     this.onEnterFullScreen,
     this.onExitFullScreen,
@@ -364,11 +672,8 @@ class YouTubeStyleVideoPlayer extends StatefulWidget {
 class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
   bool _showControls = true;
   Timer? _hideTimer;
-  double _currentSpeed = 1.0;
   String? _gestureNotice;
   Timer? _gestureNoticeTimer;
-
-  final List<double> _speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
   @override
   void initState() {
@@ -393,53 +698,37 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted && widget.controller.value.isPlaying) {
-        setState(() {
-          _showControls = false;
-        });
+        setState(() => _showControls = false);
       }
     });
   }
 
   void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
-    });
-    if (_showControls) {
-      _startHideTimer();
-    }
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _startHideTimer();
   }
 
   void _seekRelative(int seconds) async {
-    final current = widget.controller.value.position;
-    final target = current + Duration(seconds: seconds);
+    final current  = widget.controller.value.position;
     final duration = widget.controller.value.duration;
-
-    Duration finalPos = target;
-    if (finalPos < Duration.zero) finalPos = Duration.zero;
-    if (finalPos > duration) finalPos = duration;
-
-    await widget.controller.seekTo(finalPos);
+    Duration target = current + Duration(seconds: seconds);
+    if (target < Duration.zero) target = Duration.zero;
+    if (target > duration) target = duration;
+    await widget.controller.seekTo(target);
     _showNotice(seconds > 0 ? '+$seconds Sec' : '$seconds Sec');
   }
 
   void _showNotice(String text) {
     _gestureNoticeTimer?.cancel();
-    setState(() {
-      _gestureNotice = text;
-    });
+    setState(() => _gestureNotice = text);
     _gestureNoticeTimer = Timer(const Duration(milliseconds: 900), () {
-      if (mounted) {
-        setState(() {
-          _gestureNotice = null;
-        });
-      }
+      if (mounted) setState(() => _gestureNotice = null);
     });
   }
 
   void _togglePlayPause() {
-    final value = widget.controller.value;
+    final value  = widget.controller.value;
     final isEnded = value.position >= value.duration;
-
     if (isEnded) {
       widget.controller.seekTo(Duration.zero);
       widget.controller.play();
@@ -451,100 +740,46 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
     _startHideTimer();
   }
 
-  void _openSpeedSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.cardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Playback Speed',
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.lightText,
-                  ),
-                ),
-              ),
-              const Divider(height: 1, color: Colors.white12),
-              ..._speeds.map((speed) {
-                final isSelected = _currentSpeed == speed;
-                return ListTile(
-                  title: Text(
-                    speed == 1.0 ? 'Normal (1.0x)' : '${speed}x',
-                    style: GoogleFonts.outfit(
-                      color: isSelected ? AppTheme.neonCyan : AppTheme.lightText,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  trailing: isSelected ? const Icon(Icons.check, color: AppTheme.neonCyan) : null,
-                  onTap: () {
-                    setState(() {
-                      _currentSpeed = speed;
-                    });
-                    widget.controller.setPlaybackSpeed(speed);
-                    Navigator.pop(context);
-                  },
-                );
-              }),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _handleFullScreenToggle() {
     if (widget.isFullScreen) {
-      // Bottom-right icon: just exit fullscreen, stay on video player
       widget.onExitFullScreen?.call();
     } else {
       widget.onEnterFullScreen?.call();
     }
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    if (duration.inHours > 0) {
-      return '${twoDigits(duration.inHours)}:$minutes:$seconds';
-    }
-    return '$minutes:$seconds';
+  String _formatDuration(Duration d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final m = two(d.inMinutes.remainder(60));
+    final s = two(d.inSeconds.remainder(60));
+    return d.inHours > 0 ? '${two(d.inHours)}:$m:$s' : '$m:$s';
   }
 
   @override
   Widget build(BuildContext context) {
-    final value = widget.controller.value;
-    final isEnded = value.isInitialized && value.position >= value.duration && value.duration > Duration.zero;
+    final value   = widget.controller.value;
+    final isEnded = value.isInitialized &&
+        value.position >= value.duration &&
+        value.duration > Duration.zero;
 
-    // In fullscreen mode: fill entire screen. In normal mode: AspectRatio box.
     final playerContent = GestureDetector(
       onTap: _toggleControls,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. Video fills the container
+          // 1. Video frame
           Positioned.fill(
             child: FittedBox(
               fit: BoxFit.contain,
               child: SizedBox(
-                width: value.isInitialized ? value.size.width : 1920,
+                width:  value.isInitialized ? value.size.width  : 1920,
                 height: value.isInitialized ? value.size.height : 1080,
                 child: VideoPlayer(widget.controller),
               ),
             ),
           ),
 
-          // 2. Double-tap gesture zones (Left = -10s, Right = +10s)
+          // 2. Double-tap seek zones
           Positioned.fill(
             child: Row(
               children: [
@@ -566,10 +801,10 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
             ),
           ),
 
-          // 3. Gesture notice overlay
+          // 3. Seek notice
           if (_gestureNotice != null)
             AnimatedOpacity(
-              opacity: _gestureNotice != null ? 1.0 : 0.0,
+              opacity: 1.0,
               duration: const Duration(milliseconds: 200),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -581,7 +816,9 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _gestureNotice!.contains('+') ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                      _gestureNotice!.contains('+')
+                          ? Icons.fast_forward_rounded
+                          : Icons.fast_rewind_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -610,19 +847,18 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Top Bar
+                    // ── Top Bar ────────────────────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       child: Row(
                         children: [
-                          // Back/exit button in fullscreen
                           if (widget.isFullScreen)
                             GestureDetector(
-                              // ← Back arrow: go all the way back to Video Learning Hub
                               onTap: () => widget.onBackToHub?.call(),
-                              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                              child: const Icon(Icons.arrow_back_ios_new_rounded,
+                                  color: Colors.white, size: 20),
                             ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               widget.title,
@@ -635,30 +871,43 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          // Speed Selector Badge
+                          // Quality + Speed badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white24, width: 0.5),
+                            ),
+                            child: Text(
+                              '${widget.currentQuality}  •  '
+                              '${widget.currentSpeed == 1.0 ? '1×' : '${widget.currentSpeed}×'}',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // ⚙ Settings gear (opens Quality + Speed sheet)
                           GestureDetector(
-                            onTap: _openSpeedSelector,
+                            onTap: widget.onOpenSettings,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: Colors.white24,
-                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white.withValues(alpha: 0.18),
+                                shape: BoxShape.circle,
                               ),
-                              child: Text(
-                                _currentSpeed == 1.0 ? '1.0x' : '${_currentSpeed}x',
-                                style: GoogleFonts.outfit(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              child: const Icon(Icons.settings_rounded,
+                                  color: Colors.white, size: 18),
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    // Center Playback Buttons
+                    // ── Center Playback Buttons ────────────────────────────
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -693,9 +942,9 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
                       ],
                     ),
 
-                    // Bottom Bar (Progress + Timestamps + Fullscreen Toggle)
+                    // ── Bottom Bar (Progress + Timestamps + Fullscreen) ────
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -703,8 +952,8 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
                             widget.controller,
                             allowScrubbing: true,
                             colors: const VideoProgressColors(
-                              playedColor: AppTheme.primaryPurple,
-                              bufferedColor: Colors.white30,
+                              playedColor:     AppTheme.primaryPurple,
+                              bufferedColor:   Colors.white30,
                               backgroundColor: Colors.white12,
                             ),
                           ),
@@ -714,12 +963,17 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
                             children: [
                               Text(
                                 '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: widget.isFullScreen ? 13 : 11),
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: widget.isFullScreen ? 13 : 11,
+                                ),
                               ),
                               GestureDetector(
                                 onTap: _handleFullScreenToggle,
                                 child: Icon(
-                                  widget.isFullScreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                                  widget.isFullScreen
+                                      ? Icons.fullscreen_exit_rounded
+                                      : Icons.fullscreen_rounded,
                                   color: Colors.white,
                                   size: widget.isFullScreen ? 28 : 24,
                                 ),
@@ -737,15 +991,9 @@ class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
       ),
     );
 
-    // Fullscreen: fill entire scaffold body, no aspect ratio constraint
     if (widget.isFullScreen) {
-      return Container(
-        color: Colors.black,
-        child: playerContent,
-      );
+      return Container(color: Colors.black, child: playerContent);
     }
-
-    // Normal mode: constrain to 16:9 aspect ratio
     return AspectRatio(
       aspectRatio: value.isInitialized && value.aspectRatio > 0 ? value.aspectRatio : 16 / 9,
       child: playerContent,
