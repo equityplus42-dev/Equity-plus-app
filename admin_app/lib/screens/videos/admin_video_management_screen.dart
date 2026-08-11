@@ -350,6 +350,13 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                   return;
                 }
 
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please select a video file from device or enter a valid URL starting with http:// or https://')),
+                  );
+                  return;
+                }
+
                 final videoProvider = Provider.of<AdminVideosProvider>(context, listen: false);
                 final success = await videoProvider.createVideo(
                   title: title,
