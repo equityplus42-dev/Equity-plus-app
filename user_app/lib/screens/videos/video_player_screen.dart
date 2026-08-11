@@ -56,19 +56,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       // 3. Initialize Controller
       String finalUrl = widget.video.videoUrl.trim();
       if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
-        finalUrl = 'https://www.w3schools.com/html/mov_bbb.mp4';
+        throw Exception('Invalid or missing video URL: "$finalUrl"');
       }
       Uri uri = Uri.parse(finalUrl);
       _controller = VideoPlayerController.networkUrl(uri);
-
-      try {
-        await _controller.initialize();
-      } catch (err) {
-        debugPrint('Primary video stream failed ($err). Trying fallback stream...');
-        final fallbackUri = Uri.parse('https://www.w3schools.com/html/mov_bbb.mp4');
-        _controller = VideoPlayerController.networkUrl(fallbackUri);
-        await _controller.initialize();
-      }
+      await _controller.initialize();
 
       _controller.addListener(_videoListener);
 
