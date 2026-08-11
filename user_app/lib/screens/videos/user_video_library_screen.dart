@@ -131,22 +131,20 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
                                 ),
                               ],
                             ),
-                            if (snapshot != null && progress != null) ...[
-                              const SizedBox(height: 16),
-                              const Divider(color: Colors.white10),
-                              const SizedBox(height: 12),
+                            const SizedBox(height: 16),
+                            const Divider(color: Colors.white10),
+                            const SizedBox(height: 12),
 
-                              // Progress Metrics Row
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _buildStatItem('Progress', '${progress.percentage.toStringAsFixed(1)}%', AppTheme.neonCyan),
-                                  _buildStatItem('Remaining', '${progress.remainingPercentage.toStringAsFixed(1)}%', AppTheme.primaryPink),
-                                  _buildStatItem('Unlocked', '${videoProvider.unlockedVideos.length} / ${videoProvider.allVideos.length}', AppTheme.neonGreen),
-                                  _buildStatItem('To 25% Limit', progress.remainingSecsLabel, Colors.amberAccent),
-                                ],
-                              ),
-                            ],
+                            // Progress Metrics Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildStatItem('Progress', '${(progress?.percentage ?? 0.0).toStringAsFixed(1)}%', AppTheme.neonCyan),
+                                _buildStatItem('Remaining', '${(progress?.remainingPercentage ?? 100.0).toStringAsFixed(1)}%', AppTheme.primaryPink),
+                                _buildStatItem('Unlocked', '${videoProvider.unlockedVideos.length} / ${videoProvider.allVideos.length}', AppTheme.neonGreen),
+                                _buildStatItem('To 25% Limit', progress?.remainingSecsLabel ?? '0s', Colors.amberAccent),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -154,77 +152,75 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
                       const SizedBox(height: 20),
 
                       // Refund Status Banner
-                      if (snapshot != null && progress != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: snapshot.refundEligible
-                                ? AppTheme.neonGreen.withOpacity(0.08)
-                                : Colors.redAccent.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: snapshot.refundEligible
-                                  ? AppTheme.neonGreen.withOpacity(0.3)
-                                  : Colors.redAccent.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        snapshot.refundEligible ? Icons.verified_user_outlined : Icons.report_problem_outlined,
-                                        color: snapshot.refundEligible ? AppTheme.neonGreen : Colors.redAccent,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'REFUND ELIGIBILITY STATUS',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: snapshot.refundEligible ? AppTheme.neonGreen : Colors.redAccent,
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: snapshot.refundEligible ? AppTheme.neonGreen : Colors.redAccent,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      snapshot.refundEligible ? 'ELIGIBLE' : 'NOT ELIGIBLE',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                snapshot.refundEligible
-                                    ? 'You are eligible for a refund. Watching 25% or more of your snapshot content (${progress.percentage.toStringAsFixed(1)}% watched) or completing 30 days will void eligibility.'
-                                    : 'Refund eligibility is permanently void (25%+ duration progress reached or 30 days completed).',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 12,
-                                  color: AppTheme.lightText,
-                                ),
-                              ),
-                            ],
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: (snapshot?.refundEligible ?? true)
+                              ? AppTheme.neonGreen.withOpacity(0.08)
+                              : Colors.redAccent.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: (snapshot?.refundEligible ?? true)
+                                ? AppTheme.neonGreen.withOpacity(0.3)
+                                : Colors.redAccent.withOpacity(0.3),
                           ),
                         ),
-                        const SizedBox(height: 24),
-                      ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      (snapshot?.refundEligible ?? true) ? Icons.verified_user_outlined : Icons.report_problem_outlined,
+                                      color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'REFUND ELIGIBILITY STATUS',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    (snapshot?.refundEligible ?? true) ? 'ELIGIBLE' : 'NOT ELIGIBLE',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              (snapshot?.refundEligible ?? true)
+                                  ? 'You are eligible for a refund. Watching 25% or more of your snapshot content (${(progress?.percentage ?? 0.0).toStringAsFixed(1)}% watched) or completing 30 days will void eligibility.'
+                                  : 'Refund eligibility is permanently void (25%+ duration progress reached or 30 days completed).',
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: AppTheme.lightText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
                       // Unlocked Videos Section
                       Text(

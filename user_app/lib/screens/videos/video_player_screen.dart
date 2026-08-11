@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../../providers/user_video_provider.dart';
 import '../../core/constants/api_constants.dart';
@@ -530,40 +531,206 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildInfoPanel() {
+    final videoProvider = Provider.of<UserVideoProvider>(context);
+    final snapshot = videoProvider.snapshot;
+    final progress = videoProvider.progress;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
       color: AppTheme.cardBg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.video.title,
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.lightText,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              _badge(widget.video.languageName, AppTheme.neonCyan),
-              if (widget.video.isCompleted) ...[
-                const SizedBox(width: 8),
-                _badge('COMPLETED', AppTheme.neonGreen),
-              ],
-            ],
-          ),
-          if (widget.video.description != null && widget.video.description!.isNotEmpty) ...[
-            const SizedBox(height: 12),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Video Title & Badges
             Text(
-              widget.video.description!,
-              style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.softGrey),
+              widget.video.title,
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.lightText,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                _badge(widget.video.languageName, AppTheme.neonCyan),
+                if (widget.video.isCompleted) ...[
+                  const SizedBox(width: 8),
+                  _badge('COMPLETED', AppTheme.neonGreen),
+                ],
+              ],
+            ),
+            if (widget.video.description != null && widget.video.description!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                widget.video.description!,
+                style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.softGrey),
+              ),
+            ],
+            const SizedBox(height: 16),
+            const Divider(color: Colors.white10),
+            const SizedBox(height: 12),
+
+            // 1. Assigned Language & Snapshot Card with Stats
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: AppTheme.glassCardDecoration(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryPurple.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.language, color: AppTheme.primaryPurple, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ASSIGNED LANGUAGE & SNAPSHOT',
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.softGrey,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              videoProvider.assignedLanguageName ?? widget.video.languageName,
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.lightText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(color: Colors.white10),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildStatItem('Progress', '${(progress?.percentage ?? 0.0).toStringAsFixed(1)}%', AppTheme.neonCyan),
+                      _buildStatItem('Remaining', '${(progress?.remainingPercentage ?? 100.0).toStringAsFixed(1)}%', AppTheme.primaryPink),
+                      _buildStatItem('Unlocked', '${videoProvider.unlockedVideos.length} / ${videoProvider.allVideos.length}', AppTheme.neonGreen),
+                      _buildStatItem('To 25% Limit', progress?.remainingSecsLabel ?? '0s', Colors.amberAccent),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 2. Refund Eligibility Status Banner
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: (snapshot?.refundEligible ?? true)
+                    ? AppTheme.neonGreen.withValues(alpha: 0.08)
+                    : Colors.redAccent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: (snapshot?.refundEligible ?? true)
+                      ? AppTheme.neonGreen.withValues(alpha: 0.3)
+                      : Colors.redAccent.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            (snapshot?.refundEligible ?? true) ? Icons.verified_user_outlined : Icons.report_problem_outlined,
+                            color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'REFUND ELIGIBILITY STATUS',
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          (snapshot?.refundEligible ?? true) ? 'ELIGIBLE' : 'NOT ELIGIBLE',
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    (snapshot?.refundEligible ?? true)
+                        ? 'You are eligible for a refund. Watching 25% or more of your snapshot content (${(progress?.percentage ?? 0.0).toStringAsFixed(1)}% watched) or completing 30 days will void eligibility.'
+                        : 'Refund eligibility is permanently void (25%+ duration progress reached or 30 days completed).',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: AppTheme.lightText,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 10,
+            color: AppTheme.softGrey,
+          ),
+        ),
+      ],
     );
   }
 
