@@ -176,12 +176,12 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
 
     final titleController = TextEditingController();
     final descController = TextEditingController();
-    final urlController = TextEditingController();
     final thumbController = TextEditingController();
     String dialogLanguageId = _selectedLanguageId ?? langProvider.languages.first.id;
 
     bool isUploadingFile = false;
     String? selectedFileName;
+    String? uploadedCloudinaryUrl;
     int uploadedVideoDuration = 0;
 
     showDialog(
@@ -220,26 +220,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                   },
                 ),
                 const SizedBox(height: 14),
-                TextField(
-                  controller: titleController,
-                  style: GoogleFonts.outfit(color: AppTheme.lightText),
-                  decoration: const InputDecoration(
-                    labelText: 'Video Title',
-                    prefixIcon: Icon(Icons.title, color: AppTheme.primaryPink),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: descController,
-                  maxLines: 2,
-                  style: GoogleFonts.outfit(color: AppTheme.lightText),
-                  decoration: const InputDecoration(
-                    labelText: 'Description (Optional)',
-                    prefixIcon: Icon(Icons.description, color: AppTheme.softGrey),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                // Device File Picker Button
+                // Device File Picker Dropzone Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -276,12 +257,16 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                   final uploadedUrl = data['data']?['url'] ?? data['url'];
                                   final int dur = (data['data']?['duration'] ?? data['duration'] ?? 0) as int;
                                   if (uploadedUrl != null) {
-                                    urlController.text = uploadedUrl;
-                                    uploadedVideoDuration = dur;
-                                    if (titleController.text.trim().isEmpty) {
-                                      titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
-                                    }
+                                    setDialogState(() {
+                                      uploadedCloudinaryUrl = uploadedUrl;
+                                      uploadedVideoDuration = dur;
+                                      if (titleController.text.trim().isEmpty) {
+                                        titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                      }
+                                    });
                                   }
+                                } else {
+                                  debugPrint('Upload failed: ${response.statusCode} - ${response.body}');
                                 }
                               } catch (e) {
                                 debugPrint('Error uploading video file: $e');
@@ -298,27 +283,63 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.neonGreen),
                           )
-                        : const Icon(Icons.video_collection_outlined, color: AppTheme.neonGreen),
+                        : Icon(
+                            uploadedCloudinaryUrl != null ? Icons.check_circle : Icons.cloud_upload_outlined,
+                            color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.neonCyan,
+                          ),
                     label: Text(
                       isUploadingFile
-                          ? 'Uploading video from device...'
-                          : (selectedFileName != null ? 'Selected: $selectedFileName' : 'Select Video from Device'),
-                      style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold, fontSize: 13),
+                          ? 'Uploading video file to Cloudinary...'
+                          : (uploadedCloudinaryUrl != null
+                              ? '✓ File Uploaded (${uploadedVideoDuration}s)'
+                              : (selectedFileName != null ? 'Selected: $selectedFileName' : 'Select / Drag Video File')),
+                      style: GoogleFonts.outfit(
+                        color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.lightText,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.cardBg,
-                      side: const BorderSide(color: AppTheme.neonGreen),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      side: BorderSide(
+                        color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.primaryPurple,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     ),
+                  ),
+                ),
+                if (uploadedCloudinaryUrl != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.verified, size: 14, color: AppTheme.neonGreen),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Cloudinary Dedicated Account (qv1eskbe) ready',
+                          style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonGreen, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 14),
+                TextField(
+                  controller: titleController,
+                  style: GoogleFonts.outfit(color: AppTheme.lightText),
+                  decoration: const InputDecoration(
+                    labelText: 'Video Title',
+                    prefixIcon: Icon(Icons.title, color: AppTheme.primaryPink),
                   ),
                 ),
                 const SizedBox(height: 14),
                 TextField(
-                  controller: urlController,
+                  controller: descController,
+                  maxLines: 2,
                   style: GoogleFonts.outfit(color: AppTheme.lightText),
                   decoration: const InputDecoration(
-                    labelText: 'Video URL (Auto-filled or manual)',
-                    prefixIcon: Icon(Icons.video_library, color: AppTheme.neonCyan),
+                    labelText: 'Description (Optional)',
+                    prefixIcon: Icon(Icons.description, color: AppTheme.softGrey),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -341,18 +362,17 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
             ElevatedButton(
               onPressed: () async {
                 final title = titleController.text.trim();
-                final url = urlController.text.trim();
 
-                if (title.isEmpty || url.isEmpty) {
+                if (uploadedCloudinaryUrl == null || uploadedCloudinaryUrl!.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Title and Video URL are required')),
+                    const SnackBar(content: Text('Please select and upload a video file from your device first.')),
                   );
                   return;
                 }
 
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                if (title.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please select a video file from device or enter a valid URL starting with http:// or https://')),
+                    const SnackBar(content: Text('Please enter a video title')),
                   );
                   return;
                 }
@@ -361,7 +381,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                 final success = await videoProvider.createVideo(
                   title: title,
                   description: descController.text.trim(),
-                  videoUrl: url,
+                  videoUrl: uploadedCloudinaryUrl!,
                   thumbnailUrl: thumbController.text.trim(),
                   languageId: dialogLanguageId,
                   duration: uploadedVideoDuration > 0 ? uploadedVideoDuration : null,
