@@ -66,9 +66,9 @@ class SnapshotModel {
 
   factory SnapshotModel.fromJson(Map<String, dynamic> json) {
     return SnapshotModel(
-      takenAt: json['takenAt'],
-      videoCount: json['videoCount'] ?? 0,
-      totalDurationSeconds: json['totalDurationSeconds'] ?? 0,
+      takenAt: json['takenAt'] ?? json['snapshotTakenAt'],
+      videoCount: (json['videoCount'] ?? json['snapshotVideoCount'] as num?)?.toInt() ?? 0,
+      totalDurationSeconds: (json['totalDurationSeconds'] ?? json['snapshotTotalDurationSeconds'] as num?)?.toInt() ?? 0,
       refundEligible: json['refundEligible'] ?? true,
       refundLostAt: json['refundLostAt'],
       newVideosUnlocked: json['newVideosUnlocked'] ?? false,
@@ -174,11 +174,13 @@ class UserVideoProvider extends ChangeNotifier {
         _assignedProductName = null;
       }
 
-      if (data['snapshot'] != null) {
-        _snapshot = SnapshotModel.fromJson(data['snapshot']);
+      final snapshotData = data['userSnapshot'] ?? data['snapshot'];
+      if (snapshotData != null) {
+        _snapshot = SnapshotModel.fromJson(snapshotData);
       }
-      if (data['progress'] != null) {
-        _progress = SnapshotProgressModel.fromJson(data['progress']);
+      final progressData = data['userSnapshot'] ?? data['progress'];
+      if (progressData != null) {
+        _progress = SnapshotProgressModel.fromJson(progressData);
       }
 
       final List rawUnlocked = data['unlockedVideos'] ?? [];

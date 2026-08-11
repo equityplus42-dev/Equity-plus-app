@@ -393,26 +393,30 @@ class VideoService {
     const threshold25Secs = Math.ceil(effectiveTotalDurationSecs * 0.25);
     const remainingSecsTo25Percent = Math.max(0, threshold25Secs - totalWatchedSecs);
 
+    const userSnapshotData = {
+      snapshotId: evaluatedSnapshot.id,
+      snapshotTakenAt: evaluatedSnapshot.snapshotTakenAt,
+      snapshotVideoCount: evaluatedSnapshot.snapshotVideoCount,
+      snapshotTotalDurationSeconds: effectiveTotalDurationSecs,
+      refundThresholdPercentage: evaluatedSnapshot.refundThresholdPercentage,
+      refundEligible: evaluatedSnapshot.refundEligible,
+      newVideosUnlocked: evaluatedSnapshot.newVideosUnlocked,
+      percentage: overallProgress,
+      remainingPercentage: Math.max(0, Math.round((100 - overallProgress) * 100) / 100),
+      daysJoined,
+      remainingDays: Math.max(0, 30 - daysJoined),
+      remainingSecsTo25Percent,
+    };
+
     return {
       assignedLanguage: evaluatedSnapshot.language,
       assignedProduct: user.profile?.assignedProduct || null,
       isDisclaimerAccepted: !disclaimerNeedsReacceptance && !!evaluatedSnapshot.acceptedDisclaimerAt,
       disclaimerNeedsReacceptance,
       currentDisclaimerVersion: systemDisclaimerVer,
-      userSnapshot: {
-        snapshotId: evaluatedSnapshot.id,
-        snapshotTakenAt: evaluatedSnapshot.snapshotTakenAt,
-        snapshotVideoCount: evaluatedSnapshot.snapshotVideoCount,
-        snapshotTotalDurationSeconds: effectiveTotalDurationSecs,
-        refundThresholdPercentage: evaluatedSnapshot.refundThresholdPercentage,
-        refundEligible: evaluatedSnapshot.refundEligible,
-        newVideosUnlocked: evaluatedSnapshot.newVideosUnlocked,
-        percentage: overallProgress,
-        remainingPercentage: Math.max(0, Math.round((100 - overallProgress) * 100) / 100),
-        daysJoined,
-        remainingDays: Math.max(0, 30 - daysJoined),
-        remainingSecsTo25Percent,
-      },
+      userSnapshot: userSnapshotData,
+      snapshot: userSnapshotData,
+      progress: userSnapshotData,
       unlockedVideos,
       lockedVideos,
       videos: unlockedVideos,
