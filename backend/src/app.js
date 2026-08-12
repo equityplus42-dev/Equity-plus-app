@@ -37,10 +37,10 @@ app.use(compression());
 // 3. CORS (Cross-origin access control)
 app.use(cors());
 
-// Body parsing middlewares
+// Body parsing middlewares (100mb limit — matches Cloudinary account plan max file size)
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // 4. Pino structured request logging
 app.use(loggerMiddleware);

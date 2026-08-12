@@ -41,7 +41,7 @@ const mediaUpload = multer({
   storage: storage,
   fileFilter: mediaFilter,
   limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB limit for course videos
+    fileSize: 100 * 1024 * 1024, // 100MB limit — matches Cloudinary account plan max file size
   },
 });
 

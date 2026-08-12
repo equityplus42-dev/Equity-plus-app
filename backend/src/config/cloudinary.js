@@ -31,17 +31,50 @@ if (videoConfig.cloud_name && videoConfig.api_key && videoConfig.api_secret) {
 // ── Helper: Upload using a specific config (bypasses singleton limitation) ──────
 function uploadWithConfig(config, buffer, options) {
   const { Readable } = require('stream');
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
+
   return new Promise((resolve, reject) => {
     // Clone a temporary config and use it for this specific upload
     cloudinaryV2.config(config);
-    const stream = cloudinaryV2.uploader.upload_stream(options, (error, result) => {
-      if (error) return reject(error);
-      resolve(result);
-    });
-    const readable = new Readable();
-    readable.push(buffer);
-    readable.push(null);
-    readable.pipe(stream);
+
+    if (options.resource_type === 'video') {
+      // For video files, use Cloudinary's upload_large API with 20MB chunking.
+      // This prevents Cloudinary's API from rejecting large single-payload HTTP requests with status 413.
+      const tempDir = fs.existsSync(path.join(__dirname, '../uploads/temp'))
+        ? path.join(__dirname, '../uploads/temp')
+        : os.tmpdir();
+
+      const tempFilePath = path.join(tempDir, `video_upload_${Date.now()}_${Math.random().toString(36).substring(7)}.tmp`);
+
+      fs.writeFile(tempFilePath, buffer, (err) => {
+        if (err) return reject(err);
+
+        const uploadOptions = {
+          chunk_size: 20 * 1024 * 1024, // 20MB chunks
+          ...options,
+        };
+
+        cloudinaryV2.uploader.upload_large(tempFilePath, uploadOptions, (error, result) => {
+          // Always clean up the temp file
+          fs.unlink(tempFilePath, () => {});
+
+          if (error) return reject(error);
+          resolve(result);
+        });
+      });
+    } else {
+      // For images, standard single-stream upload is fast and lightweight
+      const stream = cloudinaryV2.uploader.upload_stream(options, (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      });
+      const readable = new Readable();
+      readable.push(buffer);
+      readable.push(null);
+      readable.pipe(stream);
+    }
   });
 }
 
