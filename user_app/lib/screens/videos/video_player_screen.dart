@@ -238,7 +238,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.dispose();
   }
 
-  // ── YouTube-style Settings Sheet (Quality + Speed) ─────────────────────────
+  // ── Cloudinary Settings Sheet (Quality + Speed) ─────────────────────────────
   void _openSettingsSheet() {
     showModalBottomSheet(
       context: context,
@@ -493,7 +493,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ? _buildErrorWidget()
                     : !_isInitialized
                         ? const CircularProgressIndicator(color: AppTheme.primaryPurple)
-                        : YouTubeStyleVideoPlayer(
+                        : CloudinaryVideoPlayer(
                             controller: _controller,
                             title: widget.video.title,
                             currentQuality: _currentQuality,
@@ -791,7 +791,7 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: YouTubeStyleVideoPlayer(
+      body: CloudinaryVideoPlayer(
         controller: widget.controller,
         title: widget.title,
         isFullScreen: true,
@@ -806,9 +806,9 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// YouTube-Style Video Player Widget
+// ── Cloudinary Video Player Widget ──
 // ─────────────────────────────────────────────────────────────────────────────
-class YouTubeStyleVideoPlayer extends StatefulWidget {
+class CloudinaryVideoPlayer extends StatefulWidget {
   final VideoPlayerController controller;
   final String title;
   final bool isFullScreen;
@@ -819,7 +819,7 @@ class YouTubeStyleVideoPlayer extends StatefulWidget {
   final VoidCallback? onExitFullScreen;
   final VoidCallback? onBackToHub;
 
-  const YouTubeStyleVideoPlayer({
+  const CloudinaryVideoPlayer({
     super.key,
     required this.controller,
     required this.title,
@@ -833,10 +833,10 @@ class YouTubeStyleVideoPlayer extends StatefulWidget {
   });
 
   @override
-  State<YouTubeStyleVideoPlayer> createState() => _YouTubeStyleVideoPlayerState();
+  State<CloudinaryVideoPlayer> createState() => _CloudinaryVideoPlayerState();
 }
 
-class _YouTubeStyleVideoPlayerState extends State<YouTubeStyleVideoPlayer> {
+class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
   bool _showControls = true;
   Timer? _hideTimer;
   String? _gestureNotice;
