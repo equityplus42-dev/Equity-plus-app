@@ -21,46 +21,50 @@ const List<double> kVideoSpeeds   = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 /// - 'Auto' on web     → q_auto,f_auto optimised MP4 (Chrome has no native HLS)
 /// - '720p' etc.       → resolution-capped q_auto MP4
 String buildQualityUrl(String originalUrl, String quality) {
-  if (!originalUrl.contains('res.cloudinary.com')) return originalUrl;
+  if (originalUrl.isEmpty) return originalUrl;
 
-  final uri = Uri.parse(originalUrl);
-  final pathParts = uri.path.split('/');
-
-  // Find '/upload/' index in the path
-  final uploadIdx = pathParts.indexOf('upload');
-  if (uploadIdx == -1) return originalUrl;
-
-  // Parts before and after /upload/
-  final before = pathParts.sublist(0, uploadIdx + 1).join('/');
-  var after  = pathParts.sublist(uploadIdx + 1);
-
-  // Strip optional version segment (e.g. 'v1720000000')
-  if (after.isNotEmpty &&
-      after[0].startsWith('v') &&
-      int.tryParse(after[0].substring(1)) != null) {
-    after = after.sublist(1);
+  // Cloudflare Stream adaptive HLS URLs
+  if (originalUrl.contains('cloudflarestream.com')) {
+    return originalUrl;
   }
 
-  final publicId = after.join('/');            // e.g. 'videos/myvideo.mp4'
-  final base     = '${uri.scheme}://${uri.host}$before';
-
-  switch (quality) {
-    case 'Auto':
-      if (kIsWeb) {
-        // Web (Chrome) – no native HLS, use Cloudinary auto-optimised MP4
-        return '$base/q_auto,f_auto/$publicId';
-      } else {
-        // Native – serve HLS adaptive bitrate
-        final hlsId = publicId.replaceAll(RegExp(r'\.[^.]+$'), '.m3u8');
-        return '$base/sp_hd/$hlsId';
-      }
-    case '1080p': return '$base/w_1920,h_1080,c_limit,q_auto/$publicId';
-    case '720p':  return '$base/w_1280,h_720,c_limit,q_auto/$publicId';
-    case '480p':  return '$base/w_854,h_480,c_limit,q_auto/$publicId';
-    case '360p':  return '$base/w_640,h_360,c_limit,q_auto/$publicId';
-    case '240p':  return '$base/w_426,h_240,c_limit,q_auto/$publicId';
-    default:      return originalUrl;
+  // Cloudflare R2 Storage direct video URLs
+  if (originalUrl.contains('.r2.cloudflarestorage.com') || originalUrl.contains('.r2.dev')) {
+    return originalUrl;
   }
+
+  // Cloudinary URL transformation
+  if (originalUrl.contains('res.cloudinary.com')) {
+    final uri = Uri.parse(originalUrl);
+    final pathParts = uri.path.split('/');
+
+    final uploadIdx = pathParts.indexOf('upload');
+    if (uploadIdx == -1) return originalUrl;
+
+    final before = pathParts.sublist(0, uploadIdx + 1).join('/');
+    var after  = pathParts.sublist(uploadIdx + 1);
+
+    if (after.isNotEmpty &&
+        after[0].startsWith('v') &&
+        int.tryParse(after[0].substring(1)) != null) {
+      after = after.sublist(1);
+    }
+
+    final publicId = after.join('/');
+    final base     = '${uri.scheme}://${uri.host}$before';
+
+    switch (quality) {
+      case 'Auto':  return '$base/q_auto,f_auto/$publicId';
+      case '1080p': return '$base/w_1920,h_1080,c_limit,q_auto/$publicId';
+      case '720p':  return '$base/w_1280,h_720,c_limit,q_auto/$publicId';
+      case '480p':  return '$base/w_854,h_480,c_limit,q_auto/$publicId';
+      case '360p':  return '$base/w_640,h_360,c_limit,q_auto/$publicId';
+      case '240p':  return '$base/w_426,h_240,c_limit,q_auto/$publicId';
+      default:      return originalUrl;
+    }
+  }
+
+  return originalUrl;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,8 +140,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       throw Exception('Invalid or missing video URL: "$url"');
     }
-    _controller = VideoPlayerController.networkUrl(Uri.parse(url));
-    await _controller.initialize();
+
+    try {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      await _controller.initialize();
+    } catch (e) {
+      if (url != widget.video.videoUrl && widget.video.videoUrl.isNotEmpty) {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(widget.video.videoUrl));
+        await _controller.initialize();
+      } else {
+        rethrow;
+      }
+    }
+
     _controller.addListener(_videoListener);
     await _controller.setPlaybackSpeed(_currentSpeed);
 
@@ -389,7 +404,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            _currentSpeed == 1.0 ? 'Normal' : '${_currentSpeed}×',
+                            _currentSpeed == 1.0 ? 'Normal' : '$_currentSpeed×',
                             style: GoogleFonts.outfit(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -429,7 +444,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             : null,
                       ),
                       title: Text(
-                        speed == 1.0 ? 'Normal (1.0×)' : '${speed}×',
+                        speed == 1.0 ? 'Normal (1.0×)' : '$speed×',
                         style: GoogleFonts.outfit(
                           color: selected ? AppTheme.primaryPurple : Colors.white,
                           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
@@ -487,23 +502,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            _hasError
+                ? SizedBox(height: 230, child: Center(child: _buildErrorWidget()))
+                : !_isInitialized
+                    ? const SizedBox(
+                        height: 230,
+                        child: Center(child: CircularProgressIndicator(color: AppTheme.primaryPurple)),
+                      )
+                    : CloudinaryVideoPlayer(
+                        controller: _controller,
+                        title: widget.video.title,
+                        currentQuality: _currentQuality,
+                        currentSpeed: _currentSpeed,
+                        onOpenSettings: _openSettingsSheet,
+                        onEnterFullScreen: _enterFullScreen,
+                      ),
             Expanded(
-              child: Center(
-                child: _hasError
-                    ? _buildErrorWidget()
-                    : !_isInitialized
-                        ? const CircularProgressIndicator(color: AppTheme.primaryPurple)
-                        : CloudinaryVideoPlayer(
-                            controller: _controller,
-                            title: widget.video.title,
-                            currentQuality: _currentQuality,
-                            currentSpeed: _currentSpeed,
-                            onOpenSettings: _openSettingsSheet,
-                            onEnterFullScreen: _enterFullScreen,
-                          ),
-              ),
+              child: _buildInfoPanel(),
             ),
-            _buildInfoPanel(),
           ],
         ),
       ),
@@ -530,221 +546,733 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
+  int _selectedTabIndex = 0;
+
   Widget _buildInfoPanel() {
     final videoProvider = Provider.of<UserVideoProvider>(context);
     final snapshot = videoProvider.snapshot;
     final progress = videoProvider.progress;
+    final isRefundEligible = snapshot?.refundEligible ?? true;
 
     return Container(
       width: double.infinity,
-      color: AppTheme.cardBg,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Video Title & Badges
-            Text(
-              widget.video.title,
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.lightText,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
+      color: const Color(0xFF0F0E17),
+      child: Column(
+        children: [
+          // ── Header: Title & Compact Status Badges ─────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _badge(widget.video.languageName, AppTheme.neonCyan),
-                if (widget.video.isCompleted) ...[
-                  const SizedBox(width: 8),
-                  _badge('COMPLETED', AppTheme.neonGreen),
-                ],
-              ],
-            ),
-            if (widget.video.description != null && widget.video.description!.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                widget.video.description!,
-                style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.softGrey),
-              ),
-            ],
-            const SizedBox(height: 16),
-            const Divider(color: Colors.white10),
-            const SizedBox(height: 12),
-
-            // 1. Assigned Language & Snapshot Card with Stats
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: AppTheme.glassCardDecoration(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryPurple.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.video.title,
+                        style: GoogleFonts.outfit(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.25,
                         ),
-                        child: const Icon(Icons.language, color: AppTheme.primaryPurple, size: 20),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _miniChip(widget.video.languageName, AppTheme.neonCyan, Icons.language_rounded),
+                    if (widget.video.isCompleted) ...[
+                      const SizedBox(width: 8),
+                      _miniChip('Completed', AppTheme.neonGreen, Icons.check_circle_rounded),
+                    ],
+                    const SizedBox(width: 8),
+                    // Sleek Refund Status Pill (Tapping opens Policy Sheet)
+                    GestureDetector(
+                      onTap: () => _showRefundPolicySheet(context, snapshot, progress),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (isRefundEligible ? AppTheme.neonGreen : Colors.redAccent).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: (isRefundEligible ? AppTheme.neonGreen : Colors.redAccent).withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            Icon(
+                              isRefundEligible ? Icons.verified_user_rounded : Icons.report_problem_rounded,
+                              color: isRefundEligible ? AppTheme.neonGreen : Colors.redAccent,
+                              size: 13,
+                            ),
+                            const SizedBox(width: 5),
                             Text(
-                              'ASSIGNED LANGUAGE & SNAPSHOT',
+                              isRefundEligible ? 'Refund Eligible' : 'Refund Void',
                               style: GoogleFonts.outfit(
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.softGrey,
-                                letterSpacing: 1.2,
+                                color: isRefundEligible ? AppTheme.neonGreen : Colors.redAccent,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              videoProvider.assignedLanguageName ?? widget.video.languageName,
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.lightText,
-                              ),
-                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.info_outline_rounded, color: Colors.white54, size: 12),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Divider(color: Colors.white10),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildStatItem('Progress', '${(progress?.percentage ?? 0.0).toStringAsFixed(1)}%', AppTheme.neonCyan),
-                      _buildStatItem('Remaining', '${(progress?.remainingPercentage ?? 100.0).toStringAsFixed(1)}%', AppTheme.primaryPink),
-                      _buildStatItem('Unlocked', '${videoProvider.unlockedVideos.length} / ${videoProvider.allVideos.length}', AppTheme.neonGreen),
-                      _buildStatItem('To 25% Limit', progress?.remainingSecsLabel ?? '0s', Colors.amberAccent),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Segmented Tab Selector ─────────────────────────────────────────
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white12, width: 0.8),
+            ),
+            child: Row(
+              children: [
+                _buildTabPill(0, 'Overview', Icons.description_outlined),
+                _buildTabPill(1, 'Progress', Icons.analytics_outlined),
+                _buildTabPill(2, 'Playlist (${videoProvider.allVideos.length})', Icons.playlist_play_rounded),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // ── Tab Content Container ──────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: _buildSelectedTabContent(videoProvider, snapshot, progress),
               ),
             ),
-            const SizedBox(height: 14),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // 2. Refund Eligibility Status Banner
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: (snapshot?.refundEligible ?? true)
-                    ? AppTheme.neonGreen.withValues(alpha: 0.08)
-                    : Colors.redAccent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: (snapshot?.refundEligible ?? true)
-                      ? AppTheme.neonGreen.withValues(alpha: 0.3)
-                      : Colors.redAccent.withValues(alpha: 0.3),
+  // ── Tab Bar Helper Pill ───────────────────────────────────────────────────
+  Widget _buildTabPill(int index, String label, IconData icon) {
+    final isSelected = _selectedTabIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTabIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryPurple : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryPurple.withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? Colors.white : Colors.white54,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? Colors.white : Colors.white70,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            (snapshot?.refundEligible ?? true) ? Icons.verified_user_outlined : Icons.report_problem_outlined,
-                            color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'REFUND ELIGIBILITY STATUS',
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: (snapshot?.refundEligible ?? true) ? AppTheme.neonGreen : Colors.redAccent,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Text(
-                          (snapshot?.refundEligible ?? true) ? 'ELIGIBLE' : 'NOT ELIGIBLE',
-                          style: GoogleFonts.outfit(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    (snapshot?.refundEligible ?? true)
-                        ? 'You are eligible for a refund. Watching 25% or more of your snapshot content (${(progress?.percentage ?? 0.0).toStringAsFixed(1)}% watched) or completing 30 days will void eligibility.'
-                        : 'Refund eligibility is permanently void (25%+ duration progress reached or 30 days completed).',
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      color: AppTheme.lightText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color color) {
+  // ── Tab Content Router ────────────────────────────────────────────────────
+  Widget _buildSelectedTabContent(UserVideoProvider videoProvider, dynamic snapshot, dynamic progress) {
+    switch (_selectedTabIndex) {
+      case 0:
+        return _buildOverviewTab(videoProvider);
+      case 1:
+        return _buildProgressTab(videoProvider, snapshot, progress);
+      case 2:
+        return _buildPlaylistTab(videoProvider);
+      default:
+        return _buildOverviewTab(videoProvider);
+    }
+  }
+
+  // ── Tab 0: Overview ───────────────────────────────────────────────────────
+  Widget _buildOverviewTab(UserVideoProvider videoProvider) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      key: const ValueKey(0),
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          value,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: color,
+        if (widget.video.description != null && widget.video.description!.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'About this Video',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.neonCyan,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.video.description!,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: Colors.white70,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontSize: 10,
-            color: AppTheme.softGrey,
+          const SizedBox(height: 14),
+        ],
+
+        // Metadata grid
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Column(
+            children: [
+              _buildMetaRow(
+                Icons.language_rounded,
+                'Assigned Language',
+                videoProvider.assignedLanguageName ?? widget.video.languageName,
+                AppTheme.neonCyan,
+              ),
+              const Divider(color: Colors.white10, height: 18),
+              _buildMetaRow(
+                Icons.folder_special_rounded,
+                'Snapshot Folder Videos',
+                '${videoProvider.allVideos.length} Videos Total',
+                AppTheme.primaryPurple,
+              ),
+              const Divider(color: Colors.white10, height: 18),
+              _buildMetaRow(
+                Icons.timer_outlined,
+                'Watched Duration',
+                '${widget.video.watchedSecs} sec watched',
+                AppTheme.neonGreen,
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _badge(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      text,
-      style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: color),
-    ),
-  );
+  // ── Tab 1: Progress & Refund ──────────────────────────────────────────────
+  Widget _buildProgressTab(UserVideoProvider videoProvider, dynamic snapshot, dynamic progress) {
+    final double percentage = progress?.percentage ?? 0.0;
+    final isRefundEligible = snapshot?.refundEligible ?? true;
+
+    return Column(
+      key: const ValueKey(1),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 25% Threshold Progress Bar Card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'WATCH PROGRESS',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.neonCyan,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  Text(
+                    '${percentage.toStringAsFixed(1)}%',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: percentage >= 25.0 ? Colors.amberAccent : AppTheme.neonCyan,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Visual Progress Bar with 25% threshold marker
+              Stack(
+                children: [
+                  Container(
+                    height: 10,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white12,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: (percentage / 100).clamp(0.0, 1.0),
+                    child: Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primaryPurple, AppTheme.neonCyan],
+                        ),
+                        borderRadius: BorderRadius.circular(5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.neonCyan.withValues(alpha: 0.5),
+                            blurRadius: 6,
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                  // 25% threshold indicator dot
+                  Positioned(
+                    left: MediaQuery.of(context).size.width * 0.25 - 20,
+                    top: 0, bottom: 0,
+                    child: Container(
+                      width: 2,
+                      color: Colors.amberAccent,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('0%', style: GoogleFonts.outfit(fontSize: 10, color: Colors.white38)),
+                  Text('25% Refund Limit', style: GoogleFonts.outfit(fontSize: 10, color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                  Text('100%', style: GoogleFonts.outfit(fontSize: 10, color: Colors.white38)),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // 4 Stat Grid
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 2.3,
+          children: [
+            _buildStatCard('Total Progress', '${percentage.toStringAsFixed(1)}%', AppTheme.neonCyan, Icons.pie_chart_rounded),
+            _buildStatCard('Remaining Allowed', '${(progress?.remainingPercentage ?? 100.0).toStringAsFixed(1)}%', AppTheme.primaryPink, Icons.timelapse_rounded),
+            _buildStatCard('Unlocked Videos', '${videoProvider.unlockedVideos.length} / ${videoProvider.allVideos.length}', AppTheme.neonGreen, Icons.lock_open_rounded),
+            _buildStatCard('Time to 25% Limit', progress?.remainingSecsLabel ?? '0s', Colors.amberAccent, Icons.hourglass_bottom_rounded),
+          ],
+        ),
+
+        const SizedBox(height: 14),
+
+        // Compact Refund Policy Banner
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: (isRefundEligible ? AppTheme.neonGreen : Colors.redAccent).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: (isRefundEligible ? AppTheme.neonGreen : Colors.redAccent).withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isRefundEligible ? Icons.shield_outlined : Icons.shield_moon_outlined,
+                color: isRefundEligible ? AppTheme.neonGreen : Colors.redAccent,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isRefundEligible ? 'Refund Guarantee Active' : 'Refund Policy Voided',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: isRefundEligible ? AppTheme.neonGreen : Colors.redAccent,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isRefundEligible
+                          ? 'Watching under 25% total duration keeps your 30-day money-back guarantee.'
+                          : 'You have watched 25%+ of content or 30 days completed.',
+                      style: GoogleFonts.outfit(fontSize: 11, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 14),
+                onPressed: () => _showRefundPolicySheet(context, snapshot, progress),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Tab 2: Playlist / Up Next ─────────────────────────────────────────────
+  Widget _buildPlaylistTab(UserVideoProvider videoProvider) {
+    final allVideos = videoProvider.allVideos;
+
+    if (allVideos.isEmpty) {
+      return Center(
+        key: const ValueKey(2),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No other videos available in this folder.',
+            style: GoogleFonts.outfit(color: Colors.white54, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      key: const ValueKey(2),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(
+            'FOLDER PLAYLIST',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.neonCyan,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: allVideos.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (ctx, idx) {
+            final v = allVideos[idx];
+            final isCurrent = v.id == widget.video.id;
+
+            return GestureDetector(
+              onTap: () {
+                if (!isCurrent) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => VideoPlayerScreen(video: v)),
+                  );
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isCurrent
+                      ? AppTheme.primaryPurple.withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isCurrent ? AppTheme.primaryPurple : Colors.white10,
+                    width: isCurrent ? 1.5 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: isCurrent
+                            ? AppTheme.primaryPurple
+                            : Colors.white.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isCurrent
+                            ? Icons.play_arrow_rounded
+                            : (v.isCompleted ? Icons.check_circle_rounded : Icons.play_circle_outline_rounded),
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            v.title,
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                              color: isCurrent ? AppTheme.neonCyan : Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isCurrent
+                                ? 'Now Playing'
+                                : '${v.duration > 0 ? '${(v.duration / 60).toStringAsFixed(1)} mins' : 'Video'} • ${v.languageName}',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              color: isCurrent ? AppTheme.neonCyan.withValues(alpha: 0.8) : Colors.white38,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (v.isCompleted)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.neonGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'DONE',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.neonGreen,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // ── UI Helpers ────────────────────────────────────────────────────────────
+  Widget _miniChip(String label, Color color, IconData icon) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 12),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildMetaRow(IconData icon, String label, String value, Color accentColor) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: accentColor, size: 16),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: GoogleFonts.outfit(fontSize: 10, color: Colors.white38)),
+              Text(value, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(String label, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  label,
+                  style: GoogleFonts.outfit(fontSize: 9, color: Colors.white54),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Bottom Sheet for Full Refund Policy Details ────────────────────────────
+  void _showRefundPolicySheet(BuildContext context, dynamic snapshot, dynamic progress) {
+    final isEligible = snapshot?.refundEligible ?? true;
+    final percentage = progress?.percentage ?? 0.0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF16152A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    isEligible ? Icons.verified_user_rounded : Icons.report_problem_rounded,
+                    color: isEligible ? AppTheme.neonGreen : Colors.redAccent,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Refund Policy Status',
+                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white10),
+              const SizedBox(height: 12),
+              Text(
+                isEligible
+                    ? '✓ You are currently ELIGIBLE for a full refund.'
+                    : '✕ Refund eligibility has been PERMANENTLY VOIDED.',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isEligible ? AppTheme.neonGreen : Colors.redAccent,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Refund Rules & Terms:\n'
+                '• If a user watches less than 25% of total uploaded folder duration within 30 days of joining, they are eligible for a 100% refund.\n'
+                '• Reaching 25.0% watch progress (Current: ${percentage.toStringAsFixed(1)}%) or completing 30 days permanently voids refund eligibility.',
+                style: GoogleFonts.outfit(fontSize: 13, color: Colors.white70, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryPurple,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Got It', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -770,14 +1298,46 @@ class _FullScreenVideoPage extends StatefulWidget {
 }
 
 class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
+  late bool _isLandscape;
+
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+
+    // Calculate aspect ratio: if aspectRatio < 1.0, video is vertical (portrait / 9:16).
+    final value = widget.controller.value;
+    final double aspectRatio = (value.isInitialized && value.aspectRatio > 0)
+        ? value.aspectRatio
+        : (value.isInitialized && value.size.height > 0
+            ? value.size.width / value.size.height
+            : 16 / 9);
+
+    final bool isVertical = aspectRatio < 1.0;
+    // Default initial orientation: vertical videos open in portrait, horizontal in landscape.
+    _isLandscape = !isVertical;
+    _applyOrientation(_isLandscape);
+  }
+
+  void _applyOrientation(bool isLandscape) {
+    if (isLandscape) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
+  }
+
+  void _toggleOrientation() {
+    setState(() {
+      _isLandscape = !_isLandscape;
+    });
+    _applyOrientation(_isLandscape);
   }
 
   @override
@@ -795,6 +1355,8 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
         controller: widget.controller,
         title: widget.title,
         isFullScreen: true,
+        isLandscape: _isLandscape,
+        onToggleOrientation: _toggleOrientation,
         currentQuality: widget.currentQuality,
         currentSpeed: widget.currentSpeed,
         onOpenSettings: widget.onOpenSettings,
@@ -812,9 +1374,11 @@ class CloudinaryVideoPlayer extends StatefulWidget {
   final VideoPlayerController controller;
   final String title;
   final bool isFullScreen;
+  final bool? isLandscape;
   final String currentQuality;
   final double currentSpeed;
   final VoidCallback onOpenSettings;
+  final VoidCallback? onToggleOrientation;
   final VoidCallback? onEnterFullScreen;
   final VoidCallback? onExitFullScreen;
   final VoidCallback? onBackToHub;
@@ -827,6 +1391,8 @@ class CloudinaryVideoPlayer extends StatefulWidget {
     required this.currentSpeed,
     required this.onOpenSettings,
     this.isFullScreen = false,
+    this.isLandscape,
+    this.onToggleOrientation,
     this.onEnterFullScreen,
     this.onExitFullScreen,
     this.onBackToHub,
@@ -1057,6 +1623,27 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
                             ),
                           ),
                           const SizedBox(width: 8),
+                          if (widget.isFullScreen && widget.onToggleOrientation != null) ...[
+                            // Orientation toggle button (Landscape / Portrait)
+                            GestureDetector(
+                              onTap: widget.onToggleOrientation,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  widget.isLandscape == true
+                                      ? Icons.screen_lock_portrait_rounded
+                                      : Icons.screen_lock_landscape_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           // ⚙ Settings gear (opens Quality + Speed sheet)
                           GestureDetector(
                             onTap: widget.onOpenSettings,
@@ -1118,7 +1705,7 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
                           VideoProgressIndicator(
                             widget.controller,
                             allowScrubbing: true,
-                            colors: const VideoProgressColors(
+                            colors: VideoProgressColors(
                               playedColor:     AppTheme.primaryPurple,
                               bufferedColor:   Colors.white30,
                               backgroundColor: Colors.white12,

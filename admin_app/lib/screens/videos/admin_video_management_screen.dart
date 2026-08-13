@@ -6,6 +6,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'dart:convert';
 import '../../providers/admin_languages_provider.dart';
@@ -181,18 +182,22 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     final descController = TextEditingController();
     final thumbController = TextEditingController();
     String dialogLanguageId = _selectedLanguageId ?? langProvider.languages.first.id;
+    String selectedStorageProvider = 'CLOUDINARY';
 
     bool isUploadingFile = false;
     String? selectedFileName;
     String? uploadedCloudinaryUrl;
     int uploadedVideoDuration = 0;
     int elapsedSeconds = 0;
+    int uploadedBytes = 0;
+    int totalBytes = 0;
+    double uploadProgress = 0.0;
     Timer? uploadTimer;
 
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (sbContext, setDialogState) => AlertDialog(
           backgroundColor: AppTheme.cardBg,
           title: Text(
             'Upload Video to Language Folder',
@@ -203,7 +208,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: dialogLanguageId,
+                  initialValue: dialogLanguageId,
                   dropdownColor: AppTheme.cardBg,
                   style: GoogleFonts.outfit(color: AppTheme.lightText),
                   decoration: const InputDecoration(
@@ -224,6 +229,34 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                     }
                   },
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedStorageProvider,
+                  isExpanded: true,
+                  dropdownColor: AppTheme.cardBg,
+                  style: GoogleFonts.outfit(color: AppTheme.lightText, fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Cloud Storage & Streaming Provider',
+                    prefixIcon: Icon(Icons.cloud_queue_rounded, color: AppTheme.neonCyan),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: 'CLOUDINARY',
+                      child: Text('☁️ Cloudinary Video (≤ 100MB)', overflow: TextOverflow.ellipsis),
+                    ),
+                    const DropdownMenuItem(
+                      value: 'CLOUDFLARE_R2',
+                      child: Text('⚡ Cloudflare R2 Bucket (Free Egress)', overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() {
+                        selectedStorageProvider = val;
+                      });
+                    }
+                  },
+                ),
                 const SizedBox(height: 14),
                 // Device File Picker Dropzone Button
                 SizedBox(
@@ -236,6 +269,9 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                             final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
                             if (video != null) {
                               elapsedSeconds = 0;
+                              uploadedBytes = 0;
+                              totalBytes = 0;
+                              uploadProgress = 0.0;
                               setDialogState(() {
                                 isUploadingFile = true;
                                 selectedFileName = video.name;
@@ -253,39 +289,53 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                 final token = StorageService().getToken();
                                 final uri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/media');
                                 final request = http.MultipartRequest('POST', uri);
+                                request.fields['storageProvider'] = selectedStorageProvider;
                                 if (token != null) {
                                   request.headers['Authorization'] = 'Bearer $token';
                                 }
-                                if (kIsWeb) {
-                                  final bytes = await video.readAsBytes();
-                                  request.files.add(http.MultipartFile.fromBytes(
-                                    'file',
-                                    bytes,
-                                    filename: video.name,
-                                  ));
-                                } else {
-                                  // Detect MIME type from extension for Windows Desktop
-                                  final ext = video.name.toLowerCase().split('.').last;
-                                  final mimeType = const {
-                                    'mp4': 'video/mp4',
-                                    'mov': 'video/quicktime',
-                                    'avi': 'video/x-msvideo',
-                                    'mkv': 'video/x-matroska',
-                                    'webm': 'video/webm',
-                                    'flv': 'video/x-flv',
-                                    'wmv': 'video/x-ms-wmv',
-                                    'm4v': 'video/mp4',
-                                    '3gp': 'video/3gpp',
-                                    'mpeg': 'video/mpeg',
-                                    'mpg': 'video/mpeg',
-                                  }[ext] ?? 'video/mp4';
-                                  request.files.add(await http.MultipartFile.fromPath(
-                                    'file',
-                                    video.path,
-                                    filename: video.name,
-                                    contentType: MediaType.parse(mimeType),
-                                  ));
-                                }
+
+                                final totalLength = await video.length();
+                                setDialogState(() {
+                                  totalBytes = totalLength;
+                                });
+
+                                final ext = video.name.toLowerCase().split('.').last;
+                                final mimeType = const {
+                                  'mp4': 'video/mp4',
+                                  'mov': 'video/quicktime',
+                                  'avi': 'video/x-msvideo',
+                                  'mkv': 'video/x-matroska',
+                                  'webm': 'video/webm',
+                                  'flv': 'video/x-flv',
+                                  'wmv': 'video/x-ms-wmv',
+                                  'm4v': 'video/mp4',
+                                  '3gp': 'video/3gpp',
+                                  'mpeg': 'video/mpeg',
+                                  'mpg': 'video/mpeg',
+                                }[ext] ?? 'video/mp4';
+
+                                int count = 0;
+                                int lastUiUpdateMs = 0;
+                                final byteStream = http.ByteStream(video.openRead().map((chunk) {
+                                  count += chunk.length;
+                                  final nowMs = DateTime.now().millisecondsSinceEpoch;
+                                  if (nowMs - lastUiUpdateMs > 250 || count == totalLength) {
+                                    lastUiUpdateMs = nowMs;
+                                    setDialogState(() {
+                                      uploadedBytes = count;
+                                      uploadProgress = totalLength > 0 ? (count / totalLength).clamp(0.0, 1.0) : 0.0;
+                                    });
+                                  }
+                                  return chunk;
+                                }));
+
+                                request.files.add(http.MultipartFile(
+                                  'file',
+                                  byteStream,
+                                  totalLength,
+                                  filename: video.name,
+                                  contentType: MediaType.parse(mimeType),
+                                ));
 
                                 final streamedResponse = await request.send();
                                 final response = await http.Response.fromStream(streamedResponse);
@@ -293,7 +343,19 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                 if (response.statusCode == 200 || response.statusCode == 201) {
                                   final data = jsonDecode(response.body);
                                   final uploadedUrl = data['data']?['url'] ?? data['url'];
-                                  final int dur = (data['data']?['duration'] ?? data['duration'] ?? 0) as int;
+                                  int dur = (data['data']?['duration'] ?? data['duration'] ?? 0) as int;
+
+                                  if (dur == 0 && uploadedUrl != null && uploadedUrl.toString().isNotEmpty) {
+                                    try {
+                                      final probe = VideoPlayerController.networkUrl(Uri.parse(uploadedUrl.toString()));
+                                      await probe.initialize();
+                                      dur = probe.value.duration.inSeconds;
+                                      await probe.dispose();
+                                    } catch (e) {
+                                      debugPrint('Duration probe info: $e');
+                                    }
+                                  }
+
                                   if (uploadedUrl != null) {
                                     setDialogState(() {
                                       uploadedCloudinaryUrl = uploadedUrl;
@@ -306,16 +368,16 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                 } else {
                                   final errData = jsonDecode(response.body);
                                   final msg = errData['message'] ?? 'Upload failed (${response.statusCode})';
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                  if (dialogCtx.mounted) {
+                                    ScaffoldMessenger.of(dialogCtx).showSnackBar(
                                       SnackBar(content: Text('Video upload error: $msg')),
                                     );
                                   }
                                 }
                               } catch (e) {
                                 debugPrint('Error uploading video file: $e');
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                if (dialogCtx.mounted) {
+                                  ScaffoldMessenger.of(dialogCtx).showSnackBar(
                                     SnackBar(content: Text('Upload error: $e')),
                                   );
                                 }
@@ -330,13 +392,13 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                           },
                     icon: isUploadingFile
                         ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.neonGreen),
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.neonCyan),
                           )
                         : Icon(
-                            uploadedCloudinaryUrl != null ? Icons.check_circle : Icons.cloud_upload_outlined,
-                            color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.neonCyan,
+                            uploadedCloudinaryUrl != null ? Icons.check_circle : Icons.cloud_upload,
+                            color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.primaryPurple,
                           ),
                     label: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -344,9 +406,11 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                       children: [
                         Text(
                           isUploadingFile
-                              ? 'Uploading to Cloudinary (dedicated qv1eskbe)...'
+                              ? (uploadProgress >= 0.99
+                                  ? '⚡ Processing & Securing on Cloudflare R2... Please wait'
+                                  : 'Uploading (${(uploadedBytes / 1024 / 1024).toStringAsFixed(1)} MB / ${(totalBytes / 1024 / 1024).toStringAsFixed(1)} MB — ${(uploadProgress * 100).toStringAsFixed(0)}%)...')
                               : (uploadedCloudinaryUrl != null
-                                  ? '✓ File Uploaded (${uploadedVideoDuration}s duration)'
+                                  ? '✓ File Uploaded (${uploadedVideoDuration >= 60 ? "${uploadedVideoDuration ~/ 60}m ${uploadedVideoDuration % 60}s" : "${uploadedVideoDuration}s"} duration)'
                                   : (selectedFileName != null ? 'Selected: $selectedFileName' : 'Select / Drag Video File')),
                           style: GoogleFonts.outfit(
                             color: uploadedCloudinaryUrl != null ? AppTheme.neonGreen : AppTheme.lightText,
@@ -355,6 +419,13 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                           ),
                         ),
                         if (isUploadingFile) ...[  
+                          const SizedBox(height: 6),
+                          LinearProgressIndicator(
+                            value: uploadProgress > 0 ? uploadProgress : null,
+                            backgroundColor: Colors.white12,
+                            color: AppTheme.neonCyan,
+                            minHeight: 4,
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             () {
@@ -363,7 +434,9 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                               final elapsed = mins > 0
                                   ? '${mins}m ${secs.toString().padLeft(2, '0')}s elapsed'
                                   : '${secs}s elapsed';
-                              return '⏱ $elapsed — large videos may take several minutes';
+                              return uploadProgress >= 0.99
+                                  ? '⏱ $elapsed — Backend streaming to Cloudflare R2'
+                                  : '⏱ $elapsed — high-speed multi-part upload active';
                             }(),
                             style: GoogleFonts.outfit(
                               color: AppTheme.neonCyan,
@@ -434,49 +507,61 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () async {
-                final title = titleController.text.trim();
+              onPressed: isUploadingFile
+                  ? null
+                  : () async {
+                      final title = titleController.text.trim();
 
-                if (uploadedCloudinaryUrl == null || uploadedCloudinaryUrl!.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please select and upload a video file from your device first.')),
-                  );
-                  return;
-                }
+                      if (uploadedCloudinaryUrl == null || uploadedCloudinaryUrl!.isEmpty) {
+                        ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please select a video file and wait for file upload to complete first.'),
+                            backgroundColor: Colors.orangeAccent,
+                          ),
+                        );
+                        return;
+                      }
 
-                if (title.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter a video title')),
-                  );
-                  return;
-                }
+                      if (title.isEmpty) {
+                        ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                          const SnackBar(content: Text('Please enter a video title')),
+                        );
+                        return;
+                      }
 
-                final videoProvider = Provider.of<AdminVideosProvider>(context, listen: false);
-                final success = await videoProvider.createVideo(
-                  title: title,
-                  description: descController.text.trim(),
-                  videoUrl: uploadedCloudinaryUrl!,
-                  thumbnailUrl: thumbController.text.trim(),
-                  languageId: dialogLanguageId,
-                  duration: uploadedVideoDuration > 0 ? uploadedVideoDuration : null,
-                );
+                      final videoProvider = Provider.of<AdminVideosProvider>(dialogCtx, listen: false);
+                      final success = await videoProvider.createVideo(
+                        title: title,
+                        description: descController.text.trim(),
+                        videoUrl: uploadedCloudinaryUrl!,
+                        thumbnailUrl: thumbController.text.trim(),
+                        languageId: dialogLanguageId,
+                        duration: uploadedVideoDuration > 0 ? uploadedVideoDuration : null,
+                      );
 
-                if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                      final langProv = Provider.of<AdminLanguagesProvider>(dialogCtx, listen: false);
+                      final vidProv = Provider.of<AdminVideosProvider>(dialogCtx, listen: false);
 
-                if (success && mounted) {
-                  setState(() {
-                    _selectedLanguageId = dialogLanguageId;
-                  });
-                  Provider.of<AdminLanguagesProvider>(context, listen: false).fetchLanguages();
-                  Provider.of<AdminVideosProvider>(context, listen: false).fetchVideos(languageId: dialogLanguageId);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Video uploaded successfully! 🎥'),
-                      backgroundColor: AppTheme.neonGreen,
-                    ),
-                  );
-                }
-              },
+                      if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+
+                      if (success) {
+                        if (mounted) {
+                          setState(() {
+                            _selectedLanguageId = dialogLanguageId;
+                          });
+                        }
+                        langProv.fetchLanguages();
+                        vidProv.fetchVideos(languageId: dialogLanguageId);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Video uploaded successfully! 🎥'),
+                              backgroundColor: AppTheme.neonGreen,
+                            ),
+                          );
+                        }
+                      }
+                    },
               child: const Text('Upload Video'),
             ),
           ],
@@ -641,14 +726,18 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   ListTile(
-                                    leading: Container(
-                                      width: 50,
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryPurple.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(10),
+                                    onTap: () => _showAdminVideoPreviewDialog(context, video),
+                                    leading: GestureDetector(
+                                      onTap: () => _showAdminVideoPreviewDialog(context, video),
+                                      child: Container(
+                                        width: 50,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryPurple.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: const Icon(Icons.play_circle_fill, color: AppTheme.primaryPurple, size: 30),
                                       ),
-                                      child: const Icon(Icons.play_circle_fill, color: AppTheme.primaryPurple, size: 30),
                                     ),
                                     title: Text(
                                       video.title,
@@ -667,6 +756,11 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.play_arrow_rounded, size: 24, color: AppTheme.neonGreen),
+                                          tooltip: 'Preview Video',
+                                          onPressed: () => _showAdminVideoPreviewDialog(context, video),
+                                        ),
                                         IconButton(
                                           icon: const Icon(Icons.arrow_upward, size: 20, color: AppTheme.neonCyan),
                                           tooltip: 'Move Up',
@@ -710,7 +804,15 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                               ? 'Assigned to Paid Users — Deletion Disabled'
                                               : 'Delete Video',
                                           onPressed: video.isAssignedToSnapshot
-                                              ? null
+                                              ? () {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                          'Deletion Protected: Video is part of active user snapshots.'),
+                                                      backgroundColor: Colors.orangeAccent,
+                                                    ),
+                                                  );
+                                                }
                                               : () async {
                                                   final confirm = await showDialog<bool>(
                                                     context: context,
@@ -822,5 +924,214 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
       ],
     ),
   );
+  }
+
+  void _showAdminVideoPreviewDialog(BuildContext context, AdminVideoModel video) {
+    if (video.videoUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video URL is empty or unavailable')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => _AdminVideoPreviewModal(video: video),
+    );
+  }
+}
+
+class _AdminVideoPreviewModal extends StatefulWidget {
+  final AdminVideoModel video;
+  const _AdminVideoPreviewModal({required this.video});
+
+  @override
+  State<_AdminVideoPreviewModal> createState() => _AdminVideoPreviewModalState();
+}
+
+class _AdminVideoPreviewModalState extends State<_AdminVideoPreviewModal> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.video.videoUrl.trim()));
+      await _controller.initialize();
+      _controller.setLooping(true);
+      _controller.play();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Admin video preview error: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_isInitialized) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isCloudflare = widget.video.videoUrl.contains('r2.cloudflarestorage.com') ||
+        widget.video.videoUrl.contains('.r2.dev');
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F0E17),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              widget.video.title,
+              style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white70),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              height: 220,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: _hasError
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Unable to load video preview',
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      )
+                    : !_isInitialized
+                        ? const Center(child: CircularProgressIndicator(color: AppTheme.neonCyan))
+                        : Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              AspectRatio(
+                                aspectRatio: _controller.value.aspectRatio > 0
+                                    ? _controller.value.aspectRatio
+                                    : 16 / 9,
+                                child: VideoPlayer(_controller),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _controller.value.isPlaying ? _controller.pause() : _controller.play();
+                                  });
+                                },
+                                child: Container(
+                                  color: Colors.transparent,
+                                  child: Center(
+                                    child: AnimatedOpacity(
+                                      opacity: _controller.value.isPlaying ? 0.0 : 0.85,
+                                      duration: const Duration(milliseconds: 200),
+                                      child: CircleAvatar(
+                                        radius: 28,
+                                        backgroundColor: Colors.black54,
+                                        child: Icon(
+                                          _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                                          color: Colors.white,
+                                          size: 36,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isCloudflare ? AppTheme.neonCyan : AppTheme.primaryPurple).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (isCloudflare ? AppTheme.neonCyan : AppTheme.primaryPurple).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    isCloudflare ? '⚡ Cloudflare R2' : '☁️ Dedicated Cloudinary',
+                    style: GoogleFonts.outfit(
+                      color: isCloudflare ? AppTheme.neonCyan : AppTheme.primaryPurple,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Builder(
+                  builder: (context) {
+                    int secs = widget.video.duration;
+                    if (secs == 0 && _isInitialized && _controller.value.isInitialized) {
+                      secs = _controller.value.duration.inSeconds;
+                    }
+                    final durStr = secs > 0
+                        ? (secs >= 60 ? '${secs ~/ 60}m ${(secs % 60).toString().padLeft(2, '0')}s' : '${secs}s')
+                        : 'Unknown duration';
+                    return Text(
+                      '$durStr duration',
+                      style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12),
+                    );
+                  },
+                ),
+              ],
+            ),
+            if (widget.video.description != null && widget.video.description!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.video.description!,
+                style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

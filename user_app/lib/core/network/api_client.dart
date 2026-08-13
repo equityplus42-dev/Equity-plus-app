@@ -35,14 +35,45 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> get(String endpoint, {Map<String, String>? queryParams}) async {
-    Uri uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-    if (queryParams != null) {
-      uri = uri.replace(queryParameters: queryParams);
-    }
+  Future<http.Response> _sendWithFailover(
+    Future<http.Response> Function(String baseUrl) requestFn,
+  ) async {
+    final List<String> candidates = [
+      ApiConstants.activeBaseUrl,
+      ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.activeBaseUrl),
+    ];
 
+    Object? lastError;
+    for (final candidate in candidates) {
+      try {
+        final response = await requestFn(candidate).timeout(const Duration(seconds: 12));
+        ApiConstants.activeBaseUrl = candidate;
+        return response;
+      } on Exception catch (e) {
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('socketexception') ||
+            errStr.contains('clientexception') ||
+            errStr.contains('timeoutexception') ||
+            errStr.contains('connection refused') ||
+            errStr.contains('connection failed')) {
+          lastError = e;
+          continue;
+        }
+        rethrow;
+      }
+    }
+    throw Exception('Network error: Could not reach backend server ($lastError)');
+  }
+
+  Future<dynamic> get(String endpoint, {Map<String, String>? queryParams}) async {
     try {
-      final response = await _client.get(uri, headers: _getHeaders());
+      final response = await _sendWithFailover((base) async {
+        Uri uri = Uri.parse('$base$endpoint');
+        if (queryParams != null) {
+          uri = uri.replace(queryParameters: queryParams);
+        }
+        return await _client.get(uri, headers: _getHeaders());
+      });
       return _processResponse(response);
     } catch (e) {
       throw Exception('Network error: $e');
@@ -50,13 +81,15 @@ class ApiClient {
   }
 
   Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
-    final Uri uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
-      final response = await _client.post(
-        uri,
-        headers: _getHeaders(),
-        body: json.encode(body),
-      );
+      final response = await _sendWithFailover((base) async {
+        final Uri uri = Uri.parse('$base$endpoint');
+        return await _client.post(
+          uri,
+          headers: _getHeaders(),
+          body: json.encode(body),
+        );
+      });
       return _processResponse(response);
     } catch (e) {
       throw Exception('Network error: $e');
@@ -64,13 +97,15 @@ class ApiClient {
   }
 
   Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
-    final Uri uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
-      final response = await _client.put(
-        uri,
-        headers: _getHeaders(),
-        body: json.encode(body),
-      );
+      final response = await _sendWithFailover((base) async {
+        final Uri uri = Uri.parse('$base$endpoint');
+        return await _client.put(
+          uri,
+          headers: _getHeaders(),
+          body: json.encode(body),
+        );
+      });
       return _processResponse(response);
     } catch (e) {
       throw Exception('Network error: $e');
@@ -78,13 +113,15 @@ class ApiClient {
   }
 
   Future<dynamic> patch(String endpoint, Map<String, dynamic> body) async {
-    final Uri uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
-      final response = await _client.patch(
-        uri,
-        headers: _getHeaders(),
-        body: json.encode(body),
-      );
+      final response = await _sendWithFailover((base) async {
+        final Uri uri = Uri.parse('$base$endpoint');
+        return await _client.patch(
+          uri,
+          headers: _getHeaders(),
+          body: json.encode(body),
+        );
+      });
       return _processResponse(response);
     } catch (e) {
       throw Exception('Network error: $e');
@@ -92,9 +129,11 @@ class ApiClient {
   }
 
   Future<dynamic> delete(String endpoint) async {
-    final Uri uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
-      final response = await _client.delete(uri, headers: _getHeaders());
+      final response = await _sendWithFailover((base) async {
+        final Uri uri = Uri.parse('$base$endpoint');
+        return await _client.delete(uri, headers: _getHeaders());
+      });
       return _processResponse(response);
     } catch (e) {
       throw Exception('Network error: $e');

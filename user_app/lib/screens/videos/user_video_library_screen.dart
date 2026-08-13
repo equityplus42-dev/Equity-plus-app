@@ -315,9 +315,21 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
                                                       ),
                                                       const SizedBox(height: 3),
                                                       Text(
-                                                        v.watchedSecs > 0
-                                                            ? 'Watched ${v.watchedSecs}s of ${v.duration}s'
-                                                            : '${v.duration}s duration',
+                                                        () {
+                                                          String fmt(int secs) {
+                                                            if (secs >= 60) {
+                                                              final m = secs ~/ 60;
+                                                              final s = secs % 60;
+                                                              return '${m}m ${s.toString().padLeft(2, '0')}s';
+                                                            }
+                                                            return '${secs}s';
+                                                          }
+                                                          final effTotal = v.duration > 0 ? v.duration : (v.watchedSecs > 0 ? v.watchedSecs : 0);
+                                                          if (v.watchedSecs > 0) {
+                                                            return 'Watched ${fmt(v.watchedSecs)} of ${fmt(effTotal)}';
+                                                          }
+                                                          return effTotal > 0 ? '${fmt(effTotal)} duration' : 'Video';
+                                                        }(),
                                                         style: GoogleFonts.outfit(
                                                           fontSize: 12,
                                                           color: AppTheme.softGrey,

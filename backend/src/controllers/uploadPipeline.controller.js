@@ -1,11 +1,13 @@
 const uploadPipelineService = require('../services/uploadPipeline.service');
 const cloudinaryService = require('../services/cloudinary.service');
+const cloudflareR2Service = require('../services/cloudflareR2.service');
+const cloudflareStreamService = require('../services/cloudflareStream.service');
 const ApiResponse = require('../utils/apiResponse');
 
 class UploadPipelineController {
   async processUploadPipeline(req, res, next) {
     try {
-      const { title, description, videoUrl, thumbnailUrl, duration, languageId, productId, status } = req.body;
+      const { title, description, videoUrl, thumbnailUrl, duration, languageId, productId, status, storageProvider } = req.body;
       const result = await uploadPipelineService.processUploadPipeline({
         title,
         description,
@@ -15,6 +17,7 @@ class UploadPipelineController {
         languageId,
         productId,
         status,
+        storageProvider,
       });
       return ApiResponse.success(res, result.message, result, 201);
     } catch (error) {
@@ -32,21 +35,50 @@ class UploadPipelineController {
       const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.mpeg', '.mpg']);
       const ext = path.extname(req.file.originalname).toLowerCase();
       const isVideo = req.file.mimetype.startsWith('video/') || VIDEO_EXTENSIONS.has(ext);
+      const provider = ((req.body && req.body.storageProvider) || (req.query && req.query.storageProvider) || 'CLOUDINARY').toUpperCase();
+      const CLOUDINARY_MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB limit for Cloudinary video uploads
+      const fileSize = req.file.size || (req.file.buffer ? req.file.buffer.length : 0);
+      let usedProvider = provider;
       let fileUrl;
       let videoDuration = 0;
 
       if (isVideo) {
-        const result = await cloudinaryService.uploadVideo(req.file.buffer, 'videos');
-        fileUrl = result.url;
-        videoDuration = result.duration || 0;
+        // If video size exceeds 100MB and provider is CLOUDINARY, auto-route to Cloudflare R2 Storage
+        if (provider === 'CLOUDINARY' && fileSize > CLOUDINARY_MAX_VIDEO_SIZE) {
+          console.info(`[UploadPipeline] Video size is ${(fileSize / (1024 * 1024)).toFixed(1)}MB (> 100MB Cloudinary limit). Automatically routing to Cloudflare R2 Storage.`);
+          usedProvider = 'CLOUDFLARE_R2';
+        }
+
+        if (usedProvider === 'CLOUDFLARE_R2') {
+          fileUrl = await cloudflareR2Service.uploadFile(req.file.buffer, 'videos', req.file.originalname, req.file.mimetype);
+          const reqDur = parseInt(req.body.duration || req.query.duration, 10);
+          videoDuration = !isNaN(reqDur) && reqDur > 0 ? reqDur : 0;
+        } else if (usedProvider === 'CLOUDFLARE_STREAM') {
+          const result = await cloudflareStreamService.uploadVideo(req.file.buffer, req.file.originalname);
+          fileUrl = result.videoUrl;
+          videoDuration = result.duration || 0;
+        } else {
+          // Dedicated Video Cloudinary account (CLOUDINARY_VIDEO_*)
+          const result = await cloudinaryService.uploadVideo(req.file.buffer, 'videos');
+          fileUrl = result.url;
+          const reqDur = parseInt(req.body.duration || req.query.duration, 10);
+          videoDuration = (result.duration && result.duration > 0) ? result.duration : (!isNaN(reqDur) && reqDur > 0 ? reqDur : 0);
+        }
       } else {
-        fileUrl = await cloudinaryService.uploadImage(req.file.buffer, 'thumbnails');
+        // Image files go to Primary Cloudinary account (CLOUDINARY_*)
+        if (usedProvider === 'CLOUDFLARE_R2') {
+          fileUrl = await cloudflareR2Service.uploadFile(req.file.buffer, 'thumbnails', req.file.originalname, req.file.mimetype);
+        } else {
+          fileUrl = await cloudinaryService.uploadImage(req.file.buffer, 'thumbnails');
+        }
       }
 
       return ApiResponse.success(res, 'File uploaded successfully', {
         url: fileUrl,
         isVideo,
-        duration: videoDuration, // actual seconds from Cloudinary metadata
+        duration: videoDuration,
+        provider: usedProvider,
+        fileSize,
       });
     } catch (error) {
       next(error);

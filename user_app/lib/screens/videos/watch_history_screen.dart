@@ -164,7 +164,10 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
           style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.lightText),
         ),
         subtitle: Text(
-          'Watched: ${v.watchedSecs}s / Total: ${v.duration}s',
+          () {
+            final effDur = v.duration > 0 ? v.duration : (v.watchedSecs > 0 ? v.watchedSecs : 0);
+            return 'Watched: ${v.watchedSecs}s / Total: ${effDur}s';
+          }(),
           style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
         ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.softGrey),

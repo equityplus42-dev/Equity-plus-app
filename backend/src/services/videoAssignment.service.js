@@ -563,6 +563,18 @@ class VideoAssignmentService {
       data: { status: 'REVOKED', unassignedAt: new Date(), unassignedBy: adminId || 'ADMIN' },
     });
 
+    // Delete underlying file from Cloudflare R2 bucket or Cloudinary storage
+    if (video.videoUrl) {
+      try {
+        if (video.videoUrl.includes('r2.cloudflarestorage.com') || video.videoUrl.includes('.r2.dev')) {
+          const cloudflareR2Service = require('./cloudflareR2.service');
+          await cloudflareR2Service.deleteFile(video.videoUrl);
+        }
+      } catch (cloudErr) {
+        console.warn(`[VideoAssignmentService] Cloud file cleanup notice: ${cloudErr.message}`);
+      }
+    }
+
     // Hard-delete the video
     await prisma.video.delete({ where: { id: videoId } });
 

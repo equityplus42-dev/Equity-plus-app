@@ -41,7 +41,7 @@ const mediaUpload = multer({
   storage: storage,
   fileFilter: mediaFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit — matches Cloudinary account plan max file size
+    fileSize: 1024 * 1024 * 1024, // 1GB limit (videos <= 100MB go to Dedicated Cloudinary Video; videos > 100MB auto-route to Cloudflare R2)
   },
 });
 

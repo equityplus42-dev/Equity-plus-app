@@ -21,7 +21,7 @@ const uploadSingleMedia = (fieldName) => {
     mediaUpload.single(fieldName)(req, res, (err) => {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-          return ApiResponse.error(res, 'File size exceeds the 100MB maximum allowed for video uploads (Cloudinary account plan limit). Please compress your video and try again.', 413, 'LIMIT_FILE_SIZE');
+          return ApiResponse.error(res, 'File size exceeds the 1GB maximum allowed limit for video uploads. Please compress your video and try again.', 413, 'LIMIT_FILE_SIZE');
         }
         return ApiResponse.error(res, err.message, 400);
       }

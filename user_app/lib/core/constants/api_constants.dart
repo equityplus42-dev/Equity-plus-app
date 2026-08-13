@@ -3,14 +3,19 @@ class ApiConstants {
   // Set to false to connect to the live Vercel backend.
   static const bool useLocalBackend = true;
 
-  // Local ADB reverse USB proxy (127.0.0.1:5000) or Wi-Fi IP
-  static const String _localUrl = String.fromEnvironment(
-    'LOCAL_API_URL',
-    defaultValue: 'http://127.0.0.1:5000/api/v1',
-  );
   static const String _prodUrl = 'https://equity-plus-app.vercel.app/api/v1';
 
-  static const String baseUrl = useLocalBackend ? _localUrl : _prodUrl;
+  // Candidate Base URLs for local ADB, Wi-Fi, and production resilience
+  static const List<String> candidateBaseUrls = [
+    'http://127.0.0.1:5000/api/v1',
+    'http://192.168.31.64:5000/api/v1',
+    'http://192.168.31.217:5000/api/v1',
+    'http://10.0.2.2:5000/api/v1',
+    'https://equity-plus-app.vercel.app/api/v1',
+  ];
+
+  static String activeBaseUrl = useLocalBackend ? candidateBaseUrls.first : _prodUrl;
+  static String get baseUrl => useLocalBackend ? activeBaseUrl : _prodUrl;
 
   // Auth endpoints
   static const String register = '/auth/register';
