@@ -35,37 +35,110 @@ class CloudflareR2Service {
   }
 
   /**
-   * Generate 7-day presigned playback GET URL for Cloudflare R2 object key
+   * Extract permanent R2 object key from any R2 URL (presigned or direct).
+   *
+   * Supports:
+   *   https://<account>.r2.cloudflarestorage.com/<bucket>/videos/<uuid>.mp4?X-Amz-...
+   *   https://<account>.r2.cloudflarestorage.com/<bucket>/videos/<uuid>.mp4
+   *   https://<custom>.r2.dev/videos/<uuid>.mp4
+   *
+   * Returns: "videos/<uuid>.mp4"  (no query string, no bucket, no protocol/host)
+   * Returns: null if URL is not a recognizable R2 URL.
    */
-  async getPresignedUrl(key, expiresInSeconds = 7 * 24 * 60 * 60) {
-    if (!this.isConfigured()) return null;
+  extractR2ObjectKeyFromUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+
     try {
-      const s3Client = this.getS3Client();
-      const command = new GetObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-      return await getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
-    } catch (error) {
-      console.error('[CloudflareR2Service] Presigned URL generation failed:', error);
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname;
+      const pathname = urlObj.pathname; // Does NOT include query string
+
+      // Case 1: path-style R2 endpoint — https://<account>.r2.cloudflarestorage.com/<bucket>/<key>
+      if (hostname.endsWith('.r2.cloudflarestorage.com')) {
+        const parts = pathname.split('/').filter(Boolean);
+        // parts[0] = bucket name, parts[1..] = object key segments
+        if (parts.length >= 2) {
+          return parts.slice(1).join('/'); // e.g. "videos/abc.mp4"
+        }
+        return null;
+      }
+
+      // Case 2: R2 custom public domain — https://<pub>.<custom>.r2.dev/<key>
+      if (hostname.endsWith('.r2.dev')) {
+        const parts = pathname.split('/').filter(Boolean);
+        if (parts.length >= 1) {
+          return parts.join('/');
+        }
+        return null;
+      }
+
+      return null;
+    } catch {
       return null;
     }
   }
 
   /**
-   * Delete object from Cloudflare R2 bucket by key or full URL
+   * Generate a fresh short-lived presigned GET URL for a permanent R2 object key.
+   *
+   * @param {string} objectKey  — Permanent key, e.g. "videos/<uuid>.mp4"
+   * @param {number} expiresInSeconds — Default: 3600 (1 hour). Short TTL is intentional.
+   *                                    This is NOT user access lifetime — fresh URLs are
+   *                                    generated on every authorized playback request.
+   * @returns {string|null} Signed URL valid for expiresInSeconds, or null on failure.
+   */
+  async generatePlaybackUrl(objectKey, expiresInSeconds = 3600) {
+    if (!objectKey) return null;
+    if (!this.isConfigured()) {
+      console.warn('[CloudflareR2Service] R2 not configured — cannot generate playback URL.');
+      return null;
+    }
+    try {
+      const s3Client = this.getS3Client();
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: objectKey,
+      });
+      const url = await getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
+      console.info(`[CloudflareR2Service] Generated ${expiresInSeconds}s playback URL for key: ${objectKey}`);
+      return url;
+    } catch (error) {
+      console.error('[CloudflareR2Service] generatePlaybackUrl failed:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * @deprecated Use generatePlaybackUrl(key, expiresInSeconds) instead.
+   * Kept for backward compatibility — same implementation.
+   */
+  async getPresignedUrl(key, expiresInSeconds = 3600) {
+    return this.generatePlaybackUrl(key, expiresInSeconds);
+  }
+
+  /**
+   * Delete object from Cloudflare R2 bucket by permanent object key OR full URL.
+   * Prefers a permanent key. If a URL is given, extracts the key first.
    */
   async deleteFile(keyOrUrl) {
     if (!this.isConfigured() || !keyOrUrl) return false;
     try {
       let key = keyOrUrl;
+
+      // If it looks like a URL, extract the permanent object key
       if (keyOrUrl.startsWith('http://') || keyOrUrl.startsWith('https://')) {
-        const urlObj = new URL(keyOrUrl);
-        const parts = urlObj.pathname.split('/').filter(Boolean);
-        if (parts.length >= 2 && parts[0] === this.bucketName) {
-          key = parts.slice(1).join('/');
-        } else if (parts.length >= 1) {
-          key = parts.join('/');
+        const extracted = this.extractR2ObjectKeyFromUrl(keyOrUrl);
+        if (extracted) {
+          key = extracted;
+        } else {
+          // Fallback: old path-stripping logic for edge cases
+          const urlObj = new URL(keyOrUrl);
+          const parts = urlObj.pathname.split('/').filter(Boolean);
+          if (parts.length >= 2 && parts[0] === this.bucketName) {
+            key = parts.slice(1).join('/');
+          } else if (parts.length >= 1) {
+            key = parts.join('/');
+          }
         }
       }
 
@@ -76,26 +149,28 @@ class CloudflareR2Service {
       });
 
       await s3Client.send(command);
-      console.info(`[CloudflareR2Service] Deleted asset from R2 bucket "${this.bucketName}": ${key}`);
+      console.info(`[CloudflareR2Service] Deleted object from R2 bucket "${this.bucketName}": ${key}`);
       return true;
     } catch (error) {
-      console.error('[CloudflareR2Service] Delete file failed:', error);
+      console.error('[CloudflareR2Service] deleteFile failed:', error.message);
       return false;
     }
   }
 
   /**
    * High-speed parallel multi-part upload to Cloudflare R2 bucket.
-   * Returns final public playback / asset URL.
+   * Returns { r2ObjectKey, url } where:
+   *   - r2ObjectKey is the PERMANENT identifier (store this in Video.r2ObjectKey)
+   *   - url is a short-lived 1-hour presigned URL for immediate admin preview
    */
   async uploadFile(fileBuffer, folder = 'videos', originalFilename = 'file.mp4', mimeType = 'video/mp4') {
     const ext = path.extname(originalFilename) || (mimeType.startsWith('video') ? '.mp4' : '.jpg');
     const key = `${folder}/${uuidv4()}${ext}`;
 
     if (!this.isConfigured()) {
-      console.warn('[CloudflareR2Service] R2 environment variables not fully configured. Using fallback URL.');
+      console.warn('[CloudflareR2Service] R2 not fully configured. Using fallback URL.');
       const domain = this.publicDomain ? this.publicDomain.replace(/\/$/, '') : 'https://pub-r2.dev';
-      return `${domain}/${key}`;
+      return { r2ObjectKey: key, url: `${domain}/${key}` };
     }
 
     try {
@@ -108,7 +183,7 @@ class CloudflareR2Service {
           Body: fileBuffer,
           ContentType: mimeType,
         },
-        queueSize: 4, // 4 parallel concurrent part uploads
+        queueSize: 4,           // 4 parallel concurrent part uploads
         partSize: 5 * 1024 * 1024, // 5MB part size
         leavePartsOnError: false,
       });
@@ -116,21 +191,25 @@ class CloudflareR2Service {
       parallelUploads3.on('httpUploadProgress', (progress) => {
         if (progress.total) {
           const pct = Math.round((progress.loaded / progress.total) * 100);
-          console.info(`[CloudflareR2Service] R2 Upload progress: ${pct}% (${(progress.loaded / 1024 / 1024).toFixed(1)}MB / ${(progress.total / 1024 / 1024).toFixed(1)}MB)`);
+          console.info(`[CloudflareR2Service] R2 Upload: ${pct}% (${(progress.loaded / 1024 / 1024).toFixed(1)}MB / ${(progress.total / 1024 / 1024).toFixed(1)}MB)`);
         }
       });
 
       await parallelUploads3.done();
 
-      // Generate presigned GET URL for instant 7-day mobile video playback
-      const presignedUrl = await this.getPresignedUrl(key);
-      const domain = this.publicDomain ? this.publicDomain.replace(/\/$/, '') : `https://${this.accountId}.r2.cloudflarestorage.com/${this.bucketName}`;
-      const publicUrl = presignedUrl || `${domain}/${key}`;
+      // Generate a short-lived 1-hour presigned URL for immediate admin preview.
+      // This URL is NOT stored as the permanent storage identity.
+      // The permanent identity is r2ObjectKey = key.
+      const presignedUrl = await this.generatePlaybackUrl(key, 3600);
+      const domain = this.publicDomain
+        ? this.publicDomain.replace(/\/$/, '')
+        : `https://${this.accountId}.r2.cloudflarestorage.com/${this.bucketName}`;
+      const previewUrl = presignedUrl || `${domain}/${key}`;
 
-      console.info(`[CloudflareR2Service] High-speed upload complete to R2 bucket "${this.bucketName}": ${publicUrl}`);
-      return publicUrl;
+      console.info(`[CloudflareR2Service] Upload complete. r2ObjectKey="${key}"`);
+      return { r2ObjectKey: key, url: previewUrl };
     } catch (error) {
-      console.error('[CloudflareR2Service] Upload failed:', error);
+      console.error('[CloudflareR2Service] uploadFile failed:', error.message);
       throw error;
     }
   }

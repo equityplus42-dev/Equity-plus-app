@@ -114,23 +114,27 @@ model Video {
   title                String
   description          String?             @db.Text
   videoUrl             String              @db.VarChar(512)
-  thumbnailUrl String?             @db.VarChar(512)
-  duration     Int                 @default(0)
-  languageId   String
-  language     Language            @relation(fields: [languageId], references: [id], onDelete: Cascade)
-  productId    String?
-  product      Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
-  status       String              @default("AVAILABLE") // DRAFT, UPLOADED, AVAILABLE, ASSIGNED, IN_USE, ARCHIVED
-  orderIndex   Int                 @default(0)
+  thumbnailUrl         String?             @db.VarChar(512)
+  r2ObjectKey          String?             @db.VarChar(512)   // Permanent R2 object key, e.g. videos/<uuid>.mp4
+  provider             String              @default("CLOUDINARY") // CLOUDINARY, CLOUDFLARE_R2, CLOUDFLARE_STREAM, YOUTUBE
+  youtubeUrl           String?             @db.VarChar(512)
+  youtubeVideoId       String?             @db.VarChar(64)
+  duration             Int                 @default(0)
+  languageId           String
+  language             Language            @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  productId            String?
+  product              Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  status               String              @default("AVAILABLE") // DRAFT, UPLOADED, AVAILABLE, ASSIGNED, IN_USE, ARCHIVED
+  orderIndex           Int                 @default(0)
   currentVersionNumber Int                 @default(1)
-  isActive     Boolean             @default(true)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  progressList   UserVideoProgress[]
-  versions       VideoVersion[]
-  sessions       PlaybackSession[]
-  assignments    VideoAssignment[]
-  snapshotVideos SnapshotVideo[]
+  isActive             Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  progressList         UserVideoProgress[]
+  versions             VideoVersion[]
+  sessions             PlaybackSession[]
+  assignments          VideoAssignment[]
+  snapshotVideos       SnapshotVideo[]
 
   @@index([languageId])
   @@index([productId])

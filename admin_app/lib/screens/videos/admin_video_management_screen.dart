@@ -187,6 +187,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     bool isUploadingFile = false;
     String? selectedFileName;
     String? uploadedCloudinaryUrl;
+    String? uploadedR2ObjectKey;
     int uploadedVideoDuration = 0;
     int elapsedSeconds = 0;
     int uploadedBytes = 0;
@@ -357,8 +358,10 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                   }
 
                                   if (uploadedUrl != null) {
+                                    final r2Key = data['data']?['r2ObjectKey'] ?? data['r2ObjectKey'];
                                     setDialogState(() {
                                       uploadedCloudinaryUrl = uploadedUrl;
+                                      uploadedR2ObjectKey = r2Key;
                                       uploadedVideoDuration = dur;
                                       if (titleController.text.trim().isEmpty) {
                                         titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
@@ -537,6 +540,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                         thumbnailUrl: thumbController.text.trim(),
                         languageId: dialogLanguageId,
                         duration: uploadedVideoDuration > 0 ? uploadedVideoDuration : null,
+                        r2ObjectKey: uploadedR2ObjectKey,
                       );
 
                       final langProv = Provider.of<AdminLanguagesProvider>(dialogCtx, listen: false);

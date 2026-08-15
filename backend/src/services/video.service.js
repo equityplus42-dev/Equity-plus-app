@@ -342,17 +342,23 @@ class VideoService {
       const prog = progressMap.get(v.id);
 
       if (isUnlocked) {
+        // For R2 videos, omit the stored videoUrl from the library list response.
+        // The stored URL is a stale presigned URL that may have expired.
+        // Flutter must call GET /videos/:id/access to get a fresh signed URL before playback.
+        const isR2Video = Boolean(v.r2ObjectKey) ||
+          (v.videoUrl && (v.videoUrl.includes('r2.cloudflarestorage.com') || v.videoUrl.includes('.r2.dev')));
         const videoData = {
           id: v.id,
           title: v.title,
           description: v.description,
-          videoUrl: v.videoUrl,
+          videoUrl: isR2Video ? null : v.videoUrl,  // R2: null (use /access). Cloudinary: direct URL.
           thumbnailUrl: v.thumbnailUrl,
           duration: v.duration,
           languageName: v.language.name,
           productName: v.product?.name || null,
           status: v.status,
           orderIndex: v.orderIndex,
+          provider: v.provider || (isR2Video ? 'CLOUDFLARE_R2' : 'CLOUDINARY'),
           watchedSecs: prog ? prog.watchedSecs : 0,
           isCompleted: prog ? prog.isCompleted : false,
           isLocked: false,
@@ -525,7 +531,12 @@ class VideoService {
   }
 
   /**
-   * Secure Video Access Authorization Check
+   * Secure Video Access Authorization Check + Fresh Playback URL Generation
+   *
+   * Authorization is ALWAYS checked BEFORE generating any URL.
+   * For R2 videos: a NEW short-lived presigned URL is generated on every authorized call.
+   * This guarantees users can watch their videos indefinitely as long as authorization holds,
+   * regardless of how old the stored videoUrl is.
    */
   async getSecureVideoPlayback(userId, videoId) {
     const user = await prisma.user.findUnique({
@@ -564,14 +575,69 @@ class VideoService {
     const snapshot = await this.getOrCreateUserSnapshot(userId);
     const isSnapshotVideo = snapshot.snapshotVideos.some((sv) => sv.videoId === videoId);
 
-    if (!isSnapshotVideo && !snapshot.newVideosUnlocked) {
+    // Check direct assignment as well
+    const directAssignment = await prisma.videoAssignment.findFirst({
+      where: { userId, videoId, status: 'ACTIVE' },
+    });
+    const isDirectAssigned = Boolean(directAssignment);
+
+    if (!isSnapshotVideo && !snapshot.newVideosUnlocked && !isDirectAssigned) {
       throw new Error('Video is locked until 25% learning progress or 30 days');
+    }
+
+    // ── Determine provider and generate playback URL ──────────────────────────
+    // Authorization checks are ALL complete above this line.
+    // Now we may generate a fresh URL.
+
+    const cloudflareR2Service = require('./cloudflareR2.service');
+
+    const isR2Video =
+      Boolean(video.r2ObjectKey) ||
+      (video.videoUrl && (
+        video.videoUrl.includes('r2.cloudflarestorage.com') ||
+        video.videoUrl.includes('.r2.dev')
+      ));
+
+    let playbackUrl = video.videoUrl; // Default: Cloudinary or other non-R2 URL
+    let provider = video.provider || (isR2Video ? 'CLOUDFLARE_R2' : 'CLOUDINARY');
+
+    if (isR2Video) {
+      // Obtain the permanent object key
+      let objectKey = video.r2ObjectKey;
+
+      // If r2ObjectKey is not yet stored, extract it from the URL (legacy migration path)
+      if (!objectKey && video.videoUrl) {
+        objectKey = cloudflareR2Service.extractR2ObjectKeyFromUrl(video.videoUrl);
+        if (objectKey) {
+          // Opportunistically persist the extracted key so future requests skip this step
+          await prisma.video.update({
+            where: { id: videoId },
+            data: { r2ObjectKey: objectKey },
+          });
+          console.info(`[VideoService] Auto-migrated r2ObjectKey for video ${videoId}: ${objectKey}`);
+        }
+      }
+
+      if (objectKey) {
+        // Generate fresh 1-hour signed URL — this is the playback credential
+        const freshUrl = await cloudflareR2Service.generatePlaybackUrl(objectKey, 3600);
+        if (freshUrl) {
+          playbackUrl = freshUrl;
+          provider = 'CLOUDFLARE_R2';
+        } else {
+          console.warn(`[VideoService] Could not generate fresh R2 URL for video ${videoId}. Falling back to stored URL.`);
+          // playbackUrl remains video.videoUrl — may be expired, but graceful degradation
+        }
+      } else {
+        console.warn(`[VideoService] No r2ObjectKey could be determined for R2 video ${videoId}. Using stored URL.`);
+      }
     }
 
     return {
       videoId: video.id,
       title: video.title,
-      videoUrl: video.videoUrl,
+      videoUrl: playbackUrl,
+      provider,
       playbackToken: `SECURE_STREAM_${video.id}_${Date.now()}`,
     };
   }
@@ -628,8 +694,9 @@ class VideoService {
 
   /**
    * Create video under chosen language & product
+   * @param {string} r2ObjectKey — Permanent R2 object key (e.g. "videos/<uuid>.mp4"). Store this, NOT the presigned URL.
    */
-  async createVideo({ title, description, videoUrl, thumbnailUrl, duration, languageId, productId, status = 'AVAILABLE', orderIndex }) {
+  async createVideo({ title, description, videoUrl, thumbnailUrl, duration, languageId, productId, status = 'AVAILABLE', orderIndex, r2ObjectKey, provider }) {
     const language = await prisma.language.findUnique({ where: { id: languageId } });
     if (!language) {
       throw new Error('Specified language folder not found');
@@ -645,12 +712,21 @@ class VideoService {
       finalOrderIndex = maxVideo ? maxVideo.orderIndex + 1 : 0;
     }
 
+    // Determine provider from explicit param or infer from URL
+    let resolvedProvider = provider || 'CLOUDINARY';
+    if (!provider && r2ObjectKey) resolvedProvider = 'CLOUDFLARE_R2';
+    if (!provider && videoUrl && (videoUrl.includes('r2.cloudflarestorage.com') || videoUrl.includes('.r2.dev'))) {
+      resolvedProvider = 'CLOUDFLARE_R2';
+    }
+
     return prisma.video.create({
       data: {
         title,
         description,
-        videoUrl,
+        videoUrl: videoUrl || '',
         thumbnailUrl: thumbnailUrl || null,
+        r2ObjectKey: r2ObjectKey || null,  // Permanent R2 object key
+        provider: resolvedProvider,
         duration: duration ? parseInt(duration, 10) : 0,
         languageId,
         productId: productId || null,

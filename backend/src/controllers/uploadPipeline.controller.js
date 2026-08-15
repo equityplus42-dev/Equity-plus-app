@@ -40,6 +40,7 @@ class UploadPipelineController {
       const fileSize = req.file.size || (req.file.buffer ? req.file.buffer.length : 0);
       let usedProvider = provider;
       let fileUrl;
+      let r2ObjectKey = null; // Permanent R2 object key (null for non-R2 providers)
       let videoDuration = 0;
 
       if (isVideo) {
@@ -50,7 +51,11 @@ class UploadPipelineController {
         }
 
         if (usedProvider === 'CLOUDFLARE_R2') {
-          fileUrl = await cloudflareR2Service.uploadFile(req.file.buffer, 'videos', req.file.originalname, req.file.mimetype);
+          // uploadFile now returns { r2ObjectKey, url } — the URL is a 1-hour preview URL.
+          // The permanent storage identity is r2ObjectKey (e.g. "videos/<uuid>.mp4").
+          const r2Result = await cloudflareR2Service.uploadFile(req.file.buffer, 'videos', req.file.originalname, req.file.mimetype);
+          fileUrl = r2Result.url;
+          r2ObjectKey = r2Result.r2ObjectKey;
           const reqDur = parseInt(req.body.duration || req.query.duration, 10);
           videoDuration = !isNaN(reqDur) && reqDur > 0 ? reqDur : 0;
         } else if (usedProvider === 'CLOUDFLARE_STREAM') {
@@ -65,9 +70,11 @@ class UploadPipelineController {
           videoDuration = (result.duration && result.duration > 0) ? result.duration : (!isNaN(reqDur) && reqDur > 0 ? reqDur : 0);
         }
       } else {
-        // Image files go to Primary Cloudinary account (CLOUDINARY_*)
+        // Image files
         if (usedProvider === 'CLOUDFLARE_R2') {
-          fileUrl = await cloudflareR2Service.uploadFile(req.file.buffer, 'thumbnails', req.file.originalname, req.file.mimetype);
+          const r2Result = await cloudflareR2Service.uploadFile(req.file.buffer, 'thumbnails', req.file.originalname, req.file.mimetype);
+          fileUrl = r2Result.url;
+          r2ObjectKey = r2Result.r2ObjectKey;
         } else {
           fileUrl = await cloudinaryService.uploadImage(req.file.buffer, 'thumbnails');
         }
@@ -75,6 +82,7 @@ class UploadPipelineController {
 
       return ApiResponse.success(res, 'File uploaded successfully', {
         url: fileUrl,
+        r2ObjectKey,   // Permanent R2 object key — store this in Video.r2ObjectKey
         isVideo,
         duration: videoDuration,
         provider: usedProvider,

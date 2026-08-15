@@ -86,6 +86,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isInitialized = false;
   bool _hasError      = false;
 
+  /// The currently active playback URL (fresh from /access for R2, or direct for Cloudinary)
+  String? _activePlaybackUrl;
+
+  /// Number of URL refresh attempts made after playback failure (max 3)
+  int _urlRefreshAttempts = 0;
+  static const int _maxRefreshAttempts = 3;
+
   DateTime? _lastPlayTimestamp;
   String?   _sessionId;
 
@@ -97,6 +104,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void initState() {
     super.initState();
     _initializeVideoAndSession();
+  }
+
+  // ── R2 Detection Helper ───────────────────────────────────────────────────
+  bool _isR2Video() {
+    final url = widget.video.videoUrl;
+    return url.isEmpty ||
+           url.contains('.r2.cloudflarestorage.com') ||
+           url.contains('.r2.dev') ||
+           widget.video.provider == 'CLOUDFLARE_R2';
+  }
+
+  // ── Fetch Fresh Playback URL from /access Endpoint ───────────────────────
+  /// For R2 videos, the backend generates a fresh 1-hour presigned URL on
+  /// every authorized call. This method retrieves it.
+  Future<String?> _fetchFreshPlaybackUrl() async {
+    try {
+      final res = await _apiClient.get('/videos/${widget.video.id}/access');
+      final url = res['data']?['videoUrl'] as String?;
+      if (url != null && url.isNotEmpty) {
+        return url;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[VideoPlayer] _fetchFreshPlaybackUrl failed: $e');
+      return null;
+    }
   }
 
   // ── Initialise controller ─────────────────────────────────────────────────
@@ -120,14 +153,81 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         if (sessRes['data'] != null) _sessionId = sessRes['data']['sessionId'];
       } catch (_) {}
 
-      // 3. Initialise controller at current quality
+      // 3. Determine playback URL
+      // For R2 videos: call /access to get a fresh 1-hour presigned URL.
+      // For Cloudinary videos: use the direct URL from the model.
+      String playbackUrl;
+      if (_isR2Video()) {
+        final freshUrl = await _fetchFreshPlaybackUrl();
+        if (freshUrl == null || freshUrl.isEmpty) {
+          // Could not get fresh URL — show error
+          if (mounted) setState(() => _hasError = true);
+          return;
+        }
+        playbackUrl = freshUrl;
+      } else {
+        playbackUrl = widget.video.videoUrl;
+      }
+
+      _activePlaybackUrl = playbackUrl;
+      _urlRefreshAttempts = 0;
+
+      // 4. Initialise controller at current quality
       await _createController(
-        buildQualityUrl(widget.video.videoUrl.trim(), _currentQuality),
+        buildQualityUrl(playbackUrl.trim(), _currentQuality),
         resumePos: resumePos,
         autoPlay: true,
       );
     } catch (e) {
       debugPrint('Video Player init error: $e');
+      if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  // ── Retry With Fresh URL (Smart Retry) ────────────────────────────────────
+  /// Requests a NEW presigned URL from the backend before re-initializing.
+  /// Never reuses an expired URL. Max 3 attempts to prevent infinite loops.
+  Future<void> _retryWithFreshUrl() async {
+    if (_urlRefreshAttempts >= _maxRefreshAttempts) {
+      // Max attempts reached — leave error state visible
+      return;
+    }
+
+    // Capture position before disposal
+    int savedPos = widget.video.watchedSecs;
+    if (_isInitialized) {
+      try { savedPos = _controller.value.position.inSeconds; } catch (_) {}
+      _controller.removeListener(_videoListener);
+      try { await _controller.dispose(); } catch (_) {}
+    }
+
+    if (mounted) setState(() { _hasError = false; _isInitialized = false; });
+    _urlRefreshAttempts++;
+
+    // For R2 videos: always fetch a fresh URL.
+    // For Cloudinary: just retry with the existing URL.
+    String? playbackUrl;
+    if (_isR2Video()) {
+      playbackUrl = await _fetchFreshPlaybackUrl();
+    } else {
+      playbackUrl = widget.video.videoUrl;
+    }
+
+    if (playbackUrl == null || playbackUrl.isEmpty) {
+      if (mounted) setState(() => _hasError = true);
+      return;
+    }
+
+    _activePlaybackUrl = playbackUrl;
+
+    try {
+      await _createController(
+        buildQualityUrl(playbackUrl.trim(), _currentQuality),
+        resumePos: savedPos,
+        autoPlay: true,
+      );
+    } catch (e) {
+      debugPrint('[VideoPlayer] Retry failed: $e');
       if (mounted) setState(() => _hasError = true);
     }
   }
@@ -181,7 +281,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     await _controller.dispose();
 
     try {
-      final url = buildQualityUrl(widget.video.videoUrl.trim(), quality);
+      // Use the active fresh URL (especially important for R2 where videoUrl may be stale/null).
+      // Fall back to widget.video.videoUrl for Cloudinary/legacy videos.
+      final baseUrl = (_activePlaybackUrl != null && _activePlaybackUrl!.isNotEmpty)
+          ? _activePlaybackUrl!
+          : widget.video.videoUrl;
+      final url = buildQualityUrl(baseUrl.trim(), quality);
       await _createController(url, resumePos: savedPos.inSeconds);
       if (wasPlaying && mounted) _controller.play();
     } catch (e) {
@@ -527,6 +632,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildErrorWidget() {
+    final attemptsLeft = _maxRefreshAttempts - _urlRefreshAttempts;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -538,10 +644,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          widget.video.videoUrl,
+          _urlRefreshAttempts >= _maxRefreshAttempts
+              ? 'Maximum retry attempts reached. Please check your connection.'
+              : 'Tap below to reconnect and get a fresh playback link.',
           style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 20),
+        if (attemptsLeft > 0)
+          ElevatedButton.icon(
+            onPressed: _retryWithFreshUrl,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: Text(
+              'Retry Connection ($attemptsLeft attempt${attemptsLeft > 1 ? 's' : ''} left)',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryPurple,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
       ],
     );
   }

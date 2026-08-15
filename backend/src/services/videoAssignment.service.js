@@ -564,15 +564,26 @@ class VideoAssignmentService {
     });
 
     // Delete underlying file from Cloudflare R2 bucket or Cloudinary storage
-    if (video.videoUrl) {
+    const isR2Video =
+      Boolean(video.r2ObjectKey) ||
+      (video.videoUrl && (video.videoUrl.includes('r2.cloudflarestorage.com') || video.videoUrl.includes('.r2.dev')));
+
+    if (isR2Video) {
       try {
-        if (video.videoUrl.includes('r2.cloudflarestorage.com') || video.videoUrl.includes('.r2.dev')) {
-          const cloudflareR2Service = require('./cloudflareR2.service');
-          await cloudflareR2Service.deleteFile(video.videoUrl);
+        const cloudflareR2Service = require('./cloudflareR2.service');
+        // Prefer permanent r2ObjectKey; fall back to extracting from URL for legacy records
+        const objectKey = video.r2ObjectKey || cloudflareR2Service.extractR2ObjectKeyFromUrl(video.videoUrl);
+        if (objectKey) {
+          await cloudflareR2Service.deleteFile(objectKey);
+        } else {
+          console.warn(`[VideoAssignmentService] Could not determine R2 object key for video ${videoId}. Manual cleanup may be required.`);
         }
       } catch (cloudErr) {
-        console.warn(`[VideoAssignmentService] Cloud file cleanup notice: ${cloudErr.message}`);
+        console.warn(`[VideoAssignmentService] R2 file cleanup notice: ${cloudErr.message}`);
       }
+    } else if (video.videoUrl && (video.videoUrl.includes('res.cloudinary.com') || video.videoUrl.includes('cloudinary'))) {
+      // Cloudinary cleanup (no-op here — Cloudinary videos are not auto-deleted by default)
+      console.info(`[VideoAssignmentService] Cloudinary video ${videoId} removed from DB only. Manual Cloudinary cleanup may be needed.`);
     }
 
     // Hard-delete the video

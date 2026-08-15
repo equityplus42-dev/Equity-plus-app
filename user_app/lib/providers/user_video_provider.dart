@@ -11,6 +11,7 @@ class UserVideoModel {
   final String? thumbnailUrl;
   final int duration;
   final String languageName;
+  final String provider;   // 'CLOUDFLARE_R2', 'CLOUDINARY', 'CLOUDFLARE_STREAM', 'YOUTUBE'
   int watchedSecs;
   bool isCompleted;
   final bool isLocked;
@@ -24,6 +25,7 @@ class UserVideoModel {
     this.thumbnailUrl,
     required this.duration,
     required this.languageName,
+    this.provider = 'CLOUDINARY',
     required this.watchedSecs,
     required this.isCompleted,
     this.isLocked = false,
@@ -39,6 +41,7 @@ class UserVideoModel {
       thumbnailUrl: json['thumbnailUrl'],
       duration: json['duration'] ?? 0,
       languageName: json['languageName'] ?? 'General',
+      provider: json['provider'] ?? 'CLOUDINARY',
       watchedSecs: json['watchedSecs'] ?? 0,
       isCompleted: json['isCompleted'] ?? false,
       isLocked: json['isLocked'] ?? false,
