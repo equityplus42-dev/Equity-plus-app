@@ -86,15 +86,62 @@ class UserRepository {
     });
   }
 
-  async deleteUser(id) {
-    return prisma.user.update({
+  async deleteUser(id, adminId = 'ADMIN') {
+    const user = await prisma.user.findUnique({
       where: { id },
-      data: {
-        isDeleted: true,
-        isActive: false,
-        deletedAt: new Date()
-      }
+      include: {
+        profile: true,
+        hierarchyNode: true,
+        payments: true,
+        productAccesses: true,
+      },
     });
+
+    if (!user) {
+      return null;
+    }
+
+    // 1. Save user details to DeletedUserLog table
+    await prisma.deletedUserLog.create({
+      data: {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        referralCode: user.referralCode,
+        referrerId: user.referrerId,
+        firstName: user.profile?.firstName || null,
+        lastName: user.profile?.lastName || null,
+        phoneNumber: user.profile?.phoneNumber || null,
+        whatsApp: user.profile?.whatsApp || null,
+        state: user.profile?.state || null,
+        district: user.profile?.district || null,
+        panNumber: user.profile?.panNumber || null,
+        aadharNumber: user.profile?.aadharNumber || null,
+        assignedLanguageId: user.profile?.assignedLanguageId || null,
+        assignedProductId: user.profile?.assignedProductId || null,
+        points: user.points || 0,
+        deletedBy: adminId,
+        snapshotData: JSON.stringify(user),
+      },
+    });
+
+    // 2. Permanently hard delete user from main active User table and clean up child records
+    await prisma.$transaction([
+      prisma.userVideoProgress.deleteMany({ where: { userId: id } }),
+      prisma.snapshotVideo.deleteMany({ where: { snapshot: { userId: id } } }),
+      prisma.userVideoSnapshot.deleteMany({ where: { userId: id } }),
+      prisma.languageChangeRequest.deleteMany({ where: { userId: id } }),
+      prisma.playbackSession.deleteMany({ where: { userId: id } }),
+      prisma.notification.deleteMany({ where: { userId: id } }),
+      prisma.referral.deleteMany({ where: { OR: [{ refereeId: id }, { referrerId: id }] } }),
+      prisma.hierarchyNode.deleteMany({ where: { userId: id } }),
+      prisma.userProductAccess.deleteMany({ where: { userId: id } }),
+      prisma.videoAssignment.deleteMany({ where: { userId: id } }),
+      prisma.profile.deleteMany({ where: { userId: id } }),
+      prisma.user.delete({ where: { id } }),
+    ]);
+
+    return { id, email: user.email, deletedPermanently: true };
   }
 }
 

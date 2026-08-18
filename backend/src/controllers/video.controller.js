@@ -166,6 +166,19 @@ class VideoController {
       next(error);
     }
   }
+
+  async setUserLanguage(req, res, next) {
+    try {
+      const { languageId } = req.body;
+      if (!languageId) {
+        return ApiResponse.error(res, 'languageId is required', 400);
+      }
+      const data = await videoService.setUserLanguage(req.user.id, languageId);
+      return ApiResponse.success(res, 'Learning language selected successfully', data);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new VideoController();

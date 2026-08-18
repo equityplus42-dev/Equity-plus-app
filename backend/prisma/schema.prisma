@@ -71,6 +71,7 @@ model Profile {
   assignedLanguage     Language? @relation(fields: [assignedLanguageId], references: [id], onDelete: SetNull)
   assignedProductId    String?
   assignedProduct      Product?  @relation(fields: [assignedProductId], references: [id], onDelete: SetNull)
+  languageSelectionRequired Boolean @default(false)
   disclaimerAcceptedAt DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -343,6 +344,35 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
 }
+
+model DeletedUserLog {
+  id                 String   @id @default(uuid())
+  userId             String   // Original user UUID
+  email              String
+  role               String   @default("USER")
+  referralCode       String
+  referrerId         String?
+  firstName          String?
+  lastName           String?
+  phoneNumber        String?
+  whatsApp           String?
+  state              String?
+  district           String?
+  panNumber          String?
+  aadharNumber       String?
+  assignedLanguageId String?
+  assignedProductId  String?
+  points             Int      @default(0)
+  deletedAt          DateTime @default(now())
+  deletedBy          String?  // Admin User ID or "ADMIN"
+  reason             String?  @db.Text
+  snapshotData       String?  @db.Text // Full JSON dump of user record before deletion
+
+  @@index([userId])
+  @@index([email])
+  @@index([deletedAt])
+}
+
 
 model Payment {
   id            String              @id @default(uuid())

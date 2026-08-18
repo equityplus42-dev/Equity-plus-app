@@ -172,19 +172,111 @@ class VideoService {
   }
 
   /**
+   * Set user's chosen language permanently in profile and initialize user video snapshot
+   */
+  async setUserLanguage(userId, languageId) {
+    // Safety guard: this endpoint is ONLY for eligible legacy language selection.
+    // Must satisfy BOTH: languageSelectionRequired == true AND assignedLanguageId == null.
+    const existingProfile = await prisma.profile.findUnique({ where: { userId } });
+    if (!existingProfile || !existingProfile.languageSelectionRequired || existingProfile.assignedLanguageId) {
+      const error = new Error(
+        'Language selection has already been completed or is not required for this account.'
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const language = await prisma.language.findUnique({ where: { id: languageId } });
+    if (!language) {
+      throw new Error('Selected language not found');
+    }
+
+    // Atomic transaction: save assigned language and clear languageSelectionRequired flag permanently
+    await prisma.$transaction(async (tx) => {
+      await tx.profile.update({
+        where: { userId },
+        data: {
+          assignedLanguageId: languageId,
+          languageSelectionRequired: false,
+        },
+      });
+    });
+
+    // Create the permanent video snapshot for this selected language
+    await this.getOrCreateUserSnapshot(userId);
+
+    // Return the updated user videos payload
+    return this.getUserVideos(userId);
+  }
+
+  /**
    * Fetch videos and progress for user (Unlocked vs Locked) with search and filtering
    */
   async getUserVideos(userId, queryOptions = {}) {
     const { query, filter, sortBy } = queryOptions;
-    let snapshot = await this.getOrCreateUserSnapshot(userId);
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
         profile: {
-          include: { assignedProduct: true },
+          include: { assignedProduct: true, assignedLanguage: true },
         },
       },
     });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // State 4 Normalization: If languageSelectionRequired is true BUT assignedLanguageId is already set,
+    // normalize DB to false safely without altering assignedLanguageId.
+    if (user.profile?.languageSelectionRequired && user.profile?.assignedLanguageId) {
+      await prisma.profile.update({
+        where: { userId },
+        data: { languageSelectionRequired: false },
+      });
+      user.profile.languageSelectionRequired = false;
+    }
+
+    // State 1: Legacy user eligible for first-time language selection prompt
+    // Popup MUST appear ONLY when BOTH languageSelectionRequired === true AND assignedLanguageId === null
+    if (user.profile?.languageSelectionRequired && !user.profile?.assignedLanguageId) {
+      const availableLanguages = await prisma.language.findMany({
+        orderBy: [{ name: 'asc' }],
+        select: { id: true, name: true, code: true, isDefault: true },
+      });
+
+      return {
+        needsLanguageSelection: true,
+        availableLanguages,
+        unlockedVideos: [],
+        lockedVideos: [],
+        assignedLanguage: null,
+        assignedProduct: user.profile?.assignedProduct || null,
+        userSnapshot: null,
+        snapshot: null,
+        progress: null,
+      };
+    }
+
+    // State 3: User has NO assigned language AND languageSelectionRequired === false
+    // (e.g. New account, post-cutoff account, or incomplete registration).
+    // DO NOT show legacy popup! Return needsLanguageSelection: false.
+    if (!user.profile?.assignedLanguageId) {
+      return {
+        needsLanguageSelection: false,
+        availableLanguages: [],
+        unlockedVideos: [],
+        lockedVideos: [],
+        assignedLanguage: null,
+        assignedProduct: user.profile?.assignedProduct || null,
+        userSnapshot: null,
+        snapshot: null,
+        progress: null,
+      };
+    }
+
+    let snapshot = await this.getOrCreateUserSnapshot(userId);
 
     const now = new Date();
     const joinedAt = new Date(user.createdAt);
@@ -415,6 +507,7 @@ class VideoService {
     };
 
     return {
+      needsLanguageSelection: false,
       assignedLanguage: evaluatedSnapshot.language,
       assignedProduct: user.profile?.assignedProduct || null,
       isDisclaimerAccepted: !disclaimerNeedsReacceptance && !!evaluatedSnapshot.acceptedDisclaimerAt,
@@ -825,8 +918,8 @@ class VideoService {
 
     await prisma.profile.upsert({
       where: { userId },
-      update: { assignedLanguageId: languageId },
-      create: { userId, assignedLanguageId: languageId },
+      update: { assignedLanguageId: languageId, languageSelectionRequired: false },
+      create: { userId, assignedLanguageId: languageId, languageSelectionRequired: false },
     });
 
     return {

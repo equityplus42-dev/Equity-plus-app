@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../providers/user_video_provider.dart';
 import '../../widgets/disclaimer_dialog.dart';
+import '../../widgets/language_selection_modal.dart';
 import 'video_player_screen.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -29,6 +30,32 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
   Future<void> _checkDisclaimerAndLoad() async {
     final provider = Provider.of<UserVideoProvider>(context, listen: false);
     await provider.fetchUserVideos();
+
+    if (!mounted) return;
+
+    // Check if user has no assigned language folder yet (e.g. legacy/old users)
+    if (provider.needsLanguageSelection) {
+      final selectedLangId = await LanguageSelectionModal.show(
+        context: context,
+        languages: provider.availableLanguages,
+      );
+      if (selectedLangId != null && mounted) {
+        final success = await provider.selectLanguage(selectedLangId);
+        if (!success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(provider.errorMessage ?? 'Failed to save language selection'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          Navigator.of(context).pop();
+          return;
+        }
+      } else if (mounted) {
+        Navigator.of(context).pop();
+        return;
+      }
+    }
 
     if (!mounted) return;
 

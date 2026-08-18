@@ -9,6 +9,7 @@ router.get('/', authMiddleware, videoController.getUserVideos);
 router.get('/progress', authMiddleware, videoController.getProgressStatus);
 router.get('/locked', authMiddleware, videoController.getLockedVideos);
 router.get('/:id/access', authMiddleware, videoController.getSecureVideoPlayback);
+router.post('/select-language', authMiddleware, videoController.setUserLanguage);
 router.post('/disclaimer/accept', authMiddleware, videoController.acceptDisclaimer);
 router.post('/:id/progress', authMiddleware, videoController.recordProgress);
 router.post('/:id/heartbeat', authMiddleware, videoController.recordPlaybackHeartbeat);

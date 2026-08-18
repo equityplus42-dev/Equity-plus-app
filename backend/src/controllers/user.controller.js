@@ -54,9 +54,9 @@ class UserController {
 
   async deleteUser(req, res, next) {
     try {
-      await userRepository.deleteUser(req.params.id);
-      await auditLogService.log(req, 'USER_DELETE', req.params.id, { deletedBy: req.user.id });
-      return ApiResponse.success(res, 'User deleted successfully');
+      await userRepository.deleteUser(req.params.id, req.user?.id || 'ADMIN');
+      await auditLogService.log(req, 'USER_DELETE', req.params.id, { deletedBy: req.user?.id });
+      return ApiResponse.success(res, 'User deleted permanently and archived to DeletedUserLog');
     } catch (error) {
       next(error);
     }

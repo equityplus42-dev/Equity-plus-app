@@ -45,6 +45,7 @@ class ApiConstants {
 
   // Video & Disclaimer endpoints
   static const String userVideos = '/videos';
+  static const String selectLanguage = '/videos/select-language';
   static const String acceptDisclaimer = '/videos/disclaimer/accept';
   static String recordVideoProgress(String id) => '/videos/$id/progress';
   static const String refundStatus = '/videos/refund-status';

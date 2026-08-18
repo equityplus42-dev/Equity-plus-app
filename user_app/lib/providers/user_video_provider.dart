@@ -134,6 +134,9 @@ class UserVideoProvider extends ChangeNotifier {
   SnapshotModel? _snapshot;
   SnapshotProgressModel? _progress;
 
+  bool _needsLanguageSelection = false;
+  List<Map<String, dynamic>> _availableLanguages = [];
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -145,6 +148,9 @@ class UserVideoProvider extends ChangeNotifier {
   bool get isDisclaimerAccepted => _isDisclaimerAccepted;
   bool get disclaimerNeedsReacceptance => _disclaimerNeedsReacceptance;
   int get currentDisclaimerVersion => _currentDisclaimerVersion;
+
+  bool get needsLanguageSelection => _needsLanguageSelection;
+  List<Map<String, dynamic>> get availableLanguages => _availableLanguages;
 
   SnapshotModel? get snapshot => _snapshot;
   SnapshotProgressModel? get progress => _progress;
@@ -160,6 +166,15 @@ class UserVideoProvider extends ChangeNotifier {
     try {
       final response = await _apiClient.get(ApiConstants.userVideos);
       final data = response['data'] ?? {};
+
+      _needsLanguageSelection = data['needsLanguageSelection'] == true;
+      if (data['availableLanguages'] != null) {
+        _availableLanguages = (data['availableLanguages'] as List)
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      } else {
+        _availableLanguages = [];
+      }
 
       _isDisclaimerAccepted = data['isDisclaimerAccepted'] ?? false;
       _disclaimerNeedsReacceptance = data['disclaimerNeedsReacceptance'] ?? false;
@@ -198,6 +213,56 @@ class UserVideoProvider extends ChangeNotifier {
       _isLoading = false;
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+    }
+  }
+
+  Future<bool> selectLanguage(String languageId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.post(ApiConstants.selectLanguage, {
+        'languageId': languageId,
+      });
+      final data = response['data'] ?? {};
+      _needsLanguageSelection = false;
+
+      _isDisclaimerAccepted = data['isDisclaimerAccepted'] ?? false;
+      _disclaimerNeedsReacceptance = data['disclaimerNeedsReacceptance'] ?? false;
+      _currentDisclaimerVersion = data['currentDisclaimerVersion'] ?? 1;
+
+      if (data['assignedLanguage'] != null) {
+        _assignedLanguageName = data['assignedLanguage']['name'];
+      }
+
+      if (data['assignedProduct'] != null) {
+        _assignedProductName = data['assignedProduct']['name'];
+      }
+
+      final snapshotData = data['userSnapshot'] ?? data['snapshot'];
+      if (snapshotData != null) {
+        _snapshot = SnapshotModel.fromJson(snapshotData);
+      }
+      final progressData = data['userSnapshot'] ?? data['progress'];
+      if (progressData != null) {
+        _progress = SnapshotProgressModel.fromJson(progressData);
+      }
+
+      final List rawUnlocked = data['unlockedVideos'] ?? [];
+      _unlockedVideos = rawUnlocked.map((item) => UserVideoModel.fromJson(item)).toList();
+
+      final List rawLocked = data['lockedVideos'] ?? [];
+      _lockedVideos = rawLocked.map((item) => UserVideoModel.fromJson(item)).toList();
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
     }
   }
 
