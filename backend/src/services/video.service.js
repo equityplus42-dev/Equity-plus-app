@@ -401,10 +401,18 @@ class VideoService {
     const disclaimerNeedsReacceptance =
       !user?.profile?.disclaimerAcceptedAt || evaluatedSnapshot.disclaimerVersion < systemDisclaimerVer;
 
+    // Fetch manual revocations for this user to exclude explicitly unassigned videos
+    const revokedAssignments = await prisma.videoAssignment.findMany({
+      where: { userId, status: 'REVOKED' },
+      select: { videoId: true },
+    });
+    const revokedVideoIds = new Set(revokedAssignments.map((a) => a.videoId));
+
     const whereClause = {
       languageId: evaluatedSnapshot.languageId,
       isActive: true,
       status: { in: ['AVAILABLE', 'ASSIGNED', 'IN_USE'] },
+      id: { notIn: Array.from(revokedVideoIds) },
     };
 
     if (query && query.trim().length > 0) {
@@ -664,11 +672,18 @@ class VideoService {
       }
     }
 
-    // Verify snapshot permission
+    // Check if admin manually revoked access to this video for this user
+    const revokedAssignment = await prisma.videoAssignment.findFirst({
+      where: { userId, videoId, status: 'REVOKED' },
+    });
+    if (revokedAssignment) {
+      throw new Error('Access to this video has been revoked for your account');
+    }
+
+    // Verify snapshot permission and direct assignment
     const snapshot = await this.getOrCreateUserSnapshot(userId);
     const isSnapshotVideo = snapshot.snapshotVideos.some((sv) => sv.videoId === videoId);
 
-    // Check direct assignment as well
     const directAssignment = await prisma.videoAssignment.findFirst({
       where: { userId, videoId, status: 'ACTIVE' },
     });

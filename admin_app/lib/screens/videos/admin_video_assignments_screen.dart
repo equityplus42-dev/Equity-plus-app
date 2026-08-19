@@ -33,7 +33,14 @@ class _AdminVideoAssignmentsScreenState extends State<AdminVideoAssignmentsScree
 
   void _showAssignDialog(VideoAssignmentItem item) {
     final usersProvider = Provider.of<AdminUsersProvider>(context, listen: false);
-    final users = usersProvider.users.where((u) => u.isApproved && u.isActive).toList();
+    final rawUsers = usersProvider.users.where((u) => u.isApproved && u.isActive).toList();
+
+    // Deduplicate users by ID to prevent DropdownButton duplicate value assertion error
+    final Map<String, dynamic> uniqueUsersMap = {};
+    for (final u in rawUsers) {
+      uniqueUsersMap[u.id] = u;
+    }
+    final users = uniqueUsersMap.values.toList();
 
     if (users.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +69,9 @@ class _AdminVideoAssignmentsScreenState extends State<AdminVideoAssignmentsScree
               Text('Language: ${item.languageName}', style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12)),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                initialValue: selectedUserId,
+                value: (selectedUserId != null && users.any((u) => u.id == selectedUserId))
+                    ? selectedUserId
+                    : (users.isNotEmpty ? users.first.id : null),
                 dropdownColor: AppTheme.cardBg,
                 style: GoogleFonts.outfit(color: AppTheme.lightText),
                 decoration: const InputDecoration(
@@ -415,19 +424,9 @@ class _AdminVideoAssignmentsScreenState extends State<AdminVideoAssignmentsScree
                     }
                   },
                   icon: const Icon(Icons.visibility_outlined, size: 14, color: AppTheme.neonCyan),
-                  label: Text('Details', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
+                  label: Text('Manage Access & Revocations', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                ElevatedButton.icon(
-                  onPressed: () => _showAssignDialog(item),
-                  icon: const Icon(Icons.person_add, size: 14, color: Colors.white),
-                  label: Text('Assign', style: GoogleFonts.outfit(fontSize: 12, color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryPurple,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
               ],

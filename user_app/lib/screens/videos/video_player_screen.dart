@@ -1551,6 +1551,13 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
     if (mounted) setState(() {});
   }
 
+  void _onUserActivity() {
+    if (!_showControls) {
+      setState(() => _showControls = true);
+    }
+    _startHideTimer();
+  }
+
   void _startHideTimer() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 3), () {
@@ -1566,6 +1573,7 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
   }
 
   void _seekRelative(int seconds) async {
+    _onUserActivity();
     final current  = widget.controller.value.position;
     final duration = widget.controller.value.duration;
     Duration target = current + Duration(seconds: seconds);
@@ -1584,6 +1592,7 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
   }
 
   void _togglePlayPause() {
+    _onUserActivity();
     final value  = widget.controller.value;
     final isEnded = value.position >= value.duration;
     if (isEnded) {
@@ -1594,7 +1603,6 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
     } else {
       widget.controller.play();
     }
-    _startHideTimer();
   }
 
   void _handleFullScreenToggle() {
@@ -1619,8 +1627,9 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
         value.position >= value.duration &&
         value.duration > Duration.zero;
 
-    final playerContent = GestureDetector(
-      onTap: _toggleControls,
+    final playerContent = MouseRegion(
+      onHover: (_) => _onUserActivity(),
+      onEnter: (_) => _onUserActivity(),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -1636,69 +1645,113 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
             ),
           ),
 
-          // 2. Double-tap seek zones
+          // 2. Gesture Detector Layer (Single tap controls toggle, Double tap seek)
           Positioned.fill(
             child: Row(
               children: [
+                // Left 42%: Double tap to rewind -10s
                 Expanded(
+                  flex: 42,
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
+                    onTap: _toggleControls,
                     onDoubleTap: () => _seekRelative(-10),
-                    child: Container(),
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
+                // Center 16%: Single tap to play/pause or toggle controls
                 Expanded(
+                  flex: 16,
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
+                    onTap: _togglePlayPause,
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+                // Right 42%: Double tap to forward +10s
+                Expanded(
+                  flex: 42,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _toggleControls,
                     onDoubleTap: () => _seekRelative(10),
-                    child: Container(),
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
               ],
             ),
           ),
 
-          // 3. Seek notice
+          // 3. YouTube-style Double-Tap Seek Notice Overlay
           if (_gestureNotice != null)
-            AnimatedOpacity(
-              opacity: 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _gestureNotice!.contains('+')
-                          ? Icons.fast_forward_rounded
-                          : Icons.fast_rewind_rounded,
-                      color: Colors.white,
-                      size: 20,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: 1.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    color: Colors.black26,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: AppTheme.neonCyan.withValues(alpha: 0.7), width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.neonCyan.withValues(alpha: 0.35),
+                              blurRadius: 18,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _gestureNotice!.contains('+')
+                                  ? Icons.fast_forward_rounded
+                                  : Icons.fast_rewind_rounded,
+                              color: AppTheme.neonCyan,
+                              size: 28,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              _gestureNotice!,
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _gestureNotice!,
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
 
-          // 4. Controls overlay
-          if (_showControls || !value.isPlaying || isEnded)
-            Positioned.fill(
+          // 4. Controls Overlay (Smooth AnimatedOpacity transition)
+          AnimatedOpacity(
+            opacity: (_showControls || !value.isPlaying || isEnded) ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 250),
+            child: IgnorePointer(
+              ignoring: !(_showControls || !value.isPlaying || isEnded),
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.black54, Colors.transparent, Colors.transparent, Colors.black54],
-                    stops: [0.0, 0.25, 0.75, 1.0],
+                    colors: [
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.transparent,
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.85),
+                    ],
+                    stops: const [0.0, 0.25, 0.70, 1.0],
                   ),
                 ),
                 child: Column(
@@ -1796,9 +1849,16 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
                         ),
                         const SizedBox(width: 24),
                         Container(
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppTheme.primaryPurple,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryPurple.withValues(alpha: 0.5),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              ),
+                            ],
                           ),
                           child: IconButton(
                             iconSize: widget.isFullScreen ? 52 : 44,
@@ -1865,6 +1925,7 @@ class _CloudinaryVideoPlayerState extends State<CloudinaryVideoPlayer> {
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

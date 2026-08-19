@@ -209,19 +209,27 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  initialValue: dialogLanguageId,
+                  value: langProvider.languages.any((l) => l.id == dialogLanguageId)
+                      ? dialogLanguageId
+                      : (langProvider.languages.isNotEmpty ? langProvider.languages.first.id : null),
                   dropdownColor: AppTheme.cardBg,
                   style: GoogleFonts.outfit(color: AppTheme.lightText),
                   decoration: const InputDecoration(
                     labelText: 'Select Language Folder',
                     prefixIcon: Icon(Icons.folder_outlined, color: AppTheme.primaryPurple),
                   ),
-                  items: langProvider.languages.map((l) {
-                    return DropdownMenuItem<String>(
-                      value: l.id,
-                      child: Text('${l.name} (${l.code})'),
-                    );
-                  }).toList(),
+                  items: () {
+                    final Map<String, dynamic> uniqueLangs = {};
+                    for (final l in langProvider.languages) {
+                      uniqueLangs[l.id] = l;
+                    }
+                    return uniqueLangs.values.map((l) {
+                      return DropdownMenuItem<String>(
+                        value: l.id,
+                        child: Text('${l.name} (${l.code})'),
+                      );
+                    }).toList();
+                  }(),
                   onChanged: (val) {
                     if (val != null) {
                       setDialogState(() {
