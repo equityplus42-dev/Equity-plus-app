@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -236,9 +237,68 @@ class _AdminRefundsScreenState extends State<AdminRefundsScreen> {
                                     Text(req.reason, style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.lightText)),
 
                                     if (req.bankDetails != null && req.bankDetails!.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Text('Bank / UPI Payout Details:', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.softGrey)),
-                                      Text(req.bankDetails!, style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.25),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: AppTheme.neonCyan.withOpacity(0.3)),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(
+                                                  'MANUAL PAYOUT DETAILS (NEFT / UPI)',
+                                                  style: GoogleFonts.outfit(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme.neonCyan,
+                                                    letterSpacing: 1.0,
+                                                  ),
+                                                ),
+                                                InkWell(
+                                                  onTap: () {
+                                                    Clipboard.setData(ClipboardData(text: req.bankDetails!));
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text('Payout details copied to clipboard! 📋'),
+                                                        backgroundColor: AppTheme.neonCyan,
+                                                        duration: Duration(seconds: 2),
+                                                      ),
+                                                    );
+                                                  },
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(2.0),
+                                                    child: Row(
+                                                      children: [
+                                                        const Icon(Icons.copy, size: 14, color: AppTheme.neonCyan),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'Copy',
+                                                          style: GoogleFonts.outfit(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: AppTheme.neonCyan,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 6),
+                                            SelectableText(
+                                              req.bankDetails!,
+                                              style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.lightText),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
 
                                     if (req.adminRemarks != null && req.adminRemarks!.isNotEmpty) ...[

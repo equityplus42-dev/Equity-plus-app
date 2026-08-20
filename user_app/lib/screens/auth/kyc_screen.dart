@@ -54,7 +54,7 @@ class _KycScreenState extends State<KycScreen> {
       // Reload profile to update UserModel state
       await authProvider.refreshProfile();
       if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+        Navigator.pushReplacementNamed(context, AppRoutes.paymentCheckout);
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

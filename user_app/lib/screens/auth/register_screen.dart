@@ -127,7 +127,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           user.aadharNumber != null &&
           user.aadharNumber!.isNotEmpty;
       if (hasKyc) {
-        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+        Navigator.pushReplacementNamed(context, AppRoutes.paymentCheckout);
       } else {
         Navigator.pushReplacementNamed(context, AppRoutes.kyc);
       }

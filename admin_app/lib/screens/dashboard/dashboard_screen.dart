@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_dashboard_provider.dart';
+import '../../providers/admin_notifications_provider.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -32,11 +33,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadDevMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats();
+      Provider.of<AdminNotificationsProvider>(context, listen: false).fetchNotifications(silent: true);
     });
     // Periodically fetch stats silently in background every 10 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (mounted) {
         Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
+        Provider.of<AdminNotificationsProvider>(context, listen: false).fetchNotifications(silent: true);
       }
     });
   }
@@ -300,14 +303,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-                              onPressed: () async {
-                                await authProvider.logout();
-                                if (!context.mounted) return;
-                                Navigator.pushReplacementNamed(context, AppRoutes.login);
-                              },
-                            )
+                            Row(
+                              children: [
+                                Consumer<AdminNotificationsProvider>(
+                                  builder: (context, notifProv, child) {
+                                    final unread = notifProv.unreadCount;
+                                    return Stack(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.notifications_outlined, color: AppTheme.lightText),
+                                          onPressed: () {
+                                            Navigator.pushNamed(context, AppRoutes.notifications);
+                                          },
+                                        ),
+                                        if (unread > 0)
+                                          Positioned(
+                                            right: 8,
+                                            top: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.redAccent,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                              child: Text(
+                                                '$unread',
+                                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+                                  onPressed: () async {
+                                    await authProvider.logout();
+                                    if (!context.mounted) return;
+                                    Navigator.pushReplacementNamed(context, AppRoutes.login);
+                                  },
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                         

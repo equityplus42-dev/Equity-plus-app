@@ -36,6 +36,7 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
     switch (status) {
       case 'SUCCESS':
         return AppTheme.neonGreen;
+      case 'PENDING_CASH_APPROVAL':
       case 'PENDING':
       case 'CREATED':
         return Colors.amber;

@@ -104,6 +104,30 @@ class NotificationService {
     return notification;
   }
 
+  async notifyAdmins(title, message, type = 'SYSTEM') {
+    const prisma = require('../config/database');
+    try {
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN', isDeleted: false },
+        select: { id: true },
+      });
+      const notifications = await Promise.all(
+        admins.map((admin) =>
+          notificationRepository.createNotification({
+            userId: admin.id,
+            title,
+            message,
+            type,
+          })
+        )
+      );
+      return notifications;
+    } catch (err) {
+      logger.error('Failed to notify admins', err);
+      return [];
+    }
+  }
+
   async getUserNotifications(userId) {
     return notificationRepository.findByUserId(userId);
   }

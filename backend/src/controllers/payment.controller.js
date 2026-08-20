@@ -59,6 +59,39 @@ class PaymentController {
       next(error);
     }
   }
+
+  async requestCashPayment(req, res, next) {
+    try {
+      const { productId } = req.body;
+      const payment = await paymentService.requestCashPayment({
+        userId: req.user.id,
+        productId,
+      });
+      return ApiResponse.success(res, 'Cash payment request submitted to Admin', payment, 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async approveCashPayment(req, res, next) {
+    try {
+      const { paymentId } = req.params;
+      const payment = await paymentService.approveCashPayment(paymentId, req.user.id);
+      return ApiResponse.success(res, 'Cash payment approved successfully', payment);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getPaymentStatus(req, res, next) {
+    try {
+      const { paymentId } = req.params;
+      const status = await paymentService.getPaymentStatus(paymentId, req.user.id);
+      return ApiResponse.success(res, 'Payment status retrieved', status);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PaymentController();

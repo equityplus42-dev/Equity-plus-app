@@ -16,7 +16,19 @@ class UserRefundRequestScreen extends StatefulWidget {
 
 class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
   final _reasonController = TextEditingController();
-  final _bankController = TextEditingController();
+
+  // Payout Method Selection
+  String _payoutMethod = 'NEFT'; // 'NEFT' or 'UPI'
+
+  // NEFT Controllers
+  final _accountNumberController = TextEditingController();
+  final _ifscController = TextEditingController();
+  final _holderNameController = TextEditingController();
+  final _bankNameController = TextEditingController();
+
+  // UPI Controller
+  final _upiIdController = TextEditingController();
+
   PaymentModel? _selectedPayment;
 
   @override
@@ -30,6 +42,7 @@ class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
       await videoProv.fetchUserVideos();
 
       if (paymentProv.payments.isNotEmpty) {
+        if (!mounted) return;
         setState(() {
           _selectedPayment = paymentProv.payments.firstWhere(
             (p) => p.status == 'SUCCESS',
@@ -38,6 +51,17 @@ class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    _accountNumberController.dispose();
+    _ifscController.dispose();
+    _holderNameController.dispose();
+    _bankNameController.dispose();
+    _upiIdController.dispose();
+    super.dispose();
   }
 
   void _submitRefund() async {
@@ -56,19 +80,49 @@ class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
       return;
     }
 
+    String formattedPayoutDetails = '';
+    if (_payoutMethod == 'NEFT') {
+      final accNo = _accountNumberController.text.trim();
+      final ifsc = _ifscController.text.trim().toUpperCase();
+      final holder = _holderNameController.text.trim();
+      final bank = _bankNameController.text.trim();
+
+      if (accNo.isEmpty || ifsc.isEmpty || holder.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please complete NEFT Bank details (Account No, IFSC & Holder Name).')),
+        );
+        return;
+      }
+      formattedPayoutDetails = '[NEFT Bank Transfer] Account: $accNo | IFSC: $ifsc | Holder: $holder | Bank: ${bank.isEmpty ? "N/A" : bank}';
+    } else {
+      final upiId = _upiIdController.text.trim();
+      if (upiId.isEmpty || !upiId.contains('@')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid UPI ID (e.g. user@upi).')),
+        );
+        return;
+      }
+      formattedPayoutDetails = '[UPI Payout] UPI ID: $upiId';
+    }
+
     final paymentProv = Provider.of<UserPaymentProvider>(context, listen: false);
     final success = await paymentProv.submitRefundRequest(
       paymentId: _selectedPayment!.id,
       reason: reason,
-      bankDetails: _bankController.text.trim(),
+      bankDetails: formattedPayoutDetails,
     );
 
     if (success && mounted) {
       _reasonController.clear();
-      _bankController.clear();
+      _accountNumberController.clear();
+      _ifscController.clear();
+      _holderNameController.clear();
+      _bankNameController.clear();
+      _upiIdController.clear();
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Refund request submitted successfully! Admin will review your application. 🎉'),
+          content: Text('Refund request submitted successfully! Admin will review your payout details. 🎉'),
           backgroundColor: AppTheme.neonGreen,
         ),
       );
@@ -174,6 +228,7 @@ class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: AppTheme.glassCardDecoration(),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Select Payment Dropdown
                       DropdownButtonFormField<PaymentModel>(
@@ -208,17 +263,139 @@ class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
                           prefixIcon: Icon(Icons.edit_note, color: AppTheme.neonCyan),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 18),
 
-                      TextField(
-                        controller: _bankController,
-                        style: GoogleFonts.outfit(color: AppTheme.lightText),
-                        decoration: const InputDecoration(
-                          labelText: 'Bank Account / UPI Details for Payout',
-                          prefixIcon: Icon(Icons.account_balance, color: AppTheme.neonGreen),
+                      // Payout Details Header & Toggle
+                      Text(
+                        'PAYOUT METHOD DETAILS',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.softGrey,
+                          letterSpacing: 1.0,
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 8),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ChoiceChip(
+                              label: Center(
+                                child: Text(
+                                  '🏦 NEFT (Bank)',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    color: _payoutMethod == 'NEFT' ? Colors.white : AppTheme.softGrey,
+                                  ),
+                                ),
+                              ),
+                              selected: _payoutMethod == 'NEFT',
+                              selectedColor: AppTheme.primaryPurple,
+                              backgroundColor: Colors.black12,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    _payoutMethod = 'NEFT';
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: Center(
+                                child: Text(
+                                  '📱 UPI ID',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    color: _payoutMethod == 'UPI' ? Colors.white : AppTheme.softGrey,
+                                  ),
+                                ),
+                              ),
+                              selected: _payoutMethod == 'UPI',
+                              selectedColor: AppTheme.primaryPurple,
+                              backgroundColor: Colors.black12,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    _payoutMethod = 'UPI';
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // NEFT Input Fields
+                      if (_payoutMethod == 'NEFT') ...[
+                        TextField(
+                          controller: _holderNameController,
+                          style: GoogleFonts.outfit(color: AppTheme.lightText),
+                          decoration: const InputDecoration(
+                            labelText: 'Account Holder Name',
+                            prefixIcon: Icon(Icons.person_outline, color: AppTheme.neonCyan),
+                            hintText: 'Full Name as in Bank',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _accountNumberController,
+                          keyboardType: TextInputType.number,
+                          style: GoogleFonts.outfit(color: AppTheme.lightText),
+                          decoration: const InputDecoration(
+                            labelText: 'Bank Account Number',
+                            prefixIcon: Icon(Icons.account_balance_outlined, color: AppTheme.neonGreen),
+                            hintText: 'e.g. 123456789012',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _ifscController,
+                                textCapitalization: TextCapitalization.characters,
+                                style: GoogleFonts.outfit(color: AppTheme.lightText),
+                                decoration: const InputDecoration(
+                                  labelText: 'IFSC Code',
+                                  prefixIcon: Icon(Icons.code, color: AppTheme.primaryPurple),
+                                  hintText: 'e.g. SBIN0001234',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: _bankNameController,
+                                style: GoogleFonts.outfit(color: AppTheme.lightText),
+                                decoration: const InputDecoration(
+                                  labelText: 'Bank Name',
+                                  prefixIcon: Icon(Icons.business_outlined, color: AppTheme.softGrey),
+                                  hintText: 'e.g. SBI',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        // UPI Input Field
+                        TextField(
+                          controller: _upiIdController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: GoogleFonts.outfit(color: AppTheme.lightText),
+                          decoration: const InputDecoration(
+                            labelText: 'UPI ID for Payout',
+                            prefixIcon: Icon(Icons.qr_code_2, color: AppTheme.neonGreen),
+                            hintText: 'e.g. username@upi or mobile@paytm',
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 20),
 
                       SizedBox(
                         width: double.infinity,
@@ -228,7 +405,7 @@ class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
                               ? const SpinKitRing(color: Colors.white, size: 20)
                               : const Icon(Icons.send_outlined),
                           label: Text(
-                            paymentProv.isLoading ? 'Submitting...' : 'Submit Refund Request',
+                            paymentProv.isLoading ? 'Submitting...' : 'Submit Refund Application',
                             style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
                           ),
                           style: ElevatedButton.styleFrom(
@@ -314,6 +491,13 @@ class _UserRefundRequestScreenState extends State<UserRefundRequestScreen> {
                                 'Reason: ${req.reason}',
                                 style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
                               ),
+                              if (req.bankDetails != null && req.bankDetails!.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Payout Details: ${req.bankDetails}',
+                                  style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonCyan),
+                                ),
+                              ],
                               if (req.adminRemarks != null && req.adminRemarks!.isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(

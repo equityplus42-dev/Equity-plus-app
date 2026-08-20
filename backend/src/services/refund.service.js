@@ -59,7 +59,7 @@ class RefundService {
       },
     });
 
-    // 5. Create Notification
+    // 5. Create Notification for user
     await prisma.notification.create({
       data: {
         userId,
@@ -68,6 +68,21 @@ class RefundService {
         type: 'REFUND',
       },
     });
+
+    // 5b. Notify Admin App Dashboard
+    const notificationService = require('./notification.service');
+    const userDetail = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const userName = userDetail?.profile?.firstName
+      ? `${userDetail.profile.firstName} ${userDetail.profile.lastName || ''}`.trim()
+      : userDetail?.email || 'User';
+    await notificationService.notifyAdmins(
+      'New Refund Application Received 💳',
+      `User ${userName} (${userDetail?.email}) requested a refund of ₹${payment.amount / 100} for Order #${payment.orderId}.\nReason: ${reason}\nPayout Details: ${bankDetails || 'None provided'}.`,
+      'REFUND'
+    );
 
     // 6. Audit Log
     await prisma.auditLog.create({

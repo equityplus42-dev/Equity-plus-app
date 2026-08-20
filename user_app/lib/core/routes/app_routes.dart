@@ -17,6 +17,7 @@ import '../../screens/videos/user_video_library_screen.dart';
 import '../../screens/language_requests/user_language_request_screen.dart';
 import '../../screens/videos/watch_history_screen.dart';
 import '../../screens/payments/payment_history_screen.dart';
+import '../../screens/payments/payment_checkout_screen.dart';
 import '../../screens/refunds/user_refund_request_screen.dart';
 
 class AppRoutes {
@@ -38,6 +39,7 @@ class AppRoutes {
   static const String languageRequest = '/language-request';
   static const String watchHistory = '/watch-history';
   static const String paymentHistory = '/payment-history';
+  static const String paymentCheckout = '/payment-checkout';
   static const String refundRequest = '/refund-request';
 
   static Map<String, WidgetBuilder> get routes {
@@ -60,6 +62,7 @@ class AppRoutes {
       languageRequest: (context) => const UserLanguageRequestScreen(),
       watchHistory: (context) => const WatchHistoryScreen(),
       paymentHistory: (context) => const PaymentHistoryScreen(),
+      paymentCheckout: (context) => const PaymentCheckoutScreen(),
       refundRequest: (context) => const UserRefundRequestScreen(),
     };
   }

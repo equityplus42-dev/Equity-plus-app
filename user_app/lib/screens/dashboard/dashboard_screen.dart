@@ -10,6 +10,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../providers/user_payment_provider.dart';
 import '../../widgets/floating_campaign_ad.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -23,8 +24,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Load dashboard metrics and notifications
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Load dashboard metrics, notifications and verify active payment
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final paymentProv = Provider.of<UserPaymentProvider>(context, listen: false);
+      await paymentProv.fetchUserPayments();
+      final bool hasPaid = paymentProv.payments.any((p) => p.status == 'SUCCESS');
+
+      if (!mounted) return;
+
+      if (!hasPaid) {
+        Navigator.pushReplacementNamed(context, AppRoutes.paymentCheckout);
+        return;
+      }
+
       Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData();
       Provider.of<NotificationProvider>(context, listen: false).fetchNotifications();
       Provider.of<AuthProvider>(context, listen: false).refreshProfile();

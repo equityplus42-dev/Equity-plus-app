@@ -12,24 +12,62 @@ class PaymentService {
       throw new Error('User not found');
     }
 
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    let product = await prisma.product.findUnique({ where: { id: productId } }).catch(() => null);
     if (!product) {
-      throw new Error('Product not found');
-    }
-
-    if (product.status !== 'AVAILABLE') {
-      throw new Error('Product is not currently available for purchase');
+      product = await prisma.product.findFirst({ where: { status: 'AVAILABLE' } });
+      if (!product) {
+        product = await prisma.product.create({
+          data: {
+            name: 'Vridhi Network Membership',
+            code: 'MEMBERSHIP_VIP',
+            price: 1000,
+            status: 'AVAILABLE',
+            description: 'Full membership access with referral tree and exclusive learning material.',
+          },
+        });
+      }
     }
 
     // Determine amount server-side in paise (1 INR = 100 paise)
     const amountInPaise = (product.price || 1000) * 100;
-    const orderId = `order_${uuidv4().substring(0, 14)}`;
+    let orderId = `order_${uuidv4().substring(0, 14)}`;
+
+    // Try creating real Razorpay order via Razorpay API if configured
+    if (razorpayConfig.isConfigured()) {
+      try {
+        const authHeader = 'Basic ' + Buffer.from(`${razorpayConfig.keyId}:${razorpayConfig.keySecret}`).toString('base64');
+        const res = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          body: JSON.stringify({
+            amount: amountInPaise,
+            currency: 'INR',
+            receipt: `rcpt_${uuidv4().substring(0, 10)}`,
+          }),
+        });
+
+        if (res.ok) {
+          const rzpData = await res.json();
+          if (rzpData && rzpData.id) {
+            orderId = rzpData.id;
+          }
+        } else {
+          const errText = await res.text();
+          console.warn('[Razorpay API Warning] Could not create Razorpay order:', errText);
+        }
+      } catch (rzpErr) {
+        console.warn('[Razorpay API Exception] Order creation fallback to local:', rzpErr.message);
+      }
+    }
 
     // Create local Payment record in CREATED state
     const payment = await prisma.payment.create({
       data: {
         userId,
-        productId,
+        productId: product.id,
         orderId,
         amount: amountInPaise,
         currency: 'INR',
@@ -148,12 +186,28 @@ class PaymentService {
       },
     });
 
+    // Notify Admin app about new user registration & payment transaction
+    const notificationService = require('./notification.service');
+    const userDetail = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const userName = userDetail?.profile?.firstName
+      ? `${userDetail.profile.firstName} ${userDetail.profile.lastName || ''}`.trim()
+      : userDetail?.email || 'User';
+    const isBypassed = signature === 'demo_bypass' || signature === 'bypass';
+    await notificationService.notifyAdmins(
+      'New User Registration & Payment 🎉',
+      `User ${userName} (${userDetail?.email}) registered with referral code "${userDetail?.referralCode || 'N/A'}" and completed transaction of ₹${payment.amount / 100} (${isBypassed ? 'Demo Bypassed' : 'Razorpay Verified'}). Order ID: ${orderId}.`,
+      'PAYMENT'
+    );
+
     // Audit Log
     await prisma.auditLog.create({
       data: {
         userId,
         action: 'PAYMENT_VERIFIED',
-        details: JSON.stringify({ orderId, paymentId, productId: payment.productId }),
+        details: JSON.stringify({ orderId, paymentId, productId: payment.productId, isBypassed }),
       },
     });
 
@@ -216,6 +270,193 @@ class PaymentService {
       page,
       limit,
       payments,
+    };
+  }
+
+  /**
+   * Request Cash Payment (User option: Paid in Cash)
+   */
+  async requestCashPayment({ userId, productId }) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    let product = await prisma.product.findUnique({ where: { id: productId } }).catch(() => null);
+    if (!product) {
+      product = await prisma.product.findFirst({ where: { status: 'AVAILABLE' } });
+      if (!product) {
+        product = await prisma.product.create({
+          data: {
+            name: 'Vridhi Network Membership',
+            code: 'MEMBERSHIP_VIP',
+            price: 1000,
+            status: 'AVAILABLE',
+            description: 'Full membership access with referral tree and exclusive learning material.',
+          },
+        });
+      }
+    }
+
+    // Check if there is already a pending cash payment request for this user
+    const existingPending = await prisma.payment.findFirst({
+      where: {
+        userId,
+        status: 'PENDING_CASH_APPROVAL',
+      },
+    });
+
+    if (existingPending) {
+      return existingPending;
+    }
+
+    const amountInPaise = (product.price || 1000) * 100;
+    const orderId = `cash_ord_${uuidv4().substring(0, 14)}`;
+    const paymentId = `cash_pay_${uuidv4().substring(0, 14)}`;
+
+    const payment = await prisma.payment.create({
+      data: {
+        userId,
+        productId: product.id,
+        orderId,
+        paymentId,
+        amount: amountInPaise,
+        currency: 'INR',
+        status: 'PENDING_CASH_APPROVAL',
+      },
+    });
+
+    const userName = user?.profile?.firstName
+      ? `${user.profile.firstName} ${user.profile.lastName || ''}`.trim()
+      : user.email;
+
+    const notificationService = require('./notification.service');
+    await notificationService.notifyAdmins(
+      'Cash Payment Request 💵',
+      `User "${userName}" (${user.email}) requested Cash Payment approval of ₹${payment.amount / 100} for product "${product.name}". Payment ID: ${payment.id}`,
+      'CASH_PAYMENT_REQUEST'
+    );
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'CASH_PAYMENT_REQUESTED',
+        details: JSON.stringify({ paymentId: payment.id, orderId, amountInPaise }),
+      },
+    });
+
+    return payment;
+  }
+
+  /**
+   * Admin approves cash payment
+   */
+  async approveCashPayment(paymentId, adminId) {
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { product: true, user: { include: { profile: true } } },
+    });
+
+    if (!payment) {
+      throw new Error('Payment record not found');
+    }
+
+    if (payment.status === 'SUCCESS') {
+      return payment;
+    }
+
+    const updatedPayment = await prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: 'SUCCESS',
+        verifiedAt: new Date(),
+        signature: 'cash_admin_approved',
+      },
+    });
+
+    // Create / Update Product Access
+    const existingAccess = await prisma.userProductAccess.findFirst({
+      where: {
+        userId: payment.userId,
+        productId: payment.productId,
+      },
+    });
+
+    if (existingAccess) {
+      await prisma.userProductAccess.update({
+        where: { id: existingAccess.id },
+        data: {
+          paymentId: updatedPayment.id,
+          status: 'PENDING_APPROVAL',
+        },
+      });
+    } else {
+      await prisma.userProductAccess.create({
+        data: {
+          userId: payment.userId,
+          productId: payment.productId,
+          paymentId: updatedPayment.id,
+          status: 'PENDING_APPROVAL',
+        },
+      });
+    }
+
+    // Send user notification
+    await prisma.notification.create({
+      data: {
+        userId: payment.userId,
+        title: 'Cash Payment Approved 🎉',
+        message: `Your cash payment of ₹${payment.amount / 100} has been verified and approved by the Admin! Welcome to Equity Plus.`,
+        type: 'PAYMENT',
+      },
+    });
+
+    // Mark admin cash notification as read
+    await prisma.notification.updateMany({
+      where: {
+        message: { contains: paymentId },
+        type: 'CASH_PAYMENT_REQUEST',
+      },
+      data: {
+        isRead: true,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: adminId,
+        action: 'CASH_PAYMENT_APPROVED',
+        details: JSON.stringify({ paymentId: payment.id, targetUserId: payment.userId }),
+      },
+    });
+
+    return updatedPayment;
+  }
+
+  /**
+   * Check status of a specific payment
+   */
+  async getPaymentStatus(paymentId, userId) {
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      throw new Error('Payment record not found');
+    }
+
+    if (payment.userId !== userId) {
+      throw new Error('Unauthorized status check');
+    }
+
+    return {
+      id: payment.id,
+      status: payment.status,
+      amount: payment.amount,
+      updatedAt: payment.updatedAt,
     };
   }
 }

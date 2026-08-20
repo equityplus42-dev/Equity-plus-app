@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_payment_provider.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -38,10 +39,21 @@ class _SplashScreenState extends State<SplashScreen> {
           user.panNumber!.isNotEmpty &&
           user.aadharNumber != null &&
           user.aadharNumber!.isNotEmpty;
-      if (hasKyc) {
+      if (!hasKyc) {
+        Navigator.pushReplacementNamed(context, AppRoutes.kyc);
+        return;
+      }
+
+      final paymentProv = Provider.of<UserPaymentProvider>(context, listen: false);
+      await paymentProv.fetchUserPayments();
+      final bool hasPaid = paymentProv.payments.any((p) => p.status == 'SUCCESS');
+
+      if (!mounted) return;
+
+      if (hasPaid) {
         Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
       } else {
-        Navigator.pushReplacementNamed(context, AppRoutes.kyc);
+        Navigator.pushReplacementNamed(context, AppRoutes.paymentCheckout);
       }
     } else {
       Navigator.pushReplacementNamed(context, AppRoutes.onboarding);

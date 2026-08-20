@@ -189,4 +189,36 @@ class UserPaymentProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> requestCashPayment(String productId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await _apiClient.post('/payments/request-cash', {
+        'productId': productId,
+      });
+      _isLoading = false;
+      notifyListeners();
+      return res['data'];
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<String?> checkPaymentStatus(String paymentId) async {
+    try {
+      final res = await _apiClient.get('/payments/status/$paymentId');
+      if (res['data'] != null && res['data']['status'] != null) {
+        return res['data']['status'];
+      }
+    } catch (e) {
+      debugPrint('Error checking payment status: $e');
+    }
+    return null;
+  }
 }

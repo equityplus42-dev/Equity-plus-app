@@ -31,6 +31,56 @@
 
   <title>Vridhi Network</title>
   <link rel="manifest" href="manifest.json">
+  <!-- Razorpay Official Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    function launchRazorpayCheckout(keyId, orderId, amount, name, description, userEmail, userPhone, onSuccess, onError) {
+      try {
+        var options = {
+          "key": keyId,
+          "amount": amount,
+          "currency": "INR",
+          "name": name || "Equity Plus",
+          "description": description || "Membership Activation",
+          "order_id": orderId,
+          "prefill": {
+            "email": userEmail || "",
+            "contact": userPhone || ""
+          },
+          "theme": {
+            "color": "#7C3AED"
+          },
+          "handler": function (response) {
+            console.log("[Razorpay Success]", response);
+            if (onSuccess) {
+              onSuccess(response.razorpay_payment_id, response.razorpay_order_id, response.razorpay_signature);
+            }
+          },
+          "modal": {
+            "ondismiss": function() {
+              console.log("[Razorpay Dismissed]");
+              if (onError) {
+                onError("Payment modal dismissed by user.");
+              }
+            }
+          }
+        };
+        var rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          console.error("[Razorpay Failed]", response);
+          if (onError) {
+            onError(response.error.description || "Payment process failed.");
+          }
+        });
+        rzp.open();
+      } catch (err) {
+        console.error("[Razorpay Launch Error]", err);
+        if (onError) {
+          onError("Could not open Razorpay checkout popup: " + err.message);
+        }
+      }
+    }
+  </script>
 </head>
 <body>
   <!--
