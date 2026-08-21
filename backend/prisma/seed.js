@@ -41,6 +41,37 @@ async function main() {
       level: 0,
     },
   });
+
+  // 1b. Seed Developer User (password default: 'Vr!dhiDev@2026')
+  const { hashPassword } = require('../src/utils/encryption');
+  const devEmail = process.env.DEVELOPER_EMAIL || 'developer@vridhi.com';
+  const devRawPassword = process.env.DEVELOPER_PASSWORD || 'Vr!dhiDev@2026';
+  const devPasswordHash = await hashPassword(devRawPassword);
+
+  const developer = await prisma.user.upsert({
+    where: { email: devEmail },
+    update: {
+      password: devPasswordHash,
+      role: 'DEVELOPER',
+    },
+    create: {
+      id: '00000000-0000-0000-0000-000000000001',
+      email: devEmail,
+      password: devPasswordHash,
+      role: 'DEVELOPER',
+      referralCode: 'DEVREF2026',
+      isApproved: true,
+      profile: {
+        create: {
+          firstName: 'System',
+          lastName: 'Developer',
+          phoneNumber: '+1234567899',
+          bio: 'Lead Developer Account for VRIDHI Platform Maintenance.',
+        }
+      }
+    }
+  });
+  console.log(`Developer user created/verified: ${developer.email}`);
   // 2. Seed Default System Settings
   const defaultSettings = [
     { key: 'points_level_1', value: '100', description: 'Points awarded to the direct referrer (Level 1)' },

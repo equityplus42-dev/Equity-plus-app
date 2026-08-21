@@ -15,6 +15,9 @@ import 'providers/admin_products_provider.dart';
 import 'providers/admin_payments_provider.dart';
 import 'providers/admin_video_assignments_provider.dart';
 import 'providers/admin_notifications_provider.dart';
+import 'providers/admin_release_provider.dart';
+import 'providers/update_provider.dart';
+import 'screens/update/app_update_wrapper.dart';
 
 class AdminApp extends StatelessWidget {
   const AdminApp({super.key});
@@ -36,6 +39,8 @@ class AdminApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminPaymentsProvider()),
         ChangeNotifierProvider(create: (_) => AdminVideoAssignmentsProvider()),
         ChangeNotifierProvider(create: (_) => AdminNotificationsProvider()),
+        ChangeNotifierProvider(create: (_) => AdminReleaseProvider()),
+        ChangeNotifierProvider(create: (_) => UpdateProvider()),
       ],
       child: MaterialApp(
         title: 'Vridhi Admin',
@@ -43,7 +48,11 @@ class AdminApp extends StatelessWidget {
         theme: AppTheme.darkTheme,
         initialRoute: AppRoutes.splash,
         routes: AppRoutes.routes,
+        builder: (context, child) {
+          return AppUpdateWrapper(child: child ?? const SizedBox());
+        },
       ),
     );
   }
 }
+

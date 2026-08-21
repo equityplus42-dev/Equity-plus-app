@@ -294,11 +294,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Update your login credentials securely',
                             style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
                           ),
-                          trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
                           onTap: () => ChangePasswordDialog.show(context),
                         ),
                       ),
                       const SizedBox(height: 30),
+
 
                       Text(
                         'REWARD POINTS CONSTANTS',

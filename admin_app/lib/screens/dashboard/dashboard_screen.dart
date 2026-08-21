@@ -23,14 +23,11 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  bool _isDevMode = false;
-  int _tapCount = 0;
   Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadDevMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats();
       Provider.of<AdminNotificationsProvider>(context, listen: false).fetchNotifications(silent: true);
@@ -48,109 +45,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
-  }
-
-  Future<void> _loadDevMode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _isDevMode = prefs.getBool('dev_mode_active') ?? false;
-      });
-    } catch (e) {
-      debugPrint('Error loading dev mode: $e');
-    }
-  }
-
-  Future<void> _toggleDevMode(bool active) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('dev_mode_active', active);
-      setState(() {
-        _isDevMode = active;
-      });
-    } catch (e) {
-      debugPrint('Error saving dev mode: $e');
-    }
-  }
-
-  void _promptDevPassword() {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppTheme.cardBg,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            _isDevMode ? 'Deactivate Developer Mode' : 'Developer Access',
-            style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _isDevMode 
-                  ? 'Enter Developer PIN to disable advanced settings.' 
-                  : 'Enter security passcode to unlock advanced control panels.',
-                style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                style: GoogleFonts.outfit(color: AppTheme.lightText),
-                decoration: InputDecoration(
-                  hintText: 'Passcode',
-                  hintStyle: GoogleFonts.outfit(color: AppTheme.softGrey),
-                  filled: true,
-                  fillColor: Colors.black.withOpacity(0.2),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.softGrey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (controller.text == '998877') {
-                  Navigator.pop(context);
-                  final newStatus = !_isDevMode;
-                  _toggleDevMode(newStatus);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        newStatus 
-                          ? 'Developer Mode Activated! 🛠️' 
-                          : 'Developer Mode Deactivated! 🔒',
-                      ),
-                      backgroundColor: newStatus ? AppTheme.neonGreen : Colors.redAccent,
-                    ),
-                  );
-                } else {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invalid passcode! ❌'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryPurple),
-              child: const Text('Submit'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _copyToClipboard(String text) {
@@ -275,33 +169,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _tapCount++;
-                                  if (_tapCount >= 7) {
-                                    _tapCount = 0;
-                                    _promptDevPassword();
-                                  }
-                                });
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'System Control',
-                                    style: GoogleFonts.outfit(fontSize: 14, color: AppTheme.softGrey),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'System Control',
+                                  style: GoogleFonts.outfit(fontSize: 14, color: AppTheme.softGrey),
+                                ),
+                                Text(
+                                  'Administrator Hub',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.lightText,
                                   ),
-                                  Text(
-                                    'Administrator Hub',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.lightText,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                             Row(
                               children: [
@@ -551,25 +434,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: AppTheme.neonCyan,
                           onTap: () => Navigator.pushNamed(context, AppRoutes.auditLogs),
                         ),
-                        if (_isDevMode) ...[
-                          _buildMenuTile(
-                            icon: Icons.tune_outlined,
-                            title: 'Campaign Settings',
-                            desc: 'Alter level distribution percentages and reward constants',
-                            color: AppTheme.primaryPink,
-                            onTap: () => Navigator.pushNamed(context, AppRoutes.settings).then((_) {
-                              dashboard.fetchDashboardStats(silent: true);
-                            }),
-                          ),
-                          _buildMenuTile(
-                            icon: Icons.analytics_outlined,
-                            title: 'Reports Logs',
-                            desc: 'Trace activity history and verify system health checks',
-                            color: AppTheme.neonGreen,
-                            onTap: () => Navigator.pushNamed(context, AppRoutes.reports),
-                          ),
-                        ],
-                        
                         const SizedBox(height: 20),
                       ],
                     ),

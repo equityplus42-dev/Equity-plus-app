@@ -6,8 +6,8 @@ function adminMiddleware(req, res, next) {
     return ApiResponse.error(res, 'Authentication required', 401);
   }
 
-  if (req.user.role !== ROLES.ADMIN) {
-    return ApiResponse.error(res, 'Access denied. Administrator privileges required.', 403);
+  if (req.user.role !== ROLES.ADMIN && req.user.role !== ROLES.DEVELOPER) {
+    return ApiResponse.error(res, 'Access denied. Administrator or Developer privileges required.', 403);
   }
 
   next();

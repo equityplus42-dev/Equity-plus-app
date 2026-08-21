@@ -10,6 +10,7 @@ class AppTheme {
   static const Color primaryPink = Color(0xFFEC4899);
   static const Color neonCyan = Color(0xFF06B6D4);
   static const Color neonGreen = Color(0xFF10B981);
+  static const Color primaryGold = Color(0xFFF59E0B);
   static const Color softGrey = Color(0xFF94A3B8);
   static const Color lightText = Color(0xFFF8FAFC);
   static const Color borderGrey = Color(0x2294A3B8);

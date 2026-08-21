@@ -21,10 +21,15 @@ import '../../screens/videos/admin_video_hub_screen.dart';
 import '../../screens/payments/admin_payments_screen.dart';
 import '../../screens/refunds/admin_refunds_screen.dart';
 
+import '../../screens/release/admin_release_management_screen.dart';
+
+import '../../screens/developer/developer_mode_screen.dart';
+
 class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
   static const String dashboard = '/dashboard';
+  static const String developerMode = '/developer-mode';
   static const String users = '/users';
   static const String approvals = '/approvals';
   static const String hierarchy = '/hierarchy';
@@ -42,12 +47,14 @@ class AppRoutes {
   static const String auditLogs = '/audit-logs';
   static const String payments = '/payments';
   static const String refunds = '/refunds';
+  static const String releases = '/releases';
 
   static Map<String, WidgetBuilder> get routes {
     return {
       splash: (context) => const SplashScreen(),
       login: (context) => const LoginScreen(),
       dashboard: (context) => const DashboardScreen(),
+      developerMode: (context) => const DeveloperModeScreen(),
       users: (context) => const UsersScreen(),
       approvals: (context) => const ApprovalsScreen(),
       hierarchy: (context) => const HierarchyScreen(),
@@ -65,6 +72,8 @@ class AppRoutes {
       auditLogs: (context) => const AdminAuditLogsScreen(),
       payments: (context) => const AdminPaymentsScreen(),
       refunds: (context) => const AdminRefundsScreen(),
+      releases: (context) => const AdminReleaseManagementScreen(),
     };
   }
 }
+

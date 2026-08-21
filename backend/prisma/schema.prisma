@@ -15,7 +15,7 @@ model User {
   id                      String          @id @default(uuid())
   email                   String          @unique
   password                String
-  role                    String          @default("USER") // USER, ADMIN
+  role                    String          @default("USER") // USER, ADMIN, DEVELOPER
   referralCode            String          @unique
   referralUrl             String?         @db.VarChar(255)
   qrCode                  String?         @db.Text
@@ -468,3 +468,32 @@ model VideoAssignment {
   @@index([videoId])
   @@index([status])
 }
+
+model AppRelease {
+  id                          String   @id @default(uuid())
+  appType                     String   @default("USER_APP") // USER_APP, ADMIN_APP
+  platform                    String   @default("ANDROID")  // ANDROID, IOS, WEB
+  version                     String   @db.VarChar(32)      // e.g. "1.2.0"
+  buildNumber                 Int                           // e.g. 25
+  minimumSupportedVersion     String?  @db.VarChar(32)      // e.g. "1.0.0"
+  minimumSupportedBuildNumber Int?                          // e.g. 10
+  forceUpdate                 Boolean  @default(false)
+  releaseTitle                String?  @db.VarChar(255)
+  releaseNotes                String?  @db.Text
+  downloadUrl                 String   @db.VarChar(2048)
+  websiteUrl                  String?  @db.VarChar(2048)
+  apkFileName                 String?  @db.VarChar(255)
+  r2ObjectKey                 String?  @db.VarChar(512)
+
+  packageName                 String?  @db.VarChar(255)     // e.g. "com.vridhi.userapp" or "com.vridhi.adminapp"
+  fileSizeBytes               BigInt?
+  sha256Checksum              String?  @db.VarChar(128)
+  isActive                    Boolean  @default(false)
+  isLatest                    Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([appType, platform, isActive])
+  @@index([appType, platform, isLatest])
+}
+

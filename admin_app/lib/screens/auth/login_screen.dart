@@ -38,7 +38,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      if (authProvider.isDeveloper) {
+        Navigator.pushReplacementNamed(context, AppRoutes.developerMode);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

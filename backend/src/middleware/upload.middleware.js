@@ -30,7 +30,23 @@ const uploadSingleMedia = (fieldName) => {
   };
 };
 
+const uploadSingleApk = (fieldName = 'apkFile') => {
+  return (req, res, next) => {
+    mediaUpload.single(fieldName)(req, res, (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return ApiResponse.error(res, 'APK file size exceeds the allowed upload limit (Max: 500MB).', 413, 'LIMIT_FILE_SIZE');
+        }
+        return ApiResponse.error(res, err.message, 400);
+      }
+      next();
+    });
+  };
+};
+
 module.exports = {
   uploadSingleImage,
   uploadSingleMedia,
+  uploadSingleApk,
 };
+

@@ -17,6 +17,9 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _user != null;
 
+  bool get isDeveloper => _user?.role == 'DEVELOPER';
+  bool get isAdmin => _user?.role == 'ADMIN';
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
@@ -39,8 +42,8 @@ class AuthProvider extends ChangeNotifier {
       
       final user = UserModel.fromJson(userJson);
       
-      if (user.role != 'ADMIN') {
-        throw Exception('Access denied. Administrator privileges required.');
+      if (user.role != 'ADMIN' && user.role != 'DEVELOPER') {
+        throw Exception('Access denied. Administrator or Developer privileges required.');
       }
       
       _user = user;
@@ -75,7 +78,7 @@ class AuthProvider extends ChangeNotifier {
       final response = await _apiClient.get('${ApiConstants.userDetail}/profile');
       final user = UserModel.fromJson(response['data']);
       
-      if (user.role != 'ADMIN') {
+      if (user.role != 'ADMIN' && user.role != 'DEVELOPER') {
         await _storage.clearAll();
         return false;
       }

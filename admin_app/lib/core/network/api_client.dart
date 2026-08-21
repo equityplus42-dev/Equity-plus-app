@@ -2,8 +2,17 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import '../constants/api_constants.dart';
+import '../../providers/update_provider.dart';
 import '../storage/storage_service.dart';
+import '../constants/api_constants.dart';
+
+class AppUpdateRequiredException implements Exception {
+  final String message;
+  final Map<String, dynamic>? data;
+  AppUpdateRequiredException(this.message, [this.data]);
+  @override
+  String toString() => message;
+}
 
 class ApiClient {
   final http.Client _client = http.Client();
@@ -13,6 +22,7 @@ class ApiClient {
     final Map<String, String> headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...UpdateProvider().getVersionHeaders(),
     };
     
     final token = _storage.getToken();
@@ -25,7 +35,20 @@ class ApiClient {
 
   dynamic _processResponse(http.Response response) {
     final int statusCode = response.statusCode;
-    final Map<String, dynamic> responseJson = json.decode(response.body);
+    Map<String, dynamic> responseJson = {};
+    try {
+      responseJson = json.decode(response.body);
+    } catch (_) {}
+
+    // Global Interception for Mandatory App Update Required
+    if (statusCode == 426 || responseJson['errorCode'] == 'APP_UPDATE_REQUIRED') {
+      final updateData = responseJson['data'] ?? {};
+      UpdateProvider().triggerForceUpdateFromApi(updateData);
+      throw AppUpdateRequiredException(
+        responseJson['message'] ?? 'A mandatory application update is required to continue.',
+        updateData,
+      );
+    }
 
     if (statusCode >= 200 && statusCode < 300) {
       return responseJson;
@@ -34,6 +57,7 @@ class ApiClient {
       throw Exception(errorMessage);
     }
   }
+
 
   Future<http.Response> _sendWithFailover(
     Future<http.Response> Function(String baseUrl) requestFn,

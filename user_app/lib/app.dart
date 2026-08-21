@@ -10,6 +10,8 @@ import 'providers/hierarchy_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/user_video_provider.dart';
 import 'providers/user_payment_provider.dart';
+import 'providers/update_provider.dart';
+import 'screens/update/app_update_wrapper.dart';
 
 class ReferralApp extends StatelessWidget {
   const ReferralApp({super.key});
@@ -26,6 +28,7 @@ class ReferralApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => UserVideoProvider()),
         ChangeNotifierProvider(create: (_) => UserPaymentProvider()),
+        ChangeNotifierProvider(create: (_) => UpdateProvider()),
       ],
       child: MaterialApp(
         title: 'Vridhi Network',
@@ -33,7 +36,11 @@ class ReferralApp extends StatelessWidget {
         theme: AppTheme.darkTheme,
         initialRoute: AppRoutes.splash,
         routes: AppRoutes.routes,
+        builder: (context, child) {
+          return AppUpdateWrapper(child: child ?? const SizedBox());
+        },
       ),
     );
   }
 }
+

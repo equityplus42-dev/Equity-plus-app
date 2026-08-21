@@ -2,6 +2,7 @@ module.exports = {
   ROLES: {
     USER: 'USER',
     ADMIN: 'ADMIN',
+    DEVELOPER: 'DEVELOPER',
   },
   REFERRAL_STATUS: {
     PENDING: 'PENDING',
