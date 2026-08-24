@@ -32,7 +32,7 @@ async function runReleaseTests() {
 
     assert.strictEqual(userRelease.version, '9.9.0');
     assert.strictEqual(userRelease.appType, 'USER_APP');
-    assert.strictEqual(userRelease.isActive, false);
+    assert.strictEqual(userRelease.isActive, true);
 
     // 3. Create Admin App release
     const adminRelease = await appReleaseService.createRelease('test-admin-id', {

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../constants/api_constants.dart';
+import '../storage/storage_service.dart';
 import '../../providers/update_provider.dart';
 
 class AppUpdateRequiredException implements Exception {

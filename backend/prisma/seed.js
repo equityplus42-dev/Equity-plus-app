@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database...');
 
-  // 1. Seed Admin User (password is 'Admin123!' hashed with bcrypt)
+  // 1. Seed Admin User (password is bcrypt hashed)
   const adminEmail = 'admin@referral.com';
   const adminPasswordHash = '$2b$10$P5i/U8u/wA1Bf5m0eU7mHe2pWnE75P4m3aGv8.U2q163c4.1H0.yS';
 
@@ -42,36 +42,34 @@ async function main() {
     },
   });
 
-  // 1b. Seed Developer User (password default: 'Vr!dhiDev@2026')
-  const { hashPassword } = require('../src/utils/encryption');
-  const devEmail = process.env.DEVELOPER_EMAIL || 'developer@vridhi.com';
-  const devRawPassword = process.env.DEVELOPER_PASSWORD || 'Vr!dhiDev@2026';
-  const devPasswordHash = await hashPassword(devRawPassword);
-
-  const developer = await prisma.user.upsert({
+  // 1b. Verify/Seed Developer User in Database
+  const devEmail = 'developer@vridhi.com';
+  const devPasswordHash = '$2b$10$tIgT1oQruChtsZYsiCXF9.OpM9yu8J25w9qxC7/POnwo41A0k8zZa';
+  let developer = await prisma.user.findUnique({
     where: { email: devEmail },
-    update: {
-      password: devPasswordHash,
-      role: 'DEVELOPER',
-    },
-    create: {
-      id: '00000000-0000-0000-0000-000000000001',
-      email: devEmail,
-      password: devPasswordHash,
-      role: 'DEVELOPER',
-      referralCode: 'DEVREF2026',
-      isApproved: true,
-      profile: {
-        create: {
-          firstName: 'System',
-          lastName: 'Developer',
-          phoneNumber: '+1234567899',
-          bio: 'Lead Developer Account for VRIDHI Platform Maintenance.',
+  });
+
+  if (!developer) {
+    developer = await prisma.user.create({
+      data: {
+        id: '00000000-0000-0000-0000-000000000001',
+        email: devEmail,
+        password: devPasswordHash,
+        role: 'DEVELOPER',
+        referralCode: 'DEVREF2026',
+        isApproved: true,
+        profile: {
+          create: {
+            firstName: 'System',
+            lastName: 'Developer',
+            phoneNumber: '+1234567899',
+            bio: 'Lead Developer Account for VRIDHI Platform Maintenance.',
+          }
         }
       }
-    }
-  });
-  console.log(`Developer user created/verified: ${developer.email}`);
+    });
+  }
+  console.log(`Developer user verified in database: ${developer.email}`);
   // 2. Seed Default System Settings
   const defaultSettings = [
     { key: 'points_level_1', value: '100', description: 'Points awarded to the direct referrer (Level 1)' },

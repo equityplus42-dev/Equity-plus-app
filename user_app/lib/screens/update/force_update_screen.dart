@@ -238,7 +238,7 @@ class ForceUpdateScreen extends StatelessWidget {
           child: ElevatedButton(
             onPressed: () => provider.triggerInstallation(),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.emerald,
+              backgroundColor: AppTheme.emerald,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -294,7 +294,7 @@ class ForceUpdateScreen extends StatelessWidget {
       case DownloadStatus.success:
         return const Text(
           'Update downloaded! Please complete installation.',
-          style: TextStyle(color: Colors.emerald, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold),
         );
     }
   }

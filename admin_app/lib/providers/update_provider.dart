@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/network/api_client.dart';
+import '../core/constants/api_constants.dart';
 
 enum DownloadStatus {
   idle,
@@ -220,7 +221,15 @@ class UpdateProvider extends ChangeNotifier {
       }
 
       final client = http.Client();
-      final request = http.Request('GET', Uri.parse(_downloadUrl));
+      String fullDownloadUrl = _downloadUrl;
+      if (!fullDownloadUrl.startsWith('http')) {
+        final baseUrl = ApiConstants.baseUrl.endsWith('/')
+            ? ApiConstants.baseUrl.substring(0, ApiConstants.baseUrl.length - 1)
+            : ApiConstants.baseUrl;
+        final relUrl = fullDownloadUrl.startsWith('/') ? fullDownloadUrl : '/$fullDownloadUrl';
+        fullDownloadUrl = '$baseUrl$relUrl';
+      }
+      final request = http.Request('GET', Uri.parse(fullDownloadUrl));
       final response = await client.send(request);
 
       if (response.statusCode < 200 || response.statusCode >= 300) {

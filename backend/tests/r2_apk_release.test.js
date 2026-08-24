@@ -73,6 +73,13 @@ async function testR2ApkReleaseManagement() {
     console.error('❌ Cloudflare R2 APK Release Test Failed:', err);
     process.exit(1);
   } finally {
+    await prisma.appRelease.deleteMany({
+      where: {
+        appType: 'USER_APP',
+        platform: 'ANDROID',
+        version: { in: ['1.0.0', '2.0.0'] },
+      },
+    });
     await prisma.$disconnect();
   }
 }

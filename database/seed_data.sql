@@ -1,7 +1,7 @@
 -- SQL Seed Data for TiDB / MySQL
 USE referral_system;
 
--- Insert Admin User (password is 'Admin123!' hashed with bcrypt)
+-- Insert Admin User (password is bcrypt hashed)
 -- ID: 00000000-0000-0000-0000-000000000000
 -- Referral Code: ADMINREF
 INSERT INTO `User` (`id`, `email`, `password`, `role`, `referralCode`, `referrerId`, `isApproved`, `createdAt`, `updatedAt`)
