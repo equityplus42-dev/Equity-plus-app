@@ -254,12 +254,41 @@ class _AdminReleaseManagementScreenState extends State<AdminReleaseManagementScr
                             }
                           },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                      side: const BorderSide(color: Colors.redAccent),
+                      foregroundColor: Colors.amberAccent,
+                      side: const BorderSide(color: Colors.amberAccent),
                     ),
                     icon: const Icon(Icons.pause_circle_outline, size: 16),
                     label: const Text('Deactivate'),
                   ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: provider.isSubmitting
+                      ? null
+                      : () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              backgroundColor: const Color(0xFF1E293B),
+                              title: const Text('Delete Release?', style: TextStyle(color: Colors.white)),
+                              content: const Text('Deleting this release will permanently remove it and restore users to their old app dashboard immediately.', style: TextStyle(color: Colors.white70)),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.redAccent))),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            final success = await provider.deleteRelease(release['id'], currentAppType: _selectedAppType);
+                            if (success && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Release deleted.')),
+                              );
+                            }
+                          }
+                        },
+                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  tooltip: 'Delete Release',
+                ),
               ],
             ),
           ],

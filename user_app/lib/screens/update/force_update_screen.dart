@@ -15,121 +15,135 @@ class ForceUpdateScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: const Color(0xFF0F172A), // Premium Dark Slate
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Spacer(),
-                // Icon / Logo Header
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGold.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.primaryGold.withOpacity(0.4), width: 2),
-                  ),
-                  child: const Icon(
-                    Icons.system_update_rounded,
-                    size: 64,
-                    color: AppTheme.primaryGold,
-                  ),
-                ),
-                const SizedBox(height: 28),
-
-                // Main Title
-                Text(
-                  updateProvider.releaseTitle.isNotEmpty
-                      ? updateProvider.releaseTitle
-                      : 'Mandatory Update Required',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Version Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: Text(
-                    'Installed: v${updateProvider.currentVersion}  ➔  New: v${updateProvider.latestVersion}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryGold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Release Notes Card
-                if (updateProvider.releaseNotes.isNotEmpty) ...[
-                  Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(maxHeight: 160),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B).withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
-                    ),
-                    child: SingleChildScrollView(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Text(
-                            "What's New:",
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white70,
+                          const Spacer(),
+                          // Icon / Logo Header
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryGold.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppTheme.primaryGold.withOpacity(0.4), width: 2),
+                            ),
+                            child: const Icon(
+                              Icons.system_update_rounded,
+                              size: 64,
+                              color: AppTheme.primaryGold,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 24),
+
+                          // Main Title
                           Text(
-                            updateProvider.releaseNotes,
+                            updateProvider.releaseTitle.isNotEmpty
+                                ? updateProvider.releaseTitle
+                                : 'Mandatory Update Required',
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.white70,
-                              height: 1.4,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
                             ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Version Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: Text(
+                              'Installed: v${updateProvider.currentVersion}  ➔  New: v${updateProvider.latestVersion}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryGold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Release Notes Card
+                          if (updateProvider.releaseNotes.isNotEmpty) ...[
+                            Container(
+                              width: double.infinity,
+                              constraints: const BoxConstraints(maxHeight: 140),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B).withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                              ),
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "What's New:",
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      updateProvider.releaseNotes,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.white70,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+
+                          // Download Progress / Action Area
+                          _buildDownloadSection(context, updateProvider),
+
+                          const Spacer(),
+
+                          // Security Tagline
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.shield_outlined, size: 14, color: Colors.white38),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Verified & Encrypted Release • VRIDHI Platform',
+                                  style: TextStyle(fontSize: 11, color: Colors.white38),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 28),
-                ],
-
-                // Download Progress / Action Area
-                _buildDownloadSection(context, updateProvider),
-
-                const Spacer(),
-
-                // Security Tagline
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.shield_outlined, size: 14, color: Colors.white38),
-                    SizedBox(width: 6),
-                    Text(
-                      'Verified & Encrypted Release • VRIDHI Platform',
-                      style: TextStyle(fontSize: 11, color: Colors.white38),
-                    ),
-                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -232,28 +246,43 @@ class ForceUpdateScreen extends StatelessWidget {
 
       case DownloadStatus.readyToInstall:
       case DownloadStatus.installing:
-        return SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: () => provider.triggerInstallation(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.system_security_update_good, size: 22),
-                SizedBox(width: 8),
-                Text(
-                  'Install APK Now',
+      case DownloadStatus.success:
+        return Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => provider.triggerInstallation(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 4,
+                ),
+                icon: const Icon(Icons.system_security_update_good, size: 24),
+                label: const Text(
+                  'Click to Install APK Now',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: OutlinedButton.icon(
+                onPressed: () => provider.openWebsiteDownloadUrl(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  side: const BorderSide(color: Colors.white24),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.language_rounded, size: 20, color: AppTheme.primaryGold),
+                label: const Text('Download via Browser / Direct Link', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
         );
 
       case DownloadStatus.failed:

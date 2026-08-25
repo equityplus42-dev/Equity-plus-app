@@ -17,6 +17,7 @@ router.get('/admin/releases/:id', authMiddleware, developerMiddleware, (req, res
 router.post('/admin/releases', authMiddleware, developerMiddleware, uploadSingleApk('apkFile'), (req, res, next) => appReleaseController.createRelease(req, res, next));
 router.post('/admin/releases/:id/activate', authMiddleware, developerMiddleware, (req, res, next) => appReleaseController.activateRelease(req, res, next));
 router.post('/admin/releases/:id/deactivate', authMiddleware, developerMiddleware, (req, res, next) => appReleaseController.deactivateRelease(req, res, next));
+router.delete('/admin/releases/:id', authMiddleware, developerMiddleware, (req, res, next) => appReleaseController.deleteRelease(req, res, next));
 router.post('/admin/releases/:id/rollback', authMiddleware, developerMiddleware, (req, res, next) => appReleaseController.rollbackRelease(req, res, next));
 
 module.exports = router;

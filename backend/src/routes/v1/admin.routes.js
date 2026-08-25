@@ -13,5 +13,6 @@ router.patch('/referrals/:referralId/approve', authMiddleware, adminMiddleware, 
 router.patch('/referrals/:referralId/reject', authMiddleware, adminMiddleware, adminController.rejectReferral);
 router.put('/settings', authMiddleware, adminMiddleware, adminController.updateSetting);
 router.post('/upload-campaign-image', authMiddleware, adminMiddleware, uploadSingleImage('image'), adminController.uploadCampaignImage);
+router.post('/reset-test-data', authMiddleware, adminMiddleware, adminController.resetTestData);
 
 module.exports = router;

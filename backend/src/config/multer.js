@@ -1,4 +1,5 @@
 const multer = require('multer');
+const path = require('path');
 
 // Configure multer memory storage
 const storage = multer.memoryStorage();
@@ -11,8 +12,6 @@ const fileFilter = (req, file, cb) => {
     cb(new Error('Invalid file type. Only image uploads are allowed.'), false);
   }
 };
-
-const path = require('path');
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.mpeg', '.mpg']);
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tiff']);
@@ -41,9 +40,29 @@ const mediaUpload = multer({
   storage: storage,
   fileFilter: mediaFilter,
   limits: {
-    fileSize: 1024 * 1024 * 1024, // 1GB limit (videos <= 100MB go to Dedicated Cloudinary Video; videos > 100MB auto-route to Cloudflare R2)
+    fileSize: 1024 * 1024 * 1024, // 1GB limit
+  },
+});
+
+const apkUpload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const mime = (file.mimetype || '').toLowerCase();
+    const mimeOk = mime.includes('android') || mime.includes('package-archive') || mime === 'application/octet-stream' || mime.includes('zip') || mime.includes('x-zip');
+    const extOk = ext === '.apk' || ext === '.aab' || ext === '.zip';
+
+    if (mimeOk || extOk || !ext) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only .apk or .aab Android package files are allowed.'), false);
+    }
+  },
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB limit
   },
 });
 
 module.exports = upload;
 module.exports.mediaUpload = mediaUpload;
+module.exports.apkUpload = apkUpload;

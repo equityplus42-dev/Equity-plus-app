@@ -70,7 +70,7 @@ class ApiClient {
     Object? lastError;
     for (final candidate in candidates) {
       try {
-        final response = await requestFn(candidate).timeout(const Duration(seconds: 12));
+        final response = await requestFn(candidate).timeout(const Duration(seconds: 3));
         ApiConstants.activeBaseUrl = candidate;
         return response;
       } on Exception catch (e) {

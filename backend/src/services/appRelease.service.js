@@ -62,7 +62,8 @@ class AppReleaseService {
     // Generate active Cloudflare R2 download URL if r2ObjectKey exists
     let activeDownloadUrl = latestRelease.downloadUrl;
     if (latestRelease.r2ObjectKey && cloudflareR2Service.isConfigured()) {
-      if (cloudflareR2Service.publicDomain) {
+      const isCustomPublicDomain = cloudflareR2Service.publicDomain && !cloudflareR2Service.publicDomain.includes('cloudflarestorage.com');
+      if (isCustomPublicDomain) {
         const domain = cloudflareR2Service.publicDomain.replace(/\/$/, '');
         activeDownloadUrl = `${domain}/${latestRelease.r2ObjectKey}`;
       } else {
@@ -171,8 +172,8 @@ class AppReleaseService {
 
     // Handle APK file upload if buffer is provided
     if (fileBuffer && Buffer.isBuffer(fileBuffer) && fileBuffer.length > 0) {
-      // Validate APK header (ZIP magic bytes PK\x03\x04)
-      if (fileBuffer.length < 4 || fileBuffer.readUInt32LE(0) !== 0x04034b50) {
+      // Validate APK header (ZIP magic bytes PK)
+      if (fileBuffer.length < 4 || fileBuffer[0] !== 0x50 || fileBuffer[1] !== 0x4b) {
         throw new Error('Invalid APK file format: Header does not match valid Android package ZIP format');
       }
 
@@ -193,7 +194,8 @@ class AppReleaseService {
           );
           r2ObjectKey = uploadResult.r2ObjectKey;
 
-          if (cloudflareR2Service.publicDomain) {
+          const isCustomPublicDomain = cloudflareR2Service.publicDomain && !cloudflareR2Service.publicDomain.includes('cloudflarestorage.com');
+          if (isCustomPublicDomain) {
             const domain = cloudflareR2Service.publicDomain.replace(/\/$/, '');
             finalDownloadUrl = `${domain}/${r2ObjectKey}`;
           } else {
@@ -233,7 +235,7 @@ class AppReleaseService {
       minimumSupportedBuildNumber: minimumSupportedBuildNumber !== undefined && minimumSupportedBuildNumber !== null
         ? parseInt(minimumSupportedBuildNumber, 10)
         : parsedBuildNumber,
-      forceUpdate: Boolean(forceUpdate),
+      forceUpdate: forceUpdate === true || forceUpdate === 'true',
       releaseTitle: releaseTitle || `Release ${version}`,
       releaseNotes: releaseNotes || '',
       downloadUrl: finalDownloadUrl,
@@ -250,7 +252,10 @@ class AppReleaseService {
 
     const created = await appReleaseRepository.create(releaseData);
     logger.info(`AppRelease created by Developer/Admin ID ${adminId}: ${created.id} (${normalizedAppType} v${version})`);
-    return created;
+    return {
+      ...created,
+      fileSizeBytes: created.fileSizeBytes ? Number(created.fileSizeBytes) : null,
+    };
   }
 
   /**
@@ -304,6 +309,37 @@ class AppReleaseService {
     const deactivated = await appReleaseRepository.deactivateRelease(releaseId);
     logger.info(`AppRelease deactivated by Admin ID ${adminId}: ${releaseId}`);
     return deactivated;
+  }
+
+  /**
+   * Admin: Delete a release
+   */
+  async deleteRelease(adminId, releaseId) {
+    const release = await appReleaseRepository.findById(releaseId);
+    if (!release) {
+      throw new Error('Release record not found');
+    }
+
+    const keyOrUrlToDelete = release.r2ObjectKey || release.downloadUrl;
+    if (keyOrUrlToDelete && cloudflareR2Service.isConfigured()) {
+      try {
+        await cloudflareR2Service.deleteFile(keyOrUrlToDelete);
+        logger.info(`[AppReleaseService] Cleaned up Cloudflare R2 file on release delete: ${keyOrUrlToDelete}`);
+      } catch (err) {
+        logger.warn(`[AppReleaseService] R2 delete warning: ${err.message}`);
+      }
+    }
+
+    if (release.apkFileName && release.version) {
+      const localPath = path.join(__dirname, '../../uploads/releases', release.appType.toLowerCase(), release.version, release.apkFileName);
+      if (fs.existsSync(localPath)) {
+        try { fs.unlinkSync(localPath); } catch (_) {}
+      }
+    }
+
+    const deleted = await appReleaseRepository.deleteRelease(releaseId);
+    logger.info(`AppRelease deleted by Admin ID ${adminId}: ${releaseId}`);
+    return deleted;
   }
 
   /**

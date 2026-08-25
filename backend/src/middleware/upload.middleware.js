@@ -1,5 +1,5 @@
 const upload = require('../config/multer');
-const { mediaUpload } = require('../config/multer');
+const { mediaUpload, apkUpload } = require('../config/multer');
 const ApiResponse = require('../utils/apiResponse');
 
 const uploadSingleImage = (fieldName) => {
@@ -32,7 +32,7 @@ const uploadSingleMedia = (fieldName) => {
 
 const uploadSingleApk = (fieldName = 'apkFile') => {
   return (req, res, next) => {
-    mediaUpload.single(fieldName)(req, res, (err) => {
+    apkUpload.single(fieldName)(req, res, (err) => {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') {
           return ApiResponse.error(res, 'APK file size exceeds the allowed upload limit (Max: 500MB).', 413, 'LIMIT_FILE_SIZE');

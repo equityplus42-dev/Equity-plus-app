@@ -83,6 +83,16 @@ class AppReleaseController {
     }
   }
 
+  async deleteRelease(req, res, next) {
+    try {
+      const adminId = req.user.id;
+      const release = await appReleaseService.deleteRelease(adminId, req.params.id);
+      return ApiResponse.success(res, 'Release deleted successfully', release);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async rollbackRelease(req, res, next) {
     try {
       const adminId = req.user.id;

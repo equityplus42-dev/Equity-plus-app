@@ -430,15 +430,19 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'SELECTED PLAN',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.softGrey,
-                                        letterSpacing: 1.5,
+                                    Expanded(
+                                      child: Text(
+                                        'SELECTED PLAN',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.softGrey,
+                                          letterSpacing: 1.5,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
@@ -479,13 +483,17 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Total Payable Amount:',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 14,
-                                        color: AppTheme.softGrey,
+                                    Expanded(
+                                      child: Text(
+                                        'Total Payable Amount:',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 14,
+                                          color: AppTheme.softGrey,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       '₹$_amountInRupees.00',
                                       style: GoogleFonts.outfit(

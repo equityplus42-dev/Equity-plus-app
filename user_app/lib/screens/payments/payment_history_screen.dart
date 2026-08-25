@@ -95,14 +95,18 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    payment.productName ?? 'Product Access',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.lightText,
+                                  Expanded(
+                                    child: Text(
+                                      payment.productName ?? 'Product Access',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.lightText,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
@@ -147,9 +151,14 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                                     'Order ID:',
                                     style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
                                   ),
-                                  Text(
-                                    payment.orderId,
-                                    style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.lightText),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      payment.orderId,
+                                      textAlign: TextAlign.end,
+                                      style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.lightText),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -162,9 +171,14 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                                       'Payment ID:',
                                       style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
                                     ),
-                                    Text(
-                                      payment.paymentId!,
-                                      style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonCyan),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        payment.paymentId!,
+                                        textAlign: TextAlign.end,
+                                        style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonCyan),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ],
                                 ),

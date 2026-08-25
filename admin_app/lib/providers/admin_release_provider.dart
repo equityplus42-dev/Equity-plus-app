@@ -171,4 +171,25 @@ class AdminReleaseProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> deleteRelease(String releaseId, {String? currentAppType}) async {
+    _isSubmitting = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.delete('/app-version/admin/releases/$releaseId');
+      if (response != null && response['success'] == true) {
+        await fetchReleases(appType: currentAppType);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception:', '');
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
 }

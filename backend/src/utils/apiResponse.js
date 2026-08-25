@@ -1,3 +1,9 @@
+if (!BigInt.prototype.toJSON) {
+  BigInt.prototype.toJSON = function () {
+    return Number(this);
+  };
+}
+
 /**
  * Standard API Response Wrapper
  */

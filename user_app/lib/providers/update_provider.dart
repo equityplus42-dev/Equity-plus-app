@@ -209,13 +209,24 @@ class UpdateProvider extends ChangeNotifier {
       // 1. Request install permission on Android if needed
       if (!kIsWeb && Platform.isAndroid) {
         final status = await Permission.requestInstallPackages.status;
-        if (status.isDenied) {
+        if (!status.isGranted) {
           await Permission.requestInstallPackages.request();
         }
       }
 
-      // 2. Prepare local download directory
-      final dir = await getTemporaryDirectory();
+      // 2. Prepare local download directory (external storage on Android so PackageInstaller can read it)
+      Directory? dir;
+      if (!kIsWeb && Platform.isAndroid) {
+        try {
+          final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
+          if (extDirs != null && extDirs.isNotEmpty) {
+            dir = extDirs.first;
+          } else {
+            dir = await getExternalStorageDirectory();
+          }
+        } catch (_) {}
+      }
+      dir ??= await getTemporaryDirectory();
       final apkName = 'update_${_appType.toLowerCase()}_$_latestVersion.apk';
       final file = File('${dir.path}/$apkName');
 
@@ -325,15 +336,24 @@ class UpdateProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!kIsWeb && Platform.isAndroid) {
+        final status = await Permission.requestInstallPackages.status;
+        if (!status.isGranted) {
+          await Permission.requestInstallPackages.request();
+        }
+      }
+
       final result = await OpenFilex.open(
         _downloadedFilePath!,
         type: 'application/vnd.android.package-archive',
       );
 
+      debugPrint('[UpdateProvider] OpenFilex result: type=${result.type}, message=${result.message}');
+
       if (result.type == ResultType.done) {
         _status = DownloadStatus.success;
       } else {
-        _errorMessage = 'Installer notification: ${result.message}';
+        _errorMessage = 'Installer: ${result.message}';
         _status = DownloadStatus.readyToInstall;
       }
       notifyListeners();

@@ -175,6 +175,17 @@ class AdminController {
       next(error);
     }
   }
+
+  async resetTestData(req, res, next) {
+    try {
+      const resetTestDataFn = require('../scripts/reset_test_data');
+      await resetTestDataFn();
+      await auditLogService.log(req, 'RESET_TEST_DATA', null, { adminId: req.user.id });
+      return ApiResponse.success(res, 'Test user notification and transaction history reset successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AdminController();

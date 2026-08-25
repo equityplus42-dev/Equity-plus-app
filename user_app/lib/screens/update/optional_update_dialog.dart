@@ -96,8 +96,10 @@ class OptionalUpdateDialog extends StatelessWidget {
               const SizedBox(height: 16),
             ],
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 TextButton(
                   onPressed: () {
@@ -105,20 +107,29 @@ class OptionalUpdateDialog extends StatelessWidget {
                   },
                   child: const Text('Later', style: TextStyle(color: Colors.white54)),
                 ),
-                const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: updateProvider.status == DownloadStatus.downloading
                       ? null
                       : () {
-                          updateProvider.downloadAndInstallApk();
+                          if (updateProvider.status == DownloadStatus.readyToInstall ||
+                              updateProvider.status == DownloadStatus.installing ||
+                              updateProvider.status == DownloadStatus.success) {
+                            updateProvider.triggerInstallation();
+                          } else {
+                            updateProvider.downloadAndInstallApk();
+                          }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryGold,
-                    foregroundColor: Colors.black,
+                    backgroundColor: updateProvider.status == DownloadStatus.readyToInstall || updateProvider.status == DownloadStatus.success
+                        ? AppTheme.emerald
+                        : AppTheme.primaryGold,
+                    foregroundColor: updateProvider.status == DownloadStatus.readyToInstall || updateProvider.status == DownloadStatus.success
+                        ? Colors.white
+                        : Colors.black,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   child: Text(
-                    updateProvider.status == DownloadStatus.readyToInstall
+                    (updateProvider.status == DownloadStatus.readyToInstall || updateProvider.status == DownloadStatus.success)
                         ? 'Install Now'
                         : 'Update Now',
                     style: const TextStyle(fontWeight: FontWeight.bold),

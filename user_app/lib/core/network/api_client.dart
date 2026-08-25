@@ -70,7 +70,11 @@ class ApiClient {
     Object? lastError;
     for (final candidate in candidates) {
       try {
-        final response = await requestFn(candidate).timeout(const Duration(seconds: 12));
+        final response = await requestFn(candidate).timeout(const Duration(seconds: 3));
+        if (response.statusCode == 404 && candidate != candidates.last) {
+          lastError = Exception('Resource not found (404) at $candidate');
+          continue;
+        }
         ApiConstants.activeBaseUrl = candidate;
         return response;
       } on Exception catch (e) {
