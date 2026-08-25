@@ -711,22 +711,25 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
 
                 // Folder Section Row
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        'FOLDERS:',
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.softGrey,
-                          letterSpacing: 1.5,
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6.0),
+                        child: Text(
+                          'FOLDERS',
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.softGrey,
+                            letterSpacing: 1.2,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
                       Expanded(
                         child: SizedBox(
-                          height: 40,
+                          height: 38,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
                             itemCount: langProvider.languages.length + 1,
@@ -818,196 +821,220 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                             final video = videoProvider.videos[index];
 
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 16),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
                               decoration: AppTheme.glassCardDecoration(),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  ListTile(
-                                    onTap: () => _showAdminVideoPreviewDialog(context, video),
-                                    leading: GestureDetector(
-                                      onTap: () => _showAdminVideoPreviewDialog(context, video),
-                                      child: Container(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryPurple.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: const Icon(Icons.play_circle_fill, color: AppTheme.primaryPurple, size: 30),
-                                      ),
-                                    ),
-                                    title: Text(
-                                      video.title,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.lightText,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      video.description ?? 'No description provided',
-                                      style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.play_arrow_rounded, size: 24, color: AppTheme.neonGreen),
-                                          tooltip: 'Preview Video',
-                                          onPressed: () => _showAdminVideoPreviewDialog(context, video),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.arrow_upward, size: 20, color: AppTheme.neonCyan),
-                                          tooltip: 'Move Up',
-                                          onPressed: index > 0
-                                              ? () async {
-                                                  final list = List<AdminVideoModel>.from(videoProvider.videos);
-                                                  final item = list.removeAt(index);
-                                                  list.insert(index - 1, item);
-                                                  final orders = list
-                                                      .asMap()
-                                                      .entries
-                                                      .map((e) => {'id': e.value.id, 'orderIndex': e.key})
-                                                      .toList();
-                                                  await videoProvider.reorderVideos(orders, languageId: _selectedLanguageId);
-                                                }
-                                              : null,
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.arrow_downward, size: 20, color: AppTheme.neonCyan),
-                                          tooltip: 'Move Down',
-                                          onPressed: index < videoProvider.videos.length - 1
-                                              ? () async {
-                                                  final list = List<AdminVideoModel>.from(videoProvider.videos);
-                                                  final item = list.removeAt(index);
-                                                  list.insert(index + 1, item);
-                                                  final orders = list
-                                                      .asMap()
-                                                      .entries
-                                                      .map((e) => {'id': e.value.id, 'orderIndex': e.key})
-                                                      .toList();
-                                                  await videoProvider.reorderVideos(orders, languageId: _selectedLanguageId);
-                                                }
-                                              : null,
-                                        ),
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.delete_outline,
-                                            color: video.isAssignedToSnapshot ? AppTheme.softGrey : Colors.redAccent,
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => _showAdminVideoPreviewDialog(context, video),
+                                        child: Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryPurple.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(10),
                                           ),
-                                          tooltip: video.isAssignedToSnapshot
-                                              ? 'Assigned to Paid Users — Deletion Disabled'
-                                              : 'Delete Video',
-                                          onPressed: video.isAssignedToSnapshot
-                                              ? () {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                          'Deletion Protected: Video is part of active user snapshots.'),
-                                                      backgroundColor: Colors.orangeAccent,
-                                                    ),
-                                                  );
-                                                }
-                                              : () async {
-                                                  final confirm = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      backgroundColor: AppTheme.cardBg,
-                                                      title: const Text('Delete Video?'),
-                                                      content: Text('Are you sure you want to delete "${video.title}"?'),
-                                                      actions: [
-                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                                        ElevatedButton(
-                                                          onPressed: () => Navigator.pop(ctx, true),
-                                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                                          child: const Text('Delete'),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-
-                                                  if (confirm == true) {
-                                                    final langProv = Provider.of<AdminLanguagesProvider>(context, listen: false);
-                                                    final success = await videoProvider.deleteVideo(video.id, languageId: _selectedLanguageId);
-                                                    langProv.fetchLanguages();
-                                                    if (success && mounted) {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text('Video deleted successfully'),
-                                                          backgroundColor: AppTheme.neonCyan,
-                                                        ),
-                                                      );
-                                                    }
-                                                  }
-                                                },
+                                          child: const Icon(Icons.play_circle_fill, color: AppTheme.primaryPurple, size: 28),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 12.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (video.isAssignedToSnapshot) ...[
-                                          Container(
-                                            margin: const EdgeInsets.only(bottom: 6),
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: Colors.amber.withOpacity(0.15),
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: Colors.amber.withOpacity(0.4)),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.lock, size: 12, color: Colors.amber),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Used in User Snapshots — Deletion Protected',
-                                                  style: GoogleFonts.outfit(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.amber,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                        Row(
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.neonCyan.withOpacity(0.15),
-                                                borderRadius: BorderRadius.circular(6),
+                                            Text(
+                                              video.title,
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.lightText,
                                               ),
-                                              child: Text(
-                                                video.languageName,
-                                                style: GoogleFonts.outfit(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.neonCyan,
-                                                ),
-                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
-                                                video.videoUrl,
+                                            if (video.description != null && video.description!.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                video.description!,
                                                 style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                            ),
+                                            ],
                                           ],
                                         ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.play_arrow_rounded, size: 22, color: AppTheme.neonGreen),
+                                            tooltip: 'Preview Video',
+                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                            padding: const EdgeInsets.all(3),
+                                            onPressed: () => _showAdminVideoPreviewDialog(context, video),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.arrow_upward, size: 18, color: AppTheme.neonCyan),
+                                            tooltip: 'Move Up',
+                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                            padding: const EdgeInsets.all(3),
+                                            onPressed: index > 0
+                                                ? () async {
+                                                    final list = List<AdminVideoModel>.from(videoProvider.videos);
+                                                    final item = list.removeAt(index);
+                                                    list.insert(index - 1, item);
+                                                    final orders = list
+                                                        .asMap()
+                                                        .entries
+                                                        .map((e) => {'id': e.value.id, 'orderIndex': e.key})
+                                                        .toList();
+                                                    await videoProvider.reorderVideos(orders, languageId: _selectedLanguageId);
+                                                  }
+                                                : null,
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.arrow_downward, size: 18, color: AppTheme.neonCyan),
+                                            tooltip: 'Move Down',
+                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                            padding: const EdgeInsets.all(3),
+                                            onPressed: index < videoProvider.videos.length - 1
+                                                ? () async {
+                                                    final list = List<AdminVideoModel>.from(videoProvider.videos);
+                                                    final item = list.removeAt(index);
+                                                    list.insert(index + 1, item);
+                                                    final orders = list
+                                                        .asMap()
+                                                        .entries
+                                                        .map((e) => {'id': e.value.id, 'orderIndex': e.key})
+                                                        .toList();
+                                                    await videoProvider.reorderVideos(orders, languageId: _selectedLanguageId);
+                                                  }
+                                                : null,
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.delete_outline,
+                                              size: 19,
+                                              color: video.isAssignedToSnapshot ? AppTheme.softGrey : Colors.redAccent,
+                                            ),
+                                            tooltip: video.isAssignedToSnapshot
+                                                ? 'Assigned to Paid Users — Deletion Disabled'
+                                                : 'Delete Video',
+                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                            padding: const EdgeInsets.all(3),
+                                            onPressed: video.isAssignedToSnapshot
+                                                ? () {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                            'Deletion Protected: Video is part of active user snapshots.'),
+                                                        backgroundColor: Colors.orangeAccent,
+                                                      ),
+                                                    );
+                                                  }
+                                                : () async {
+                                                    final confirm = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (ctx) => AlertDialog(
+                                                        backgroundColor: AppTheme.cardBg,
+                                                        title: const Text('Delete Video?'),
+                                                        content: Text('Are you sure you want to delete "${video.title}"?'),
+                                                        actions: [
+                                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                                          ElevatedButton(
+                                                            onPressed: () => Navigator.pop(ctx, true),
+                                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                                            child: const Text('Delete'),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+
+                                                    if (confirm == true) {
+                                                      final langProv = Provider.of<AdminLanguagesProvider>(context, listen: false);
+                                                      final success = await videoProvider.deleteVideo(video.id, languageId: _selectedLanguageId);
+                                                      langProv.fetchLanguages();
+                                                      if (success && mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text('Video deleted successfully'),
+                                                            backgroundColor: AppTheme.neonCyan,
+                                                          ),
+                                                        );
+                                                      }
+                                                    }
+                                                  },
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (video.isAssignedToSnapshot) ...[
+                                        Container(
+                                          margin: const EdgeInsets.only(bottom: 6),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.lock, size: 12, color: Colors.amber),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Used in User Snapshots — Deletion Protected',
+                                                style: GoogleFonts.outfit(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.amber,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ],
-                                    ),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.neonCyan.withOpacity(0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              video.languageName,
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.neonCyan,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              video.videoUrl,
+                                              style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

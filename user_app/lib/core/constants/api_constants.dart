@@ -1,7 +1,7 @@
 class ApiConstants {
   // Set to true to connect to your local backend.
   // Set to false to connect to the live Vercel backend.
-  static const bool useLocalBackend = true;
+  static const bool useLocalBackend = false;
 
   static const String _prodUrl = 'https://equity-plus-app.vercel.app/api/v1';
 

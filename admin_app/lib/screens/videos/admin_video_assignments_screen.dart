@@ -378,14 +378,18 @@ class _AdminVideoAssignmentsScreenState extends State<AdminVideoAssignmentsScree
             ),
 
             const SizedBox(height: 10),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 // Snapshot / Assigned counts
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.photo_camera_back_outlined, size: 12, color: Colors.amber),
                         const SizedBox(width: 4),
@@ -397,6 +401,7 @@ class _AdminVideoAssignmentsScreenState extends State<AdminVideoAssignmentsScree
                     ),
                     const SizedBox(height: 2),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.person_outline, size: 12, color: AppTheme.neonGreen),
                         const SizedBox(width: 4),
@@ -408,7 +413,6 @@ class _AdminVideoAssignmentsScreenState extends State<AdminVideoAssignmentsScree
                     ),
                   ],
                 ),
-                const Spacer(),
                 // Action buttons — use small labels to prevent overflow
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -424,9 +428,9 @@ class _AdminVideoAssignmentsScreenState extends State<AdminVideoAssignmentsScree
                     }
                   },
                   icon: const Icon(Icons.visibility_outlined, size: 14, color: AppTheme.neonCyan),
-                  label: Text('Manage Access & Revocations', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
+                  label: Text('Manage Access', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   ),
                 ),
               ],

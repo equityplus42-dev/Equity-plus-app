@@ -62,15 +62,20 @@ class ApiClient {
   Future<http.Response> _sendWithFailover(
     Future<http.Response> Function(String baseUrl) requestFn,
   ) async {
-    final List<String> candidates = [
-      ApiConstants.activeBaseUrl,
-      ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.activeBaseUrl),
-    ];
+    final List<String> candidates = ApiConstants.useLocalBackend
+        ? [
+            ApiConstants.activeBaseUrl,
+            ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.activeBaseUrl),
+          ]
+        : [ApiConstants.baseUrl];
 
     Object? lastError;
     for (final candidate in candidates) {
       try {
-        final response = await requestFn(candidate).timeout(const Duration(seconds: 3));
+        final timeoutDuration = ApiConstants.useLocalBackend
+            ? const Duration(seconds: 3)
+            : const Duration(seconds: 12);
+        final response = await requestFn(candidate).timeout(timeoutDuration);
         if (response.statusCode == 404 && candidate != candidates.last) {
           lastError = Exception('Resource not found (404) at $candidate');
           continue;

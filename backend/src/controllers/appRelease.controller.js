@@ -63,6 +63,17 @@ class AppReleaseController {
     }
   }
 
+  async getPresignedUploadUrl(req, res, next) {
+    try {
+      const cloudflareR2Service = require('../services/cloudflareR2.service');
+      const { filename = 'app-release.apk', mimeType = 'application/vnd.android.package-archive' } = req.body;
+      const result = await cloudflareR2Service.generateUploadUrl('releases', filename, mimeType);
+      return ApiResponse.success(res, 'APK Presigned upload URL generated successfully', result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async activateRelease(req, res, next) {
     try {
       const adminId = req.user.id;
