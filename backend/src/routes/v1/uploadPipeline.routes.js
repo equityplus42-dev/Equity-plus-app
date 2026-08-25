@@ -13,6 +13,7 @@ const noTimeout = (req, res, next) => {
   res.setTimeout(0);
   next();
 };
+router.post('/presigned-url', authMiddleware, roleMiddleware(['ADMIN']), uploadPipelineController.getPresignedUploadUrl);
 router.post('/media', authMiddleware, roleMiddleware(['ADMIN']), noTimeout, uploadSingleMedia('file'), uploadPipelineController.uploadMedia);
 
 module.exports = router;

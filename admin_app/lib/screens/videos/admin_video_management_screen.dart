@@ -296,13 +296,6 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
 
                               try {
                                 final token = StorageService().getToken();
-                                final uri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/media');
-                                final request = http.MultipartRequest('POST', uri);
-                                request.fields['storageProvider'] = selectedStorageProvider;
-                                if (token != null) {
-                                  request.headers['Authorization'] = 'Bearer $token';
-                                }
-
                                 final totalLength = await video.length();
                                 setDialogState(() {
                                   totalBytes = totalLength;
@@ -323,73 +316,166 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                   'mpg': 'video/mpeg',
                                 }[ext] ?? 'video/mp4';
 
-                                int count = 0;
-                                int lastUiUpdateMs = 0;
-                                final byteStream = http.ByteStream(video.openRead().map((chunk) {
-                                  count += chunk.length;
-                                  final nowMs = DateTime.now().millisecondsSinceEpoch;
-                                  if (nowMs - lastUiUpdateMs > 250 || count == totalLength) {
-                                    lastUiUpdateMs = nowMs;
-                                    setDialogState(() {
-                                      uploadedBytes = count;
-                                      uploadProgress = totalLength > 0 ? (count / totalLength).clamp(0.0, 1.0) : 0.0;
-                                    });
-                                  }
-                                  return chunk;
-                                }));
+                                bool presignedUploadSuccess = false;
 
-                                request.files.add(http.MultipartFile(
-                                  'file',
-                                  byteStream,
-                                  totalLength,
-                                  filename: video.name,
-                                  contentType: MediaType.parse(mimeType),
-                                ));
-
-                                final streamedResponse = await request.send();
-                                final response = await http.Response.fromStream(streamedResponse);
-
-                                if (response.statusCode == 200 || response.statusCode == 201) {
-                                  final data = jsonDecode(response.body);
-                                  final uploadedUrl = data['data']?['url'] ?? data['url'];
-                                  int dur = (data['data']?['duration'] ?? data['duration'] ?? 0) as int;
-
-                                  if (dur == 0 && uploadedUrl != null && uploadedUrl.toString().isNotEmpty) {
-                                    try {
-                                      final probe = VideoPlayerController.networkUrl(Uri.parse(uploadedUrl.toString()));
-                                      await probe.initialize();
-                                      dur = probe.value.duration.inSeconds;
-                                      await probe.dispose();
-                                    } catch (e) {
-                                      debugPrint('Duration probe info: $e');
-                                    }
-                                  }
-
-                                  if (uploadedUrl != null) {
-                                    final r2Key = data['data']?['r2ObjectKey'] ?? data['r2ObjectKey'];
-                                    setDialogState(() {
-                                      uploadedCloudinaryUrl = uploadedUrl;
-                                      uploadedR2ObjectKey = r2Key;
-                                      uploadedVideoDuration = dur;
-                                      if (titleController.text.trim().isEmpty) {
-                                        titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
-                                      }
-                                    });
-                                  }
-                                } else {
-                                  final errData = jsonDecode(response.body);
-                                  final msg = errData['message'] ?? 'Upload failed (${response.statusCode})';
-                                  if (dialogCtx.mounted) {
-                                    ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                      SnackBar(content: Text('Video upload error: $msg')),
+                                // 1. Direct Presigned Upload for Cloudflare R2 (bypasses Vercel 4.5MB payload limit)
+                                if (selectedStorageProvider == 'CLOUDFLARE_R2' || totalLength > 4 * 1024 * 1024) {
+                                  try {
+                                    final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
+                                    final presignedRes = await http.post(
+                                      presignedUri,
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                        if (token != null) 'Authorization': 'Bearer $token',
+                                      },
+                                      body: jsonEncode({
+                                        'folder': 'videos',
+                                        'filename': video.name,
+                                        'mimeType': mimeType,
+                                      }),
                                     );
+
+                                    if (presignedRes.statusCode == 200 || presignedRes.statusCode == 201) {
+                                      final pData = jsonDecode(presignedRes.body);
+                                      final uploadUrl = pData['data']?['uploadUrl'];
+                                      final r2Key = pData['data']?['r2ObjectKey'];
+                                      final publicUrl = pData['data']?['publicUrl'];
+
+                                      if (uploadUrl != null && r2Key != null) {
+                                        final videoBytes = await video.readAsBytes();
+                                        setDialogState(() {
+                                          uploadedBytes = totalLength;
+                                          uploadProgress = 1.0;
+                                        });
+
+                                        final putResponse = await http.put(
+                                          Uri.parse(uploadUrl),
+                                          headers: {'Content-Type': mimeType},
+                                          body: videoBytes,
+                                        );
+
+                                        if (putResponse.statusCode == 200 || putResponse.statusCode == 201 || putResponse.statusCode == 204) {
+                                          int dur = 0;
+                                          if (publicUrl != null && publicUrl.toString().isNotEmpty) {
+                                            try {
+                                              final probe = VideoPlayerController.networkUrl(Uri.parse(publicUrl.toString()));
+                                              await probe.initialize();
+                                              dur = probe.value.duration.inSeconds;
+                                              await probe.dispose();
+                                            } catch (e) {
+                                              debugPrint('Duration probe info: $e');
+                                            }
+                                          }
+
+                                          setDialogState(() {
+                                            uploadedCloudinaryUrl = publicUrl;
+                                            uploadedR2ObjectKey = r2Key;
+                                            uploadedVideoDuration = dur;
+                                            if (titleController.text.trim().isEmpty) {
+                                              titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                            }
+                                          });
+                                          presignedUploadSuccess = true;
+                                        }
+                                      }
+                                    }
+                                  } catch (presignedErr) {
+                                    debugPrint('R2 Presigned upload attempt notice: $presignedErr');
+                                  }
+                                }
+
+                                // 2. Fallback to standard Multipart upload if presigned upload wasn't used
+                                if (!presignedUploadSuccess) {
+                                  final uri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/media');
+                                  final request = http.MultipartRequest('POST', uri);
+                                  request.fields['storageProvider'] = selectedStorageProvider;
+                                  if (token != null) {
+                                    request.headers['Authorization'] = 'Bearer $token';
+                                  }
+
+                                  int count = 0;
+                                  int lastUiUpdateMs = 0;
+                                  final byteStream = http.ByteStream(video.openRead().map((chunk) {
+                                    count += chunk.length;
+                                    final nowMs = DateTime.now().millisecondsSinceEpoch;
+                                    if (nowMs - lastUiUpdateMs > 250 || count == totalLength) {
+                                      lastUiUpdateMs = nowMs;
+                                      setDialogState(() {
+                                        uploadedBytes = count;
+                                        uploadProgress = totalLength > 0 ? (count / totalLength).clamp(0.0, 1.0) : 0.0;
+                                      });
+                                    }
+                                    return chunk;
+                                  }));
+
+                                  request.files.add(http.MultipartFile(
+                                    'file',
+                                    byteStream,
+                                    totalLength,
+                                    filename: video.name,
+                                    contentType: MediaType.parse(mimeType),
+                                  ));
+
+                                  final streamedResponse = await request.send();
+                                  final response = await http.Response.fromStream(streamedResponse);
+
+                                  if (response.statusCode == 200 || response.statusCode == 201) {
+                                    final data = jsonDecode(response.body);
+                                    final uploadedUrl = data['data']?['url'] ?? data['url'];
+                                    int dur = (data['data']?['duration'] ?? data['duration'] ?? 0) as int;
+
+                                    if (dur == 0 && uploadedUrl != null && uploadedUrl.toString().isNotEmpty) {
+                                      try {
+                                        final probe = VideoPlayerController.networkUrl(Uri.parse(uploadedUrl.toString()));
+                                        await probe.initialize();
+                                        dur = probe.value.duration.inSeconds;
+                                        await probe.dispose();
+                                      } catch (e) {
+                                        debugPrint('Duration probe info: $e');
+                                      }
+                                    }
+
+                                    if (uploadedUrl != null) {
+                                      final r2Key = data['data']?['r2ObjectKey'] ?? data['r2ObjectKey'];
+                                      setDialogState(() {
+                                        uploadedCloudinaryUrl = uploadedUrl;
+                                        uploadedR2ObjectKey = r2Key;
+                                        uploadedVideoDuration = dur;
+                                        if (titleController.text.trim().isEmpty) {
+                                          titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                        }
+                                      });
+                                    }
+                                  } else {
+                                    String msg = 'Upload failed (${response.statusCode})';
+                                    try {
+                                      final errData = jsonDecode(response.body);
+                                      msg = errData['message'] ?? errData['error'] ?? msg;
+                                    } catch (_) {
+                                      if (response.statusCode == 413 || response.body.contains('Request Entity Too Large')) {
+                                        msg = 'File exceeds Vercel\'s 4.5MB serverless limit. Select "Cloudflare R2 Bucket" for direct upload.';
+                                      } else if (response.body.trim().isNotEmpty) {
+                                        msg = response.body.trim();
+                                      }
+                                    }
+                                    if (dialogCtx.mounted) {
+                                      ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Video upload error: $msg'),
+                                          backgroundColor: Colors.redAccent,
+                                        ),
+                                      );
+                                    }
                                   }
                                 }
                               } catch (e) {
                                 debugPrint('Error uploading video file: $e');
                                 if (dialogCtx.mounted) {
                                   ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                    SnackBar(content: Text('Upload error: $e')),
+                                    SnackBar(
+                                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                                      backgroundColor: Colors.redAccent,
+                                    ),
                                   );
                                 }
                               } finally {

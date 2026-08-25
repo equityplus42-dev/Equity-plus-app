@@ -1,7 +1,7 @@
 const env = require('../config/env');
 const path = require('path');
 const { randomUUID: uuidv4 } = require('crypto');
-const { S3Client, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
@@ -210,6 +210,42 @@ class CloudflareR2Service {
       return { r2ObjectKey: key, url: previewUrl };
     } catch (error) {
       console.error('[CloudflareR2Service] uploadFile failed:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate a presigned PUT URL for direct client-to-R2 upload.
+   * Bypasses serverless payload size limits (e.g. Vercel 4.5MB body limit).
+   */
+  async generateUploadUrl(folder = 'videos', originalFilename = 'file.mp4', mimeType = 'video/mp4') {
+    const ext = path.extname(originalFilename) || (mimeType.startsWith('video') ? '.mp4' : '.jpg');
+    const key = `${folder}/${uuidv4()}${ext}`;
+
+    if (!this.isConfigured()) {
+      throw new Error('Cloudflare R2 is not configured on the backend server.');
+    }
+
+    try {
+      const s3Client = this.getS3Client();
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        ContentType: mimeType,
+      });
+
+      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+      const previewUrl = await this.generatePlaybackUrl(key, 3600);
+
+      console.info(`[CloudflareR2Service] Generated presigned upload URL for key: "${key}"`);
+      return {
+        r2ObjectKey: key,
+        uploadUrl,
+        publicUrl: previewUrl || `${this.publicDomain ? this.publicDomain.replace(/\/$/, '') : 'https://pub-r2.dev'}/${key}`,
+        expiresIn: 3600,
+      };
+    } catch (error) {
+      console.error('[CloudflareR2Service] generateUploadUrl failed:', error.message);
       throw error;
     }
   }

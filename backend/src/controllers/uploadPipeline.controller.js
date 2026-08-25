@@ -92,6 +92,16 @@ class UploadPipelineController {
       next(error);
     }
   }
+
+  async getPresignedUploadUrl(req, res, next) {
+    try {
+      const { folder = 'videos', filename = 'file.mp4', mimeType = 'video/mp4' } = req.body;
+      const result = await cloudflareR2Service.generateUploadUrl(folder, filename, mimeType);
+      return ApiResponse.success(res, 'Presigned upload URL generated successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UploadPipelineController();
