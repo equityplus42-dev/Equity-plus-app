@@ -106,6 +106,17 @@ app.get('/api/docs', (req, res) => {
 // 6. Bind API routes (mounted under /api/v1/ via the routes aggregator)
 app.use('/api', apiRouter);
 
+// Base root landing endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'EquityPlus API Backend Service is Running',
+    version: '1.0.0',
+    docs: '/api/docs',
+    health: '/health',
+  });
+});
+
 // Base sanity check health endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date() });
