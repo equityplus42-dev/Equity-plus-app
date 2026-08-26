@@ -13,35 +13,18 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const VIDEO_EXTENSIONS = new Set([
-  '.mp4', '.m4v', '.mp4v',
-  '.mkv',
-  '.mov', '.qt',
-  '.avi',
-  '.webm',
-  '.flv', '.f4v', '.f4p', '.f4a', '.f4b',
-  '.wmv', '.asf',
-  '.3gp', '.3g2',
-  '.mpeg', '.mpg', '.m2v', '.mp2', '.mpv',
-  '.ts', '.mts', '.m2ts',
-  '.ogv', '.ogg',
-  '.vob',
-  '.divx', '.xvid',
-  '.rm', '.rmvb'
-]);
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.mpeg', '.mpg']);
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.tiff']);
 
 const mediaFilter = (req, file, cb) => {
-  const mime = (file.mimetype || '').toLowerCase();
-  const ext = path.extname(file.originalname || '').toLowerCase();
-
-  const mimeOk = mime.startsWith('video/') || mime.startsWith('image/') || mime === 'application/octet-stream' || mime.includes('matroska') || mime.includes('quicktime');
+  const mimeOk = file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/');
+  const ext = path.extname(file.originalname).toLowerCase();
   const extOk = VIDEO_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext);
 
-  if (mimeOk || extOk || !ext) {
+  if (mimeOk || extOk) {
     cb(null, true);
   } else {
-    cb(new Error(`Invalid file format (${ext || mime}). Allowed video formats include MP4, MKV, MOV, AVI, WEBM, FLV, WMV, 3GP, MPEG, TS, OGV, VOB, etc.`), false);
+    cb(new Error('Invalid file type. Only video or image uploads are allowed.'), false);
   }
 };
 

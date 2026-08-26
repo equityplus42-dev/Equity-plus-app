@@ -32,14 +32,9 @@ class UploadPipelineController {
       }
 
       const path = require('path');
-      const VIDEO_EXTENSIONS = new Set([
-        '.mp4', '.m4v', '.mp4v', '.mkv', '.mov', '.qt', '.avi', '.webm',
-        '.flv', '.f4v', '.wmv', '.asf', '.3gp', '.3g2', '.mpeg', '.mpg',
-        '.m2v', '.ts', '.mts', '.m2ts', '.ogv', '.ogg', '.vob', '.divx', '.xvid', '.rm', '.rmvb'
-      ]);
+      const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.mpeg', '.mpg']);
       const ext = path.extname(req.file.originalname).toLowerCase();
-      const mime = (req.file.mimetype || '').toLowerCase();
-      const isVideo = mime.startsWith('video/') || mime.includes('matroska') || mime.includes('quicktime') || VIDEO_EXTENSIONS.has(ext);
+      const isVideo = req.file.mimetype.startsWith('video/') || VIDEO_EXTENSIONS.has(ext);
       const provider = ((req.body && req.body.storageProvider) || (req.query && req.query.storageProvider) || 'CLOUDINARY').toUpperCase();
       const CLOUDINARY_MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB limit for Cloudinary video uploads
       const fileSize = req.file.size || (req.file.buffer ? req.file.buffer.length : 0);
