@@ -100,7 +100,15 @@ class AuthService {
       await referralService.createReferralEntry(user.id, referrerId);
     }
 
-    // 8. Generate auth token
+    // 8. Auto-assign initial top 3 videos for new user
+    try {
+      const videoService = require('./video.service');
+      await videoService.getOrCreateUserSnapshot(user.id);
+    } catch (assignErr) {
+      console.warn('[AuthService] New user initial video assignment notice:', assignErr.message);
+    }
+
+    // 9. Generate auth token
     const token = jwtService.sign({
       id: user.id,
       email: user.email,

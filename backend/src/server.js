@@ -34,6 +34,12 @@ async function startServer() {
 
     // Connect to TiDB Cloud database asynchronously with retry
     await connectWithRetry();
+
+    // Auto-assign top 3 initial videos to any existing registered users in DB
+    const videoService = require('./services/video.service');
+    videoService.syncAllUsersInitialVideoAssignments().catch((err) => {
+      logger.warn(`Initial video auto-assignment sync warning: ${err.message}`);
+    });
   } catch (error) {
     logger.error('Failed to start server:', error);
   }

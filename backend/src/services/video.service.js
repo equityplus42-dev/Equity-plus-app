@@ -34,6 +34,7 @@ class VideoService {
     });
 
     if (snapshot) {
+      await this.syncUserInitialVideoAssignments(userId, snapshot);
       return snapshot;
     }
 
@@ -120,7 +121,58 @@ class VideoService {
       },
     });
 
+    // Auto-assign first 3 snapshot videos in VideoAssignment table
+    await this.syncUserInitialVideoAssignments(userId, snapshot);
+
     return snapshot;
+  }
+
+  /**
+   * Helper to ensure active VideoAssignment records exist for initial/snapshot videos (First 3 videos)
+   */
+  async syncUserInitialVideoAssignments(userId, snapshot) {
+    if (!snapshot || !snapshot.snapshotVideos || snapshot.snapshotVideos.length === 0) {
+      return;
+    }
+    for (const sv of snapshot.snapshotVideos) {
+      const vid = sv.videoId;
+      const video = await prisma.video.findUnique({ where: { id: vid } });
+      if (video && video.isActive) {
+        await prisma.videoAssignment.upsert({
+          where: { userId_videoId: { userId, videoId: vid } },
+          update: { status: 'ACTIVE' },
+          create: {
+            userId,
+            videoId: vid,
+            languageId: video.languageId,
+            productId: video.productId,
+            status: 'ACTIVE',
+            assignedBy: 'SYSTEM_AUTO',
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * Helper to sync initial top 3 video assignments for ALL non-deleted registered users in DB
+   */
+  async syncAllUsersInitialVideoAssignments() {
+    try {
+      const users = await prisma.user.findMany({
+        where: { role: 'USER', isApproved: true, isDeleted: false },
+        select: { id: true },
+      });
+      for (const u of users) {
+        const snap = await this.getOrCreateUserSnapshot(u.id);
+        if (snap) {
+          await this.syncUserInitialVideoAssignments(u.id, snap);
+        }
+      }
+      console.info(`[VideoService] Successfully synced initial video assignments for ${users.length} users.`);
+    } catch (e) {
+      console.warn('[VideoService] syncAllUsersInitialVideoAssignments warning:', e.message);
+    }
   }
 
   /**
@@ -477,21 +529,7 @@ class VideoService {
           unlockedVideos.push(videoData);
         }
       } else {
-        lockedVideos.push({
-          id: v.id,
-          title: v.title,
-          description: v.description,
-          videoUrl: null, // Playback disabled for locked videos
-          thumbnailUrl: v.thumbnailUrl,
-          duration: v.duration,
-          languageName: v.language.name,
-          productName: v.product?.name || null,
-          status: v.status,
-          orderIndex: v.orderIndex,
-          isLocked: true,
-          unlockNotice: 'Uploaded after your learning snapshot. Unlocks after 25% learning progress or 30 days.',
-          createdAt: v.createdAt,
-        });
+        // Remaining videos stay HIDDEN until 25% watch time criteria or 30 days unlock criteria is met.
       }
     }
 
