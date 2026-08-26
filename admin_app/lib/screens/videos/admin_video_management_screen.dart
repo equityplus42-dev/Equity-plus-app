@@ -318,8 +318,8 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
 
                                 bool presignedUploadSuccess = false;
 
-                                // 1. Direct Presigned Upload for Cloudflare R2 (bypasses Vercel 4.5MB payload limit)
-                                if (selectedStorageProvider == 'CLOUDFLARE_R2' || totalLength > 4 * 1024 * 1024) {
+                                // 1. Direct Presigned Upload for Cloudflare R2 (or fallback for files > 100MB)
+                                if (selectedStorageProvider == 'CLOUDFLARE_R2' || (selectedStorageProvider == 'CLOUDINARY' && totalLength > 100 * 1024 * 1024)) {
                                   try {
                                     final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
                                     final presignedRes = await http.post(
@@ -504,7 +504,9 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                         Text(
                           isUploadingFile
                               ? (uploadProgress >= 0.99
-                                  ? '⚡ Processing & Securing on Cloudflare R2... Please wait'
+                                  ? (selectedStorageProvider == 'CLOUDFLARE_R2'
+                                      ? '⚡ Processing & Securing on Cloudflare R2... Please wait'
+                                      : '☁️ Processing & Transcoding on Cloudinary... Please wait')
                                   : 'Uploading (${(uploadedBytes / 1024 / 1024).toStringAsFixed(1)} MB / ${(totalBytes / 1024 / 1024).toStringAsFixed(1)} MB — ${(uploadProgress * 100).toStringAsFixed(0)}%)...')
                               : (uploadedCloudinaryUrl != null
                                   ? '✓ File Uploaded (${uploadedVideoDuration >= 60 ? "${uploadedVideoDuration ~/ 60}m ${uploadedVideoDuration % 60}s" : "${uploadedVideoDuration}s"} duration)'
@@ -531,9 +533,12 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                               final elapsed = mins > 0
                                   ? '${mins}m ${secs.toString().padLeft(2, '0')}s elapsed'
                                   : '${secs}s elapsed';
-                              return uploadProgress >= 0.99
-                                  ? '⏱ $elapsed — Backend streaming to Cloudflare R2'
-                                  : '⏱ $elapsed — high-speed multi-part upload active';
+                              if (uploadProgress >= 0.99) {
+                                return selectedStorageProvider == 'CLOUDFLARE_R2'
+                                    ? '⏱ $elapsed — Backend streaming to Cloudflare R2'
+                                    : '⏱ $elapsed — Transcoding HD & SD streams on Cloudinary';
+                              }
+                              return '⏱ $elapsed — high-speed multi-part upload active';
                             }(),
                             style: GoogleFonts.outfit(
                               color: AppTheme.neonCyan,
@@ -560,7 +565,9 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Cloudinary Dedicated Account (qv1eskbe) ready',
+                          uploadedR2ObjectKey != null
+                              ? 'Cloudflare R2 Bucket (vridhinetwork) ready'
+                              : 'Cloudinary Dedicated Account (qv1eskbe) ready',
                           style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonGreen, fontWeight: FontWeight.w600),
                         ),
                       ),
