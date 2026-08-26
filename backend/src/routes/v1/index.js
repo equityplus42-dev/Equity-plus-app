@@ -23,9 +23,11 @@ const paymentRoutes = require('./payment.routes');
 const refundRoutes = require('./refund.routes');
 const videoAssignmentRoutes = require('./videoAssignment.routes');
 const appReleaseRoutes = require('./appRelease.routes');
+const developerRoutes = require('./developer.routes');
 const appVersionMiddleware = require('../../middleware/appVersion.middleware');
 
 router.use('/app-version', appReleaseRoutes);
+router.use('/developer', developerRoutes);
 router.use(appVersionMiddleware);
 
 router.use('/auth', authRoutes);

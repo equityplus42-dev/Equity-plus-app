@@ -10,6 +10,7 @@ router.post('/create-order', authMiddleware, paymentController.createOrder);
 router.post('/verify', authMiddleware, paymentController.verifyPayment);
 router.get('/my', authMiddleware, paymentController.getUserPayments);
 router.post('/request-cash', authMiddleware, paymentController.requestCashPayment);
+router.post('/bypass-payment', authMiddleware, paymentController.bypassPayment);
 
 // Admin & Developer payment endpoints
 router.get('/admin', authMiddleware, roleMiddleware(['ADMIN', 'DEVELOPER']), paymentController.getAdminPayments);

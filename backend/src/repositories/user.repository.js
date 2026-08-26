@@ -24,7 +24,7 @@ class UserRepository {
   }
 
   async findAll({ skip, take, search }) {
-    const where = { isDeleted: false, isApproved: true, role: 'USER' };
+    const where = { isDeleted: false, isApproved: true, role: 'USER', isTestUser: false };
     if (search) {
       where.OR = [
         { id: { contains: search } },
@@ -56,7 +56,7 @@ class UserRepository {
   }
 
   async countAll({ search }) {
-    const where = { isDeleted: false, isApproved: true, role: 'USER' };
+    const where = { isDeleted: false, isApproved: true, role: 'USER', isTestUser: false };
     if (search) {
       where.OR = [
         { id: { contains: search } },
@@ -100,6 +100,10 @@ class UserRepository {
     if (!user) {
       return null;
     }
+
+    // 0. Claw back / deduct referral points from all upstream referrers in the tree
+    const referralService = require('../services/referral.service');
+    await referralService.clawbackPointsOnUserDeletion(id);
 
     // 1. Save user details to DeletedUserLog table
     await prisma.deletedUserLog.create({

@@ -148,6 +148,48 @@ class DeveloperModeScreen extends StatelessWidget {
                 color: Colors.deepOrangeAccent,
                 onTap: () => _showResetPaymentDialog(context),
               ),
+
+              const SizedBox(height: 20),
+              Text(
+                'DEVELOPER TEST USER & KILL SWITCH',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.redAccent,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Feature 7: Grant Payment Bypass to Test User
+              _buildDevTile(
+                context,
+                icon: Icons.flash_on_rounded,
+                title: 'Bypass Payment for Test User ⚡',
+                desc: 'Instantly approve payment & unlock full video course access for test@gmail.com',
+                color: AppTheme.neonGreen,
+                onTap: () => _bypassTestUserPayment(context),
+              ),
+
+              // Feature 8: KILL TEST USER Permanently
+              _buildDevTile(
+                context,
+                icon: Icons.delete_forever_rounded,
+                title: '💀 KILL TEST USER (Hard Purge)',
+                desc: 'Permanently delete test@gmail.com and ALL related payments, snapshots & records from DB',
+                color: Colors.redAccent,
+                onTap: () => _killTestUserDialog(context),
+              ),
+
+              // Feature 9: Re-Create / Reseed Test User
+              _buildDevTile(
+                context,
+                icon: Icons.person_add_alt_1_rounded,
+                title: '🌱 Re-Create Clean Test User',
+                desc: 'Reseed fresh test@gmail.com (Password: test12,.) in database',
+                color: AppTheme.neonCyan,
+                onTap: () => _reseedTestUser(context),
+              ),
             ],
           ),
         ),
@@ -328,6 +370,98 @@ class DeveloperModeScreen extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _bypassTestUserPayment(BuildContext context) async {
+    final apiClient = ApiClient();
+    try {
+      final res = await apiClient.post('/developer/test-user/bypass-payment', {});
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Payment bypassed & full course access granted for Test User! ⚡'),
+          backgroundColor: AppTheme.neonGreen,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bypass Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _reseedTestUser(BuildContext context) async {
+    final apiClient = ApiClient();
+    try {
+      final res = await apiClient.post('/developer/test-user/reseed', {});
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Clean Test User re-created in database! 🌱'),
+          backgroundColor: AppTheme.neonCyan,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reseed Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _killTestUserDialog(BuildContext context) {
+    final apiClient = ApiClient();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+            const SizedBox(width: 8),
+            Text(
+              '💀 PERMANENTLY KILL TEST USER?',
+              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Text(
+          'This will execute a HARD PURGE on testuser@vridhi.com from the database, permanently deleting all user progress, snapshots, video assignments, payments, and the User row itself!\n\nAre you sure you want to proceed?',
+          style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.softGrey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () async {
+              try {
+                final res = await apiClient.delete('/developer/test-user/kill');
+                if (!context.mounted) return;
+                Navigator.pop(dialogCtx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res['message'] ?? 'Test User permanently killed & purged from database! 💀'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                Navigator.pop(dialogCtx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Kill Error: $e'), backgroundColor: Colors.red),
+                );
+              }
+            },
+            child: Text('KILL TEST USER', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

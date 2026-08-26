@@ -72,7 +72,11 @@ class ReferralRepository {
 
   async findAllPending() {
     return prisma.referral.findMany({
-      where: { status: 'PENDING' },
+      where: {
+        status: 'PENDING',
+        referee: { isTestUser: false, isDeleted: false },
+        referrer: { isTestUser: false, isDeleted: false },
+      },
       include: {
         referrer: { select: { id: true, email: true, profile: true } },
         referee: { select: { id: true, email: true, profile: true, createdAt: true } },
@@ -83,6 +87,10 @@ class ReferralRepository {
 
   async findAll({ skip, take }) {
     return prisma.referral.findMany({
+      where: {
+        referee: { isTestUser: false, isDeleted: false },
+        referrer: { isTestUser: false, isDeleted: false },
+      },
       skip,
       take,
       include: {

@@ -125,6 +125,16 @@ class PaymentController {
       next(error);
     }
   }
+
+  async bypassPayment(req, res, next) {
+    try {
+      const { productId } = req.body;
+      const result = await paymentService.bypassTestPayment(req.user.id, productId);
+      return ApiResponse.success(res, 'Test payment bypassed & full access granted', result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PaymentController();

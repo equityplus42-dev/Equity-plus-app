@@ -551,6 +551,69 @@ class PaymentService {
       message: `Payment status reset successfully for ${user.email}. User can now perform fresh Razorpay payment test.`,
     };
   }
+
+  async bypassTestPayment(userId, productId) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new Error('User not found for payment bypass');
+    }
+
+    let targetProductId = productId;
+    if (!targetProductId) {
+      const defaultProduct = await prisma.product.findFirst({ where: { status: 'ACTIVE' } });
+      targetProductId = defaultProduct ? defaultProduct.id : null;
+    }
+
+    const payment = await prisma.payment.create({
+      data: {
+        userId: user.id,
+        productId: targetProductId,
+        amount: 999.00,
+        currency: 'INR',
+        status: 'SUCCESS',
+        paymentMethod: 'TEST_BYPASS',
+        razorpayOrderId: `TEST_ORDER_${Date.now()}`,
+        razorpayPaymentId: `TEST_PAY_${Date.now()}`,
+      },
+    });
+
+    if (targetProductId) {
+      await prisma.userProductAccess.upsert({
+        where: { userId_productId: { userId: user.id, productId: targetProductId } },
+        update: { status: 'ACTIVE', paymentId: payment.id },
+        create: {
+          userId: user.id,
+          productId: targetProductId,
+          paymentId: payment.id,
+          status: 'ACTIVE',
+        },
+      });
+
+      await prisma.profile.updateMany({
+        where: { userId: user.id },
+        data: { assignedProductId: targetProductId },
+      });
+    }
+
+    // Trigger video snapshot so course videos unlock immediately
+    const videoService = require('./video.service');
+    await videoService.getUserVideos(user.id, { triggerSnapshot: true });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'PAYMENT_TEST_BYPASS',
+        details: JSON.stringify({ paymentId: payment.id, productId: targetProductId }),
+      },
+    });
+
+    return {
+      paymentId: payment.id,
+      status: 'SUCCESS',
+      paymentMethod: 'TEST_BYPASS',
+      message: 'Test payment bypassed successfully & full course access unlocked!',
+    };
+  }
 }
 
 module.exports = new PaymentService();

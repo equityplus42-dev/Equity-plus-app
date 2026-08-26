@@ -621,54 +621,58 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
 
                             const SizedBox(height: 16),
 
-                            // DEMO BYPASS BUTTON
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: Colors.amber.withOpacity(0.4)),
-                              ),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.bolt, color: Colors.amber, size: 18),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'DEMO TESTING ACCESS',
+                            // DEMO BYPASS BUTTON (ONLY VISIBLE FOR TEST USER & DEVELOPERS)
+                            if (authUser?.email == 'test@gmail.com' ||
+                                (authUser?.isTestUser ?? false) ||
+                                authUser?.role == 'DEVELOPER') ...[
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.bolt, color: Colors.amber, size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'DEVELOPER TEST ACCESS (test@gmail.com)',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.amber,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ElevatedButton.icon(
+                                      onPressed: _bypassPaymentDemo,
+                                      icon: const Icon(Icons.card_membership, color: Colors.black),
+                                      label: Text(
+                                        '⚡ Bypass Payment (Test User Only)',
                                         style: GoogleFonts.outfit(
-                                          fontSize: 11,
+                                          fontSize: 15,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.amber,
-                                          letterSpacing: 1.2,
+                                          color: Colors.black,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ElevatedButton.icon(
-                                    onPressed: _bypassPaymentDemo,
-                                    icon: const Icon(Icons.card_membership, color: Colors.black),
-                                    label: Text(
-                                      'Bypass Payment (Demo Mode)',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.amber,
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        minimumSize: const Size(double.infinity, 48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
                                     ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.amber,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      minimumSize: const Size(double.infinity, 48),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ],
                       ],

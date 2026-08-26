@@ -132,6 +132,13 @@ class ReferralService {
    * @param {Object} settings 
    */
   async distributePoints(refereeId, refereeName, settings) {
+    // 0. DO NOT award referral points if referee is a test user!
+    const refereeUser = await prisma.user.findUnique({ where: { id: refereeId } });
+    if (!refereeUser || refereeUser.isTestUser || refereeUser.email === 'test@gmail.com') {
+      console.log(`[ReferralService] Skipping referral points distribution for test user (${refereeUser?.email}).`);
+      return;
+    }
+
     const node = await hierarchyRepository.findByUserId(refereeId);
     if (!node) return;
 
@@ -171,6 +178,56 @@ class ReferralService {
             ancestorId,
             `Indirect Reward! Level ${level} 💰`,
             `An indirect referral (${refereeName}) joined your network at Level ${level}. You earned +${points} points!`
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Deduct / Claw back points from all upstream referrers when a user is deleted by admin
+   * @param {string} refereeId 
+   */
+  async clawbackPointsOnUserDeletion(refereeId) {
+    const refereeUser = await prisma.user.findUnique({ where: { id: refereeId } });
+    if (!refereeUser || refereeUser.isTestUser || refereeUser.email === 'test@gmail.com') {
+      return;
+    }
+
+    const node = await hierarchyRepository.findByUserId(refereeId);
+    if (!node) return;
+
+    const ancestors = getAncestorsFromPath(node.path);
+    const reversedAncestors = [...ancestors].reverse();
+
+    const settings = await this.getSystemSettings();
+    const maxDepth = parseInt(settings[SETTINGS_KEYS.MAX_DEPTH], 10) || DEFAULT_SETTINGS.max_hierarchy_depth;
+    
+    const pointsMap = {
+      1: parseInt(settings[SETTINGS_KEYS.POINTS_L1], 10) || DEFAULT_SETTINGS.points_level_1,
+      2: parseInt(settings[SETTINGS_KEYS.POINTS_L2], 10) || DEFAULT_SETTINGS.points_level_2,
+      3: parseInt(settings[SETTINGS_KEYS.POINTS_L3], 10) || DEFAULT_SETTINGS.points_level_3,
+    };
+
+    const limit = Math.min(reversedAncestors.length, maxDepth);
+    for (let i = 0; i < limit; i++) {
+      const ancestorId = reversedAncestors[i];
+      const level = i + 1;
+      const points = pointsMap[level] || 0;
+
+      if (points > 0) {
+        const ancestor = await prisma.user.findUnique({ where: { id: ancestorId } });
+        if (ancestor) {
+          const newPoints = Math.max(0, ancestor.points - points);
+          await prisma.user.update({
+            where: { id: ancestorId },
+            data: { points: newPoints },
+          });
+
+          await notificationService.notifySystemAlert(
+            ancestorId,
+            `Points Deduction Notice ⚠️`,
+            `User ${refereeUser.email} at Level ${level} was removed. -${points} referral points deducted.`
           );
         }
       }

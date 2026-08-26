@@ -18,6 +18,8 @@ class UserModel {
   final String? state;
   final String? district;
 
+  final bool isTestUser;
+
   UserModel({
     required this.id,
     required this.email,
@@ -26,6 +28,7 @@ class UserModel {
     this.referrerId,
     required this.points,
     required this.isApproved,
+    this.isTestUser = false,
     required this.createdAt,
     this.firstName,
     this.lastName,
@@ -56,6 +59,7 @@ class UserModel {
       referrerId: json['referrerId'],
       points: json['points'] ?? 0,
       isApproved: json['isApproved'] ?? true,
+      isTestUser: json['isTestUser'] ?? false,
       createdAt: json['createdAt'] ?? '',
       firstName: profile != null ? profile['firstName'] : json['firstName'],
       lastName: profile != null ? profile['lastName'] : json['lastName'],

@@ -70,6 +70,41 @@ async function main() {
     });
   }
   console.log(`Developer user verified in database: ${developer.email}`);
+
+  // 1c. Verify/Seed Dedicated Developer Test User (test@gmail.com)
+  const testEmail = 'test@gmail.com';
+  const testPasswordHash = '$2b$10$U8mpS4vgjQtcKUhZB/PWx.4HHzimKDoBjxuGaiUx2GTcvlwBIdF86'; // test12,.
+  let testUser = await prisma.user.findUnique({
+    where: { email: testEmail },
+  });
+
+  if (!testUser) {
+    testUser = await prisma.user.create({
+      data: {
+        id: '00000000-0000-0000-0000-000000000002',
+        email: testEmail,
+        password: testPasswordHash,
+        role: 'USER',
+        referralCode: 'TESTUSER99',
+        isApproved: true,
+        isTestUser: true,
+        profile: {
+          create: {
+            firstName: 'Test',
+            lastName: 'User',
+            phoneNumber: '+1999999999',
+            bio: 'Isolated Developer Test Account for Payment Bypass & Flow Testing.',
+          }
+        }
+      }
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: testUser.id },
+      data: { isTestUser: true, isApproved: true, isActive: true },
+    });
+  }
+  console.log(`Test user verified in database: ${testUser.email} (isTestUser: true)`);
   // 2. Seed Default System Settings
   const defaultSettings = [
     { key: 'points_level_1', value: '100', description: 'Points awarded to the direct referrer (Level 1)' },
