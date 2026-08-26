@@ -62,20 +62,29 @@ class ApiClient {
   Future<http.Response> _sendWithFailover(
     Future<http.Response> Function(String baseUrl) requestFn,
   ) async {
-    final List<String> candidates = ApiConstants.useLocalBackend
+    final List<String> rawCandidates = ApiConstants.useLocalBackend
         ? [
             ApiConstants.activeBaseUrl,
             ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.activeBaseUrl),
           ]
-        : [ApiConstants.baseUrl];
+        : [
+            ApiConstants.baseUrl,
+            ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.baseUrl),
+          ];
+
+    final candidates = rawCandidates;
 
     Object? lastError;
     for (final candidate in candidates) {
       try {
-        final timeoutDuration = ApiConstants.useLocalBackend
-            ? const Duration(seconds: 3)
-            : const Duration(seconds: 12);
+        final timeoutDuration = (candidate.contains('vercel.app') || candidate.startsWith('https://'))
+            ? const Duration(seconds: 15)
+            : const Duration(seconds: 4);
         final response = await requestFn(candidate).timeout(timeoutDuration);
+        if (response.statusCode == 404 && candidate != candidates.last) {
+          lastError = Exception('Resource not found (404) at $candidate');
+          continue;
+        }
         ApiConstants.activeBaseUrl = candidate;
         return response;
       } on Exception catch (e) {
@@ -91,7 +100,8 @@ class ApiClient {
         rethrow;
       }
     }
-    throw Exception('Network error: Could not reach backend server ($lastError)');
+    final cleanErrorMsg = lastError != null ? lastError.toString().replaceAll('Exception: ', '') : 'Unknown error';
+    throw Exception('Could not reach backend server ($cleanErrorMsg)');
   }
 
   Future<dynamic> get(String endpoint, {Map<String, String>? queryParams}) async {
@@ -105,7 +115,9 @@ class ApiClient {
       });
       return _processResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      if (e is AppUpdateRequiredException) rethrow;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
     }
   }
 
@@ -121,7 +133,9 @@ class ApiClient {
       });
       return _processResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      if (e is AppUpdateRequiredException) rethrow;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
     }
   }
 
@@ -137,7 +151,9 @@ class ApiClient {
       });
       return _processResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      if (e is AppUpdateRequiredException) rethrow;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
     }
   }
 
@@ -153,7 +169,9 @@ class ApiClient {
       });
       return _processResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      if (e is AppUpdateRequiredException) rethrow;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
     }
   }
 
@@ -165,7 +183,9 @@ class ApiClient {
       });
       return _processResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      if (e is AppUpdateRequiredException) rethrow;
+      final msg = e.toString().replaceAll('Exception: ', '');
+      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
     }
   }
 

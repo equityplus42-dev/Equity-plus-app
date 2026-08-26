@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/network/api_client.dart';
 
 class DeveloperModeScreen extends StatelessWidget {
   const DeveloperModeScreen({super.key});
@@ -115,9 +116,218 @@ class DeveloperModeScreen extends StatelessWidget {
                 color: AppTheme.primaryGold,
                 onTap: () => Navigator.pushNamed(context, AppRoutes.releases),
               ),
+
+              const SizedBox(height: 20),
+              Text(
+                'RAZORPAY & TEST ACCOUNT CONTROLS',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.softGrey,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Feature 5: Membership Payment Pricing (Rs 1 Test Mode)
+              _buildDevTile(
+                context,
+                icon: Icons.currency_rupee_rounded,
+                title: 'Membership Payment Pricing',
+                desc: 'Set membership fee amount in ₹ (e.g. ₹1 for live Razorpay testing)',
+                color: Colors.amberAccent,
+                onTap: () => _showUpdatePriceDialog(context),
+              ),
+
+              // Feature 6: Reset Test Account Payment Status
+              _buildDevTile(
+                context,
+                icon: Icons.restart_alt_rounded,
+                title: 'Reset Test User Payment Status',
+                desc: 'Clear payment & product access records for test account to retry checkout',
+                color: Colors.deepOrangeAccent,
+                onTap: () => _showResetPaymentDialog(context),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showUpdatePriceDialog(BuildContext context) async {
+    final apiClient = ApiClient();
+    final controller = TextEditingController(text: '1');
+    bool isLoading = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          if (isLoading) {
+            apiClient.get('/payments/membership-price').then((res) {
+              if (res != null && res['data'] != null) {
+                final currentPrice = res['data']['price'];
+                controller.text = '$currentPrice';
+              }
+              setState(() => isLoading = false);
+            }).catchError((_) {
+              setState(() => isLoading = false);
+            });
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            title: Text(
+              'Change Membership Payment Price',
+              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enter the membership fee in INR (₹) for user registration and payments:',
+                  style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                if (isLoading)
+                  const Center(child: CircularProgressIndicator(color: AppTheme.primaryPink))
+                else
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.currency_rupee, color: Colors.amberAccent),
+                      labelText: 'Payment Amount (₹)',
+                      labelStyle: GoogleFonts.outfit(color: AppTheme.softGrey),
+                      filled: true,
+                      fillColor: Colors.black26,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.softGrey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryPink),
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        final val = int.tryParse(controller.text.trim()) ?? 1;
+                        try {
+                          await apiClient.post('/payments/admin/membership-price', {'price': val});
+                          if (!context.mounted) return;
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Membership payment price set to ₹$val!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                child: Text('Update Price', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showResetPaymentDialog(BuildContext context) {
+    final apiClient = ApiClient();
+    final controller = TextEditingController();
+    bool isResetting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            title: Text(
+              'Reset Test Account Payment',
+              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enter the test user email address to wipe payment history and enable fresh Razorpay checkout testing:',
+                  style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.emailAddress,
+                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.email_outlined, color: AppTheme.neonCyan),
+                    hintText: 'e.g. user@gmail.com',
+                    hintStyle: GoogleFonts.outfit(color: Colors.grey),
+                    filled: true,
+                    fillColor: Colors.black26,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                if (isResetting) ...[
+                  const SizedBox(height: 16),
+                  const Center(child: CircularProgressIndicator(color: AppTheme.neonCyan)),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.softGrey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrangeAccent),
+                onPressed: isResetting
+                    ? null
+                    : () async {
+                        final email = controller.text.trim();
+                        if (email.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter a user email address')),
+                          );
+                          return;
+                        }
+                        setState(() => isResetting = true);
+                        try {
+                          final res = await apiClient.post('/payments/admin/reset-user-payment', {'email': email});
+                          if (!context.mounted) return;
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(res['message'] ?? 'Payment status reset successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          setState(() => isResetting = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                child: Text('Reset Payment Status', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

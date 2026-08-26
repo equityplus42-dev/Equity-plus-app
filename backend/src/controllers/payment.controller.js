@@ -92,6 +92,39 @@ class PaymentController {
       next(error);
     }
   }
+
+  async getMembershipPrice(req, res, next) {
+    try {
+      const price = await paymentService.getMembershipPrice();
+      return ApiResponse.success(res, 'Current membership price retrieved', { price });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateMembershipPrice(req, res, next) {
+    try {
+      const { price } = req.body;
+      if (price === undefined || price === null) {
+        return ApiResponse.error(res, 'Price is required', 400);
+      }
+      const result = await paymentService.updateMembershipPrice(price);
+      return ApiResponse.success(res, 'Membership price updated successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async resetUserPaymentStatus(req, res, next) {
+    try {
+      const { userId, email } = req.body;
+      const target = userId || email || req.user.id;
+      const result = await paymentService.resetUserPaymentStatus(target);
+      return ApiResponse.success(res, 'Test user payment status reset successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PaymentController();

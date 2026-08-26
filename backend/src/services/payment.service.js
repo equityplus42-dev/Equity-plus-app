@@ -20,7 +20,7 @@ class PaymentService {
           data: {
             name: 'Vridhi Network Membership',
             code: 'MEMBERSHIP_VIP',
-            price: 1000,
+            price: 1,
             status: 'AVAILABLE',
             description: 'Full membership access with referral tree and exclusive learning material.',
           },
@@ -29,7 +29,11 @@ class PaymentService {
     }
 
     // Determine amount server-side in paise (1 INR = 100 paise)
-    const amountInPaise = (product.price || 1000) * 100;
+    const priceSetting = await prisma.systemSettings.findUnique({ where: { key: 'membership_price_inr' } }).catch(() => null);
+    let priceInRupees = priceSetting ? parseInt(priceSetting.value, 10) : (product.price || 1);
+    if (!priceInRupees || isNaN(priceInRupees) || priceInRupees <= 0) priceInRupees = 1;
+
+    const amountInPaise = priceInRupees * 100;
     let orderId = `order_${uuidv4().substring(0, 14)}`;
 
     // Try creating real Razorpay order via Razorpay API if configured
@@ -457,6 +461,94 @@ class PaymentService {
       status: payment.status,
       amount: payment.amount,
       updatedAt: payment.updatedAt,
+    };
+  }
+
+  /**
+   * Get current global membership payment amount in INR
+   */
+  async getMembershipPrice() {
+    const setting = await prisma.systemSettings.findUnique({ where: { key: 'membership_price_inr' } }).catch(() => null);
+    if (setting && setting.value) {
+      const val = parseInt(setting.value, 10);
+      if (!isNaN(val) && val > 0) return val;
+    }
+    const product = await prisma.product.findFirst({ where: { status: 'AVAILABLE' } });
+    return product ? (product.price || 1) : 1;
+  }
+
+  /**
+   * Developer / Admin: Update global membership payment amount
+   */
+  async updateMembershipPrice(newPriceInRupees) {
+    const price = Math.max(1, parseInt(newPriceInRupees, 10) || 1);
+
+    await prisma.systemSettings.upsert({
+      where: { key: 'membership_price_inr' },
+      update: { value: String(price) },
+      create: {
+        key: 'membership_price_inr',
+        value: String(price),
+        description: 'Global Membership Payment Amount in INR',
+      },
+    });
+
+    await prisma.product.updateMany({
+      data: { price },
+    });
+
+    return { price };
+  }
+
+  /**
+   * Developer / Admin: Reset payment status for test user
+   */
+  async resetUserPaymentStatus(userIdentifier) {
+    let user;
+    if (userIdentifier) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { id: userIdentifier },
+            { email: userIdentifier },
+          ],
+        },
+      });
+    }
+
+    if (!user) {
+      throw new Error('User not found for payment status reset');
+    }
+
+    await prisma.userProductAccess.deleteMany({
+      where: { userId: user.id },
+    });
+
+    await prisma.payment.deleteMany({
+      where: { userId: user.id },
+    });
+
+    await prisma.refundRequest.deleteMany({
+      where: { userId: user.id },
+    });
+
+    await prisma.profile.updateMany({
+      where: { userId: user.id },
+      data: { assignedProductId: null },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'TEST_PAYMENT_STATUS_RESET',
+        details: JSON.stringify({ resetUserId: user.id, email: user.email }),
+      },
+    });
+
+    return {
+      userId: user.id,
+      email: user.email,
+      message: `Payment status reset successfully for ${user.email}. User can now perform fresh Razorpay payment test.`,
     };
   }
 }
