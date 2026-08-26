@@ -3,7 +3,16 @@ const firebaseService = require('./firebase.service');
 const logger = require('../utils/logger');
 
 class NotificationService {
-  async notifyReferralSignup(userId, refereeName) {
+  async notifyReferralSignup(userId, refereeName, refereeId = null) {
+    if (refereeId) {
+      const prisma = require('../config/database');
+      const referee = await prisma.user.findUnique({ where: { id: refereeId } });
+      if (referee && (referee.isTestUser || referee.email === 'test@gmail.com')) {
+        console.log(`[NotificationService] Skipping referral signup notification for test user (${referee.email}).`);
+        return null;
+      }
+    }
+
     const title = 'New Referral Signup! 🎉';
     const message = `${refereeName} has signed up using your referral code.`;
 
@@ -104,9 +113,17 @@ class NotificationService {
     return notification;
   }
 
-  async notifyAdmins(title, message, type = 'SYSTEM') {
+  async notifyAdmins(title, message, type = 'SYSTEM', triggeringUserId = null) {
     const prisma = require('../config/database');
     try {
+      if (triggeringUserId) {
+        const user = await prisma.user.findUnique({ where: { id: triggeringUserId } });
+        if (user && (user.isTestUser || user.email === 'test@gmail.com')) {
+          console.log(`[NotificationService] Skipping admin notification for test user (${user.email}).`);
+          return [];
+        }
+      }
+
       const admins = await prisma.user.findMany({
         where: { role: 'ADMIN', isDeleted: false },
         select: { id: true },

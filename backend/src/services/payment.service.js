@@ -203,7 +203,8 @@ class PaymentService {
     await notificationService.notifyAdmins(
       'New User Registration & Payment 🎉',
       `User ${userName} (${userDetail?.email}) registered with referral code "${userDetail?.referralCode || 'N/A'}" and completed transaction of ₹${payment.amount / 100} (${isBypassed ? 'Demo Bypassed' : 'Razorpay Verified'}). Order ID: ${orderId}.`,
-      'PAYMENT'
+      'PAYMENT',
+      userId
     );
 
     // Audit Log
@@ -341,7 +342,8 @@ class PaymentService {
     await notificationService.notifyAdmins(
       'Cash Payment Request 💵',
       `User "${userName}" (${user.email}) requested Cash Payment approval of ₹${payment.amount / 100} for product "${product.name}". Payment ID: ${payment.id}`,
-      'CASH_PAYMENT_REQUEST'
+      'CASH_PAYMENT_REQUEST',
+      userId
     );
 
     await prisma.auditLog.create({
