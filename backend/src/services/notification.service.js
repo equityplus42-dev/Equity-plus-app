@@ -156,6 +156,20 @@ class NotificationService {
   async markAsRead(notificationId) {
     return notificationRepository.markAsRead(notificationId);
   }
+
+  /**
+   * Delete all notifications for a specific user (self-clear).
+   */
+  async clearUserNotifications(userId) {
+    return notificationRepository.deleteAllByUserId(userId);
+  }
+
+  /**
+   * Delete EVERY notification in the system (admin action).
+   */
+  async clearAllNotifications() {
+    return notificationRepository.deleteAllNotifications();
+  }
 }
 
 module.exports = new NotificationService();

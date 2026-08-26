@@ -62,6 +62,61 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return match?.group(1);
   }
 
+  /// Confirmation dialog before clearing all notifications
+  Future<void> _confirmClearAll(AdminNotificationsProvider provider) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardBg,
+        title: Text(
+          'Clear Notifications',
+          style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Choose what to clear:\n\n• "Mine Only" clears your admin notifications.\n• "All Users" clears notifications for every user in the system.',
+          style: GoogleFonts.outfit(color: AppTheme.softGrey, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.softGrey)),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, 'mine'),
+            style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.neonCyan)),
+            child: Text('Mine Only', style: GoogleFonts.outfit(color: AppTheme.neonCyan, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, 'all'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: Text('All Users', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null || !mounted) return;
+
+    bool success;
+    String msg;
+    if (choice == 'mine') {
+      success = await provider.clearMyNotifications();
+      msg = success ? '🗑️ Your notifications cleared' : 'Failed to clear notifications';
+    } else {
+      success = await provider.clearAllUsersNotifications();
+      msg = success ? '🗑️ All users\' notifications cleared' : 'Failed to clear all notifications';
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: success ? AppTheme.neonGreen : Colors.redAccent,
+        ),
+      );
+    }
+  }
+
   Widget _buildCashApprovalButton(AdminNotificationModel item, AdminNotificationsProvider provider) {
     final paymentId = _extractPaymentId(item.message);
     final bool isApproved = item.isRead;
@@ -135,15 +190,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         title: Text('Admin Notifications', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         actions: [
-          if (notifProvider.notifications.isNotEmpty)
-            TextButton.icon(
-              onPressed: () => notifProvider.markAllRead(),
-              icon: const Icon(Icons.done_all, size: 18, color: AppTheme.neonCyan),
-              label: Text(
-                'Mark All Read',
-                style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan),
+          if (notifProvider.notifications.isNotEmpty) ...[
+            if (notifProvider.unreadCount > 0)
+              TextButton.icon(
+                onPressed: () => notifProvider.markAllRead(),
+                icon: const Icon(Icons.done_all, size: 18, color: AppTheme.neonCyan),
+                label: Text(
+                  'Mark All Read',
+                  style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan),
+                ),
               ),
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+              tooltip: 'Clear All Notifications',
+              onPressed: () => _confirmClearAll(notifProvider),
             ),
+          ],
         ],
       ),
       body: Container(

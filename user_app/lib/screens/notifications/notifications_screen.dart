@@ -50,6 +50,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _confirmClearAll(NotificationProvider provider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardBg,
+        title: Text('Clear All Notifications?', style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold)),
+        content: Text(
+          'This will permanently delete all your notifications. This action cannot be undone.',
+          style: GoogleFonts.outfit(color: AppTheme.softGrey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.softGrey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: Text('Clear All', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final success = await provider.clearAll();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? '🗑️ All notifications cleared' : 'Failed to clear notifications'),
+            backgroundColor: success ? AppTheme.neonGreen : Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final notificationProvider = Provider.of<NotificationProvider>(context);
@@ -58,11 +95,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          if (notificationProvider.unreadCount > 0)
-            TextButton(
-              onPressed: () => notificationProvider.markAllAsRead(),
-              child: const Text('Mark All Read'),
-            )
+          if (notificationProvider.notifications.isNotEmpty) ...[
+            if (notificationProvider.unreadCount > 0)
+              TextButton(
+                onPressed: () => notificationProvider.markAllAsRead(),
+                child: Text('Mark All Read', style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.neonCyan)),
+              ),
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+              tooltip: 'Clear All Notifications',
+              onPressed: () => _confirmClearAll(notificationProvider),
+            ),
+          ],
         ],
       ),
       body: Container(

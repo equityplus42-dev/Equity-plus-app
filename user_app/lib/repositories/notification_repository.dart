@@ -18,4 +18,8 @@ class NotificationRepository {
   Future<void> markAllAsRead() async {
     await _apiClient.patch(ApiConstants.readAllNotifications, {});
   }
+
+  Future<void> clearAll() async {
+    await _apiClient.delete(ApiConstants.clearAllNotifications);
+  }
 }

@@ -41,6 +41,7 @@ class ApiConstants {
   // Notification endpoints
   static const String notifications = '/notifications';
   static const String readAllNotifications = '/notifications/read-all';
+  static const String clearAllNotifications = '/notifications/clear-all';
   static String readNotification(String id) => '/notifications/$id/read';
 
   // Video & Disclaimer endpoints

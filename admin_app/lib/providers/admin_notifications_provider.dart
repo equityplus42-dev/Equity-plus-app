@@ -93,4 +93,32 @@ class AdminNotificationsProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Clears only this admin's own notifications (DELETE /notifications/clear-all)
+  Future<bool> clearMyNotifications() async {
+    try {
+      await _apiClient.delete('/notifications/clear-all');
+      _notifications = [];
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Admin superpower: clears EVERY user's notifications (DELETE /notifications/admin/clear-all)
+  Future<bool> clearAllUsersNotifications() async {
+    try {
+      await _apiClient.delete('/notifications/admin/clear-all');
+      _notifications = [];
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
 }

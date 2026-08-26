@@ -28,6 +28,32 @@ class NotificationController {
       next(error);
     }
   }
+
+  /**
+   * DELETE /notifications/clear-all
+   * Deletes ALL notifications for the currently authenticated user (user or admin).
+   */
+  async clearMyNotifications(req, res, next) {
+    try {
+      await notificationService.clearUserNotifications(req.user.id);
+      return ApiResponse.success(res, 'All notifications cleared');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /notifications/admin/clear-all
+   * ADMIN-ONLY: Deletes every notification in the system for all users.
+   */
+  async clearAllNotifications(req, res, next) {
+    try {
+      await notificationService.clearAllNotifications();
+      return ApiResponse.success(res, 'All notifications for all users have been cleared');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new NotificationController();

@@ -71,4 +71,17 @@ class NotificationProvider extends ChangeNotifier {
       notifyListeners();
     } catch (_) {}
   }
+
+  Future<bool> clearAll() async {
+    try {
+      await _notificationRepository.clearAll();
+      _notifications = [];
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
 }

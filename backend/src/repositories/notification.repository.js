@@ -32,6 +32,14 @@ class NotificationRepository {
       data: { isRead: true },
     });
   }
+
+  async deleteAllByUserId(userId) {
+    return prisma.notification.deleteMany({ where: { userId } });
+  }
+
+  async deleteAllNotifications() {
+    return prisma.notification.deleteMany({});
+  }
 }
 
 module.exports = new NotificationRepository();
