@@ -212,7 +212,7 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
             _productName,
             'Vridhi Network Membership',
             authUser?.email ?? '',
-            authUser?.profile?.phoneNumber ?? '',
+            authUser?.phoneNumber ?? '',
             js.allowInterop((paymentId, returnedOrderId, signature) async {
               final success = await paymentProv.verifyPayment(
                 orderId: returnedOrderId ?? orderId,
