@@ -13,7 +13,12 @@ const noTimeout = (req, res, next) => {
   res.setTimeout(0);
   next();
 };
+
+// Cloudinary direct-upload signature — tiny JSON response, no payload limit issue
+router.post('/cloudinary-signature', authMiddleware, roleMiddleware(['ADMIN']), uploadPipelineController.getCloudinaryUploadSignature);
+
 router.post('/presigned-url', authMiddleware, roleMiddleware(['ADMIN']), uploadPipelineController.getPresignedUploadUrl);
 router.post('/media', authMiddleware, roleMiddleware(['ADMIN']), noTimeout, uploadSingleMedia('file'), uploadPipelineController.uploadMedia);
 
 module.exports = router;
+

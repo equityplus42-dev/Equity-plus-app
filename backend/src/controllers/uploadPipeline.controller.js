@@ -2,6 +2,7 @@ const uploadPipelineService = require('../services/uploadPipeline.service');
 const cloudinaryService = require('../services/cloudinary.service');
 const cloudflareR2Service = require('../services/cloudflareR2.service');
 const cloudflareStreamService = require('../services/cloudflareStream.service');
+const { videoConfig, cloudinaryV2 } = require('../config/cloudinary');
 const ApiResponse = require('../utils/apiResponse');
 
 class UploadPipelineController {
@@ -98,6 +99,49 @@ class UploadPipelineController {
       const { folder = 'videos', filename = 'file.mp4', mimeType = 'video/mp4' } = req.body;
       const result = await cloudflareR2Service.generateUploadUrl(folder, filename, mimeType);
       return ApiResponse.success(res, 'Presigned upload URL generated successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Generate a Cloudinary signed upload signature so the Flutter client can upload
+   * DIRECTLY to Cloudinary's API — completely bypassing Vercel's 4.5MB serverless payload limit.
+   * POST /upload-pipeline/cloudinary-signature
+   */
+  async getCloudinaryUploadSignature(req, res, next) {
+    try {
+      const hasVideoConfig = videoConfig.cloud_name && videoConfig.api_key && videoConfig.api_secret;
+      if (!hasVideoConfig) {
+        return ApiResponse.error(res, 'Cloudinary video account not configured on server.', 500);
+      }
+
+      const folder = (req.body && req.body.folder) || 'videos';
+      const timestamp = Math.round(Date.now() / 1000);
+
+      // Params to sign — must match exactly what the client will send in the multipart form
+      const paramsToSign = {
+        eager: 'sp_hd/m3u8|sp_sd/m3u8|c_limit,h_1080,q_auto,w_1920/mp4|c_limit,h_720,q_auto,w_1280/mp4|c_limit,h_480,q_auto,w_854/mp4|c_limit,h_360,q_auto,w_640/mp4|c_limit,h_240,q_auto,w_426/mp4',
+        eager_async: 'true',
+        folder,
+        timestamp,
+      };
+
+      // Set the dedicated video account config before signing
+      cloudinaryV2.config(videoConfig);
+      const signature = cloudinaryV2.utils.api_sign_request(paramsToSign, videoConfig.api_secret);
+
+      return ApiResponse.success(res, 'Cloudinary upload signature generated', {
+        signature,
+        timestamp,
+        apiKey: videoConfig.api_key,
+        cloudName: videoConfig.cloud_name,
+        folder,
+        eager: paramsToSign.eager,
+        eagerAsync: true,
+        // Flutter POSTs the file directly to this URL using the signature — no server proxy needed
+        uploadUrl: `https://api.cloudinary.com/v1_1/${videoConfig.cloud_name}/video/upload`,
+      });
     } catch (error) {
       next(error);
     }

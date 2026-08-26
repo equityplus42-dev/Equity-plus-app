@@ -316,10 +316,103 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                   'mpg': 'video/mpeg',
                                 }[ext] ?? 'video/mp4';
 
-                                bool presignedUploadSuccess = false;
+                                bool uploadSuccess = false;
 
-                                // 1. Direct Presigned Upload for Cloudflare R2 (or fallback for files > 100MB)
-                                if (selectedStorageProvider == 'CLOUDFLARE_R2' || (selectedStorageProvider == 'CLOUDINARY' && totalLength > 100 * 1024 * 1024)) {
+                                // ── PATH A: Direct-to-Cloudinary upload (bypasses Vercel 4.5MB limit) ──
+                                if (selectedStorageProvider == 'CLOUDINARY') {
+                                  // Step 1: Get signed upload credentials from our backend (tiny JSON, no limit issue)
+                                  final sigUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/cloudinary-signature');
+                                  final sigRes = await http.post(
+                                    sigUri,
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      if (token != null) 'Authorization': 'Bearer $token',
+                                    },
+                                    body: jsonEncode({'folder': 'videos'}),
+                                  );
+
+                                  if (sigRes.statusCode == 200 || sigRes.statusCode == 201) {
+                                    final sigData = jsonDecode(sigRes.body);
+                                    final uploadUrl = sigData['data']?['uploadUrl'];
+                                    final signature = sigData['data']?['signature'];
+                                    final ts = sigData['data']?['timestamp'];
+                                    final apiKey = sigData['data']?['apiKey'];
+                                    final folder = sigData['data']?['folder'] ?? 'videos';
+                                    final eager = sigData['data']?['eager'];
+
+                                    if (uploadUrl != null && signature != null && ts != null && apiKey != null) {
+                                      // Step 2: POST file directly to Cloudinary (no Vercel in the path)
+                                      final videoBytes = await video.readAsBytes();
+                                      setDialogState(() {
+                                        uploadedBytes = totalLength;
+                                        uploadProgress = 0.95;
+                                      });
+
+                                      final cloudRequest = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+                                      cloudRequest.fields['api_key'] = apiKey.toString();
+                                      cloudRequest.fields['timestamp'] = ts.toString();
+                                      cloudRequest.fields['signature'] = signature.toString();
+                                      cloudRequest.fields['folder'] = folder.toString();
+                                      if (eager != null) {
+                                        cloudRequest.fields['eager'] = eager.toString();
+                                        cloudRequest.fields['eager_async'] = 'true';
+                                      }
+                                      cloudRequest.files.add(http.MultipartFile.fromBytes(
+                                        'file',
+                                        videoBytes,
+                                        filename: video.name,
+                                        contentType: MediaType.parse(mimeType),
+                                      ));
+
+                                      final cloudStreamRes = await cloudRequest.send();
+                                      final cloudRes = await http.Response.fromStream(cloudStreamRes);
+
+                                      if (cloudRes.statusCode == 200 || cloudRes.statusCode == 201) {
+                                        final cloudData = jsonDecode(cloudRes.body);
+                                        final secureUrl = cloudData['secure_url'];
+                                        final durationSecs = cloudData['duration'];
+                                        int dur = durationSecs != null ? (durationSecs as num).round() : 0;
+
+                                        setDialogState(() {
+                                          uploadedCloudinaryUrl = secureUrl;
+                                          uploadedR2ObjectKey = null; // No R2 key for Cloudinary
+                                          uploadedVideoDuration = dur;
+                                          uploadProgress = 1.0;
+                                          if (titleController.text.trim().isEmpty) {
+                                            titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                          }
+                                        });
+                                        uploadSuccess = true;
+                                      } else {
+                                        String msg = 'Cloudinary upload failed (${cloudRes.statusCode})';
+                                        try {
+                                          final errData = jsonDecode(cloudRes.body);
+                                          msg = errData['error']?['message'] ?? errData['message'] ?? msg;
+                                        } catch (_) {}
+                                        if (dialogCtx.mounted) {
+                                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                                            SnackBar(content: Text('Video upload error: $msg'), backgroundColor: Colors.redAccent),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  } else {
+                                    // Signature endpoint failed
+                                    String msg = 'Could not get Cloudinary upload signature (${sigRes.statusCode})';
+                                    try {
+                                      final errData = jsonDecode(sigRes.body);
+                                      msg = errData['message'] ?? errData['error'] ?? msg;
+                                    } catch (_) {}
+                                    if (dialogCtx.mounted) {
+                                      ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                                        SnackBar(content: Text('Video upload error: $msg'), backgroundColor: Colors.redAccent),
+                                      );
+                                    }
+                                  }
+                                }
+
+                                // ── PATH B: Direct Presigned PUT to Cloudflare R2 ──
+                                if (!uploadSuccess && selectedStorageProvider == 'CLOUDFLARE_R2') {
                                   try {
                                     final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
                                     final presignedRes = await http.post(
@@ -375,95 +468,21 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                               titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
                                             }
                                           });
-                                          presignedUploadSuccess = true;
+                                          uploadSuccess = true;
+                                        } else {
+                                          if (dialogCtx.mounted) {
+                                            ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                                              SnackBar(content: Text('Cloudflare R2 upload failed (${putResponse.statusCode})'), backgroundColor: Colors.redAccent),
+                                            );
+                                          }
                                         }
                                       }
                                     }
-                                  } catch (presignedErr) {
-                                    debugPrint('R2 Presigned upload attempt notice: $presignedErr');
-                                  }
-                                }
-
-                                // 2. Fallback to standard Multipart upload if presigned upload wasn't used
-                                if (!presignedUploadSuccess) {
-                                  final uri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/media');
-                                  final request = http.MultipartRequest('POST', uri);
-                                  request.fields['storageProvider'] = selectedStorageProvider;
-                                  if (token != null) {
-                                    request.headers['Authorization'] = 'Bearer $token';
-                                  }
-
-                                  int count = 0;
-                                  int lastUiUpdateMs = 0;
-                                  final byteStream = http.ByteStream(video.openRead().map((chunk) {
-                                    count += chunk.length;
-                                    final nowMs = DateTime.now().millisecondsSinceEpoch;
-                                    if (nowMs - lastUiUpdateMs > 250 || count == totalLength) {
-                                      lastUiUpdateMs = nowMs;
-                                      setDialogState(() {
-                                        uploadedBytes = count;
-                                        uploadProgress = totalLength > 0 ? (count / totalLength).clamp(0.0, 1.0) : 0.0;
-                                      });
-                                    }
-                                    return chunk;
-                                  }));
-
-                                  request.files.add(http.MultipartFile(
-                                    'file',
-                                    byteStream,
-                                    totalLength,
-                                    filename: video.name,
-                                    contentType: MediaType.parse(mimeType),
-                                  ));
-
-                                  final streamedResponse = await request.send();
-                                  final response = await http.Response.fromStream(streamedResponse);
-
-                                  if (response.statusCode == 200 || response.statusCode == 201) {
-                                    final data = jsonDecode(response.body);
-                                    final uploadedUrl = data['data']?['url'] ?? data['url'];
-                                    int dur = (data['data']?['duration'] ?? data['duration'] ?? 0) as int;
-
-                                    if (dur == 0 && uploadedUrl != null && uploadedUrl.toString().isNotEmpty) {
-                                      try {
-                                        final probe = VideoPlayerController.networkUrl(Uri.parse(uploadedUrl.toString()));
-                                        await probe.initialize();
-                                        dur = probe.value.duration.inSeconds;
-                                        await probe.dispose();
-                                      } catch (e) {
-                                        debugPrint('Duration probe info: $e');
-                                      }
-                                    }
-
-                                    if (uploadedUrl != null) {
-                                      final r2Key = data['data']?['r2ObjectKey'] ?? data['r2ObjectKey'];
-                                      setDialogState(() {
-                                        uploadedCloudinaryUrl = uploadedUrl;
-                                        uploadedR2ObjectKey = r2Key;
-                                        uploadedVideoDuration = dur;
-                                        if (titleController.text.trim().isEmpty) {
-                                          titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
-                                        }
-                                      });
-                                    }
-                                  } else {
-                                    String msg = 'Upload failed (${response.statusCode})';
-                                    try {
-                                      final errData = jsonDecode(response.body);
-                                      msg = errData['message'] ?? errData['error'] ?? msg;
-                                    } catch (_) {
-                                      if (response.statusCode == 413 || response.body.contains('Request Entity Too Large')) {
-                                        msg = 'File exceeds Vercel\'s 4.5MB serverless limit. Select "Cloudflare R2 Bucket" for direct upload.';
-                                      } else if (response.body.trim().isNotEmpty) {
-                                        msg = response.body.trim();
-                                      }
-                                    }
+                                  } catch (r2Err) {
+                                    debugPrint('R2 Presigned upload error: $r2Err');
                                     if (dialogCtx.mounted) {
                                       ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Video upload error: $msg'),
-                                          backgroundColor: Colors.redAccent,
-                                        ),
+                                        SnackBar(content: Text('Cloudflare R2 upload error: $r2Err'), backgroundColor: Colors.redAccent),
                                       );
                                     }
                                   }
