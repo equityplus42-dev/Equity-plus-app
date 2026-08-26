@@ -2,12 +2,12 @@ const crypto = require('crypto');
 
 class RazorpayConfig {
   constructor() {
-    this.keyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_mock_key';
-    this.keySecret = process.env.RAZORPAY_KEY_SECRET || 'rzp_test_mock_secret';
+    this.keyId = (process.env.RAZORPAY_KEY_ID || 'rzp_test_mock_key').trim();
+    this.keySecret = (process.env.RAZORPAY_KEY_SECRET || 'rzp_test_mock_secret').trim();
   }
 
   isConfigured() {
-    return !!process.env.RAZORPAY_KEY_ID && !!process.env.RAZORPAY_KEY_SECRET;
+    return !!process.env.RAZORPAY_KEY_ID && !!process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_KEY_ID.trim() !== '' && process.env.RAZORPAY_KEY_ID.trim() !== 'rzp_test_mock_key';
   }
 
   verifySignature(orderId, paymentId, signature) {
