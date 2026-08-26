@@ -304,22 +304,30 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                 final ext = video.name.toLowerCase().split('.').last;
                                 final mimeType = const {
                                   'mp4': 'video/mp4',
-                                  'mov': 'video/quicktime',
-                                  'avi': 'video/x-msvideo',
+                                  'm4v': 'video/mp4',
                                   'mkv': 'video/x-matroska',
+                                  'mov': 'video/quicktime',
+                                  'qt': 'video/quicktime',
+                                  'avi': 'video/x-msvideo',
                                   'webm': 'video/webm',
                                   'flv': 'video/x-flv',
+                                  'f4v': 'video/x-f4v',
                                   'wmv': 'video/x-ms-wmv',
-                                  'm4v': 'video/mp4',
                                   '3gp': 'video/3gpp',
+                                  '3g2': 'video/3gpp2',
                                   'mpeg': 'video/mpeg',
                                   'mpg': 'video/mpeg',
+                                  'ts': 'video/mp2t',
+                                  'mts': 'video/mp2t',
+                                  'm2ts': 'video/mp2t',
+                                  'ogv': 'video/ogg',
+                                  'vob': 'video/dvd',
                                 }[ext] ?? 'video/mp4';
 
                                 bool presignedUploadSuccess = false;
 
-                                // 1. Direct Presigned Upload for Cloudflare R2 (bypasses Vercel 4.5MB payload limit)
-                                if (selectedStorageProvider == 'CLOUDFLARE_R2' || totalLength > 4 * 1024 * 1024) {
+                                // 1. Direct Presigned Upload for Cloudflare R2 (bypasses serverless limits ONLY if R2 is selected or file exceeds 100MB limit)
+                                if (selectedStorageProvider == 'CLOUDFLARE_R2' || totalLength > 100 * 1024 * 1024) {
                                   try {
                                     final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
                                     final presignedRes = await http.post(
