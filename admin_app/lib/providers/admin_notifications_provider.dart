@@ -98,8 +98,11 @@ class AdminNotificationsProvider extends ChangeNotifier {
   Future<bool> clearMyNotifications() async {
     try {
       await _apiClient.delete('/notifications/clear-all');
+      // Immediately clear local list so UI updates without waiting
       _notifications = [];
       notifyListeners();
+      // Then re-sync with server to confirm empty state
+      await fetchNotifications(silent: true);
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -112,8 +115,11 @@ class AdminNotificationsProvider extends ChangeNotifier {
   Future<bool> clearAllUsersNotifications() async {
     try {
       await _apiClient.delete('/notifications/admin/clear-all');
+      // Immediately clear local list so UI updates without waiting
       _notifications = [];
       notifyListeners();
+      // Then re-sync with server to confirm empty state
+      await fetchNotifications(silent: true);
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');

@@ -75,8 +75,11 @@ class NotificationProvider extends ChangeNotifier {
   Future<bool> clearAll() async {
     try {
       await _notificationRepository.clearAll();
+      // Immediately clear local list so the badge & list update without waiting
       _notifications = [];
       notifyListeners();
+      // Then re-sync with server to confirm empty state
+      await fetchNotifications();
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
