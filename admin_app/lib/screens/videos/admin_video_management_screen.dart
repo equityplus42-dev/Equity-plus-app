@@ -9,6 +9,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:html' if (dart.library.io) '' as html;
 import '../../providers/admin_languages_provider.dart';
 import '../../providers/admin_videos_provider.dart';
 import '../../core/storage/storage_service.dart';
@@ -50,6 +51,83 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _uploadFileToPresignedUrl({
+    required XFile video,
+    required String uploadUrl,
+    required String mimeType,
+    required int totalLength,
+    required Function(double progress, int bytesSent) onProgress,
+  }) async {
+    if (kIsWeb) {
+      final completer = Completer<bool>();
+      try {
+        final res = await html.window.fetch(video.path);
+        final blob = await res.blob();
+
+        final request = html.HttpRequest();
+        request.open('PUT', uploadUrl);
+        request.setRequestHeader('Content-Type', mimeType);
+
+        request.upload.onProgress.listen((html.ProgressEvent e) {
+          if (e.lengthComputable && e.total != null && e.total! > 0) {
+            final progress = (e.loaded! / e.total!).clamp(0.0, 1.0);
+            onProgress(progress, e.loaded!);
+          }
+        });
+
+        request.onLoadEnd.listen((_) {
+          if (request.status == 200 || request.status == 201 || request.status == 204) {
+            completer.complete(true);
+          } else {
+            debugPrint('R2 HTTP PUT error status ${request.status}: ${request.responseText}');
+            completer.complete(false);
+          }
+        });
+
+        request.onError.listen((e) {
+          debugPrint('R2 HTTP PUT network error: $e');
+          completer.complete(false);
+        });
+
+        request.send(blob);
+      } catch (err) {
+        debugPrint('Web R2 blob upload error: $err');
+        completer.complete(false);
+      }
+      return completer.future;
+    } else {
+      try {
+        final request = http.StreamedRequest('PUT', Uri.parse(uploadUrl));
+        request.headers['Content-Type'] = mimeType;
+        request.contentLength = totalLength;
+
+        int bytesSent = 0;
+        video.openRead().listen(
+          (chunk) {
+            request.sink.add(chunk);
+            bytesSent += chunk.length;
+            if (totalLength > 0) {
+              onProgress((bytesSent / totalLength).clamp(0.0, 1.0), bytesSent);
+            }
+          },
+          onDone: () {
+            request.sink.close();
+          },
+          onError: (err) {
+            request.sink.close();
+          },
+          cancelOnError: true,
+        );
+
+        final response = await request.send();
+        return response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204;
+      } catch (err) {
+        debugPrint('Native R2 upload error: $err');
+        return false;
+      }
+    }
   }
 
   void _showAddLanguageDialog() {
@@ -350,50 +428,51 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                       final publicUrl = pData['data']?['publicUrl'];
 
                                       if (uploadUrl != null && r2Key != null) {
-                                        final videoBytes = await video.readAsBytes();
-                                        setDialogState(() {
-                                          uploadedBytes = totalLength;
-                                          uploadProgress = 1.0;
-                                        });
+                                         final bool uploadedOk = await _uploadFileToPresignedUrl(
+                                           video: video,
+                                           uploadUrl: uploadUrl,
+                                           mimeType: mimeType,
+                                           totalLength: totalLength,
+                                           onProgress: (p, b) {
+                                             setDialogState(() {
+                                               uploadProgress = p;
+                                               uploadedBytes = b;
+                                             });
+                                           },
+                                         );
 
-                                        final putResponse = await http.put(
-                                          Uri.parse(uploadUrl),
-                                          headers: {'Content-Type': mimeType},
-                                          body: videoBytes,
-                                        );
+                                         if (uploadedOk) {
+                                           int dur = 0;
+                                           if (publicUrl != null && publicUrl.toString().isNotEmpty) {
+                                             try {
+                                               final probe = VideoPlayerController.networkUrl(Uri.parse(publicUrl.toString()));
+                                               await probe.initialize();
+                                               dur = probe.value.duration.inSeconds;
+                                               await probe.dispose();
+                                             } catch (e) {
+                                               debugPrint('Duration probe info: $e');
+                                             }
+                                           }
 
-                                        if (putResponse.statusCode == 200 || putResponse.statusCode == 201 || putResponse.statusCode == 204) {
-                                          int dur = 0;
-                                          if (publicUrl != null && publicUrl.toString().isNotEmpty) {
-                                            try {
-                                              final probe = VideoPlayerController.networkUrl(Uri.parse(publicUrl.toString()));
-                                              await probe.initialize();
-                                              dur = probe.value.duration.inSeconds;
-                                              await probe.dispose();
-                                            } catch (e) {
-                                              debugPrint('Duration probe info: $e');
-                                            }
-                                          }
-
-                                          setDialogState(() {
-                                            uploadedCloudinaryUrl = publicUrl;
-                                            uploadedR2ObjectKey = r2Key;
-                                            uploadedVideoDuration = dur;
-                                            if (titleController.text.trim().isEmpty) {
-                                              titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
-                                            }
-                                          });
-                                          presignedUploadSuccess = true;
-                                        }
-                                      }
+                                           setDialogState(() {
+                                             uploadedCloudinaryUrl = publicUrl;
+                                             uploadedR2ObjectKey = r2Key;
+                                             uploadedVideoDuration = dur;
+                                             if (titleController.text.trim().isEmpty) {
+                                               titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                             }
+                                           });
+                                           presignedUploadSuccess = true;
+                                         }
+                                       }
                                     }
                                   } catch (presignedErr) {
                                     debugPrint('R2 Presigned upload attempt notice: $presignedErr');
                                   }
                                 }
 
-                                // 2. Fallback to standard Multipart upload if presigned upload wasn't used
-                                if (!presignedUploadSuccess) {
+                                // 2. Fallback to standard Multipart upload ONLY if totalLength <= 4.5MB (Vercel payload limit)
+                                if (!presignedUploadSuccess && totalLength <= 4 * 1024 * 1024) {
                                   final uri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/media');
                                   final request = http.MultipartRequest('POST', uri);
                                   request.fields['storageProvider'] = selectedStorageProvider;
