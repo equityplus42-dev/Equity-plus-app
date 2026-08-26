@@ -41,7 +41,10 @@ class AdminUsersProvider extends ChangeNotifier {
       final data = response['data'];
       
       final list = data['items'] as List? ?? [];
-      final List<UserModel> fetched = list.map((j) => UserModel.fromJson(j)).toList();
+      final List<UserModel> fetched = list
+          .map((j) => UserModel.fromJson(j))
+          .where((u) => u.role != 'DEVELOPER' && u.role != 'ADMIN')
+          .toList();
 
       if (refresh) {
         _users = fetched;

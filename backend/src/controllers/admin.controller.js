@@ -37,7 +37,7 @@ class AdminController {
       });
       
       const pointsAgg = await prisma.user.aggregate({
-        where: { isDeleted: false },
+        where: { role: 'USER', isDeleted: false },
         _sum: { points: true }
       });
       const totalPointsDistributed = pointsAgg._sum.points || 0;

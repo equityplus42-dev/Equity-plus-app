@@ -154,7 +154,7 @@ class VideoAssignmentService {
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const take = parseInt(limit, 10);
 
-    const userWhere = { isApproved: true, isDeleted: false };
+    const userWhere = { role: 'USER', isApproved: true, isDeleted: false };
     if (search && search.trim()) {
       userWhere.OR = [
         { email: { contains: search.trim(), mode: 'insensitive' } },

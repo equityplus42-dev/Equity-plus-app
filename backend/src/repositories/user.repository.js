@@ -24,7 +24,7 @@ class UserRepository {
   }
 
   async findAll({ skip, take, search }) {
-    const where = { isDeleted: false, isApproved: true };
+    const where = { isDeleted: false, isApproved: true, role: 'USER' };
     if (search) {
       where.OR = [
         { id: { contains: search } },
@@ -56,7 +56,7 @@ class UserRepository {
   }
 
   async countAll({ search }) {
-    const where = { isDeleted: false, isApproved: true };
+    const where = { isDeleted: false, isApproved: true, role: 'USER' };
     if (search) {
       where.OR = [
         { id: { contains: search } },
