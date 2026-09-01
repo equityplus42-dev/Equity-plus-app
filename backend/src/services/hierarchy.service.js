@@ -68,10 +68,11 @@ class HierarchyService {
 
     const maxLevel = maxDepth !== undefined ? userNode.level + maxDepth : undefined;
     const descendants = await hierarchyRepository.findDescendants(userNode.path, maxLevel);
+    const validDescendants = descendants.filter((node) => node.user && !node.user.isTestUser && node.user.email !== 'test@gmail.com');
 
     // Map database nodes to relative levels and mask downline members' data for standard users
     const rootLevel = userNode.level;
-    const relativeNodes = [userNode, ...descendants].map((node) => {
+    const relativeNodes = [userNode, ...validDescendants].map((node) => {
       const isSelf = node.userId === userId;
 
       let maskedUser = node.user;
@@ -106,7 +107,8 @@ class HierarchyService {
    */
   async getGlobalHierarchy() {
     const allNodes = await hierarchyRepository.findAllNodes();
-    return hierarchyHelper.buildTree(allNodes, null);
+    const filteredNodes = allNodes.filter((node) => node.user && !node.user.isTestUser && node.user.email !== 'test@gmail.com');
+    return hierarchyHelper.buildTree(filteredNodes, null);
   }
 }
 

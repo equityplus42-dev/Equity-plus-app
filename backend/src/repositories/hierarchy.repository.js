@@ -50,6 +50,7 @@ class HierarchyRepository {
       },
       user: {
         isDeleted: false,
+        isTestUser: false,
       },
     };
 
@@ -89,6 +90,7 @@ class HierarchyRepository {
       where: {
         user: {
           isDeleted: false,
+          isTestUser: false,
         },
       },
       include: {
