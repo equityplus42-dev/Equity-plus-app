@@ -9,6 +9,7 @@ const hierarchyService = require('./hierarchy.service');
 const referralService = require('./referral.service');
 const prisma = require('../config/database');
 const { sendOtpEmail } = require('../utils/mailer');
+const { AppError, ErrorCodes } = require('../utils/appError');
 
 class AuthService {
   /**
@@ -25,28 +26,28 @@ class AuthService {
         // User was soft-deleted previously. Purge old deleted record so they can re-register cleanly
         await this.purgeDeletedUser(existingUser.id);
       } else {
-        throw new Error('Email is already registered');
+        throw new AppError('Email is already registered', 400, ErrorCodes.USER_EMAIL_EXISTS);
       }
     }
 
     // 2. Validate preferred language
     if (!preferredLanguageId) {
-      throw new Error('Preferred language is required');
+      throw new AppError('Preferred language is required', 400, ErrorCodes.SYSTEM_VALIDATION_ERROR);
     }
     const lang = await prisma.language.findUnique({ where: { id: preferredLanguageId } });
     if (!lang) {
-      throw new Error('Selected preferred language folder does not exist');
+      throw new AppError('Selected preferred language folder does not exist', 400, ErrorCodes.SYSTEM_VALIDATION_ERROR);
     }
 
     // 3. Validate referral code (MANDATORY)
     if (!referralCode) {
-      throw new Error('Referral code is mandatory for registration');
+      throw new AppError('Referral code is mandatory for registration', 400, ErrorCodes.REFERRAL_INVALID);
     }
     
     let referrerId = null;
     const referrer = await referralService.validateReferralCode(referralCode);
     if (!referrer) {
-      throw new Error('Invalid referral code');
+      throw new AppError('Invalid referral code', 400, ErrorCodes.REFERRAL_INVALID);
     }
     referrerId = referrer.id;
 
@@ -130,21 +131,21 @@ class AuthService {
     // 1. Find user by email
     const user = await authRepository.findByEmail(email);
     if (!user || user.isDeleted) {
-      throw new Error('Invalid email or password');
+      throw new AppError('Invalid email or password', 401, ErrorCodes.AUTH_CREDENTIALS_INVALID);
     }
 
     if (!user.isApproved) {
-      throw new Error('Your account is pending admin approval.');
+      throw new AppError('Your account is pending admin approval.', 403, ErrorCodes.USER_SUSPENDED);
     }
 
     if (!user.isActive) {
-      throw new Error('Your account has been suspended by an administrator.');
+      throw new AppError('Your account has been suspended by an administrator.', 403, ErrorCodes.USER_SUSPENDED);
     }
 
     // 2. Compare passwords
     const isMatch = await comparePassword(password, user.password);
     if (!isMatch) {
-      throw new Error('Invalid email or password');
+      throw new AppError('Invalid email or password', 401, ErrorCodes.AUTH_CREDENTIALS_INVALID);
     }
 
     // 3. Generate token

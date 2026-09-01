@@ -27,10 +27,10 @@ async function startServer() {
       logger.info(`Server is running in ${env.NODE_ENV} mode on port ${env.PORT}`);
     });
 
-    // Allow unlimited time for large video file uploads (no request timeout)
-    server.timeout = 0;
-    server.keepAliveTimeout = 0;
-    server.headersTimeout = 0;
+    // Allow large video file uploads (5 min timeout) while keeping standard HTTP keep-alive
+    server.timeout = 300000;
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
 
     // Connect to TiDB Cloud database asynchronously with retry
     await connectWithRetry();

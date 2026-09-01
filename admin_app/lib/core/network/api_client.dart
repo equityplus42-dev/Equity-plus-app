@@ -117,7 +117,7 @@ class ApiClient {
     } catch (e) {
       if (e is AppUpdateRequiredException) rethrow;
       final msg = e.toString().replaceAll('Exception: ', '');
-      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
+      throw Exception(msg);
     }
   }
 
@@ -135,7 +135,7 @@ class ApiClient {
     } catch (e) {
       if (e is AppUpdateRequiredException) rethrow;
       final msg = e.toString().replaceAll('Exception: ', '');
-      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
+      throw Exception(msg);
     }
   }
 
@@ -153,7 +153,7 @@ class ApiClient {
     } catch (e) {
       if (e is AppUpdateRequiredException) rethrow;
       final msg = e.toString().replaceAll('Exception: ', '');
-      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
+      throw Exception(msg);
     }
   }
 
@@ -171,7 +171,7 @@ class ApiClient {
     } catch (e) {
       if (e is AppUpdateRequiredException) rethrow;
       final msg = e.toString().replaceAll('Exception: ', '');
-      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
+      throw Exception(msg);
     }
   }
 
@@ -185,7 +185,7 @@ class ApiClient {
     } catch (e) {
       if (e is AppUpdateRequiredException) rethrow;
       final msg = e.toString().replaceAll('Exception: ', '');
-      throw Exception(msg.startsWith('Network error:') ? msg : 'Network error: $msg');
+      throw Exception(msg);
     }
   }
 
