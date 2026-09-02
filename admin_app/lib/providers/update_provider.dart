@@ -103,11 +103,11 @@ class UpdateProvider extends ChangeNotifier {
   Future<void> initPackageInfo({String appType = 'ADMIN_APP'}) async {
     _appType = appType;
     try {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      if (!kIsWeb) {
         final info = await PackageInfo.fromPlatform();
         _currentVersion = info.version.isNotEmpty ? info.version : '1.0.0';
         _currentBuildNumber = int.tryParse(info.buildNumber) ?? 1;
-        _platform = Platform.isAndroid ? 'ANDROID' : (Platform.isIOS ? 'IOS' : 'WEB');
+        _platform = Platform.isAndroid ? 'ANDROID' : (Platform.isIOS ? 'IOS' : (Platform.isWindows ? 'WINDOWS' : 'DESKTOP'));
       }
     } catch (e) {
       debugPrint('[UpdateProvider] Admin PackageInfo fallback: $e');

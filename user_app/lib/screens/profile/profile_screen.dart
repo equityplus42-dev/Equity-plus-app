@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../providers/update_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -448,6 +449,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onPressed: _save,
                               child: const Text('Save Details'),
                             ),
+                      const SizedBox(height: 24),
+                      Consumer<UpdateProvider>(
+                        builder: (context, updateProv, _) => Center(
+                          child: Text(
+                            'Vridhi App v${updateProv.currentVersion} (Build ${updateProv.currentBuildNumber})',
+                            style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

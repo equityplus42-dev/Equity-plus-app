@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../providers/admin_release_provider.dart';
+import '../../providers/update_provider.dart';
 import '../../core/theme/app_theme.dart';
 
 class AdminReleaseManagementScreen extends StatefulWidget {
@@ -53,9 +54,28 @@ class _AdminReleaseManagementScreenState extends State<AdminReleaseManagementScr
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
         elevation: 0,
-        title: const Text(
-          'App Version & Release Hub',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+        title: Row(
+          children: [
+            const Text(
+              'App Version & Release Hub',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const Spacer(),
+            Consumer<UpdateProvider>(
+              builder: (context, updateProv, _) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.primaryGold.withOpacity(0.5)),
+                ),
+                child: Text(
+                  'Running: v${updateProv.currentVersion} (${updateProv.currentBuildNumber})',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.primaryGold, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,

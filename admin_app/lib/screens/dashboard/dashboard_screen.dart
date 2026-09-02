@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/admin_notifications_provider.dart';
+import '../../providers/update_provider.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -172,9 +173,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'System Control',
-                                  style: GoogleFonts.outfit(fontSize: 14, color: AppTheme.softGrey),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'System Control',
+                                      style: GoogleFonts.outfit(fontSize: 14, color: AppTheme.softGrey),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Consumer<UpdateProvider>(
+                                      builder: (context, updateProv, _) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryPurple.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: AppTheme.neonCyan.withOpacity(0.6), width: 0.8),
+                                        ),
+                                        child: Text(
+                                          'v${updateProv.currentVersion} (${updateProv.currentBuildNumber})',
+                                          style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.neonCyan, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 Text(
                                   'Administrator Hub',
