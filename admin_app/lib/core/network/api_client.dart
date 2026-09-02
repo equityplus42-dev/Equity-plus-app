@@ -189,13 +189,10 @@ class ApiClient {
     }
   }
 
+  /// Upload campaign image using multipart request
   Future<dynamic> uploadCampaignImage(Uint8List fileBytes, String fileName) async {
     final Uri uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.uploadCampaignImage}');
     try {
-      if (fileBytes.length > 4 * 1024 * 1024 && uri.host.contains('vercel.app')) {
-        throw Exception('Image size (${(fileBytes.length / (1024 * 1024)).toStringAsFixed(1)}MB) exceeds Vercel\'s 4.5MB payload limit. Please select a smaller photo (under 4MB).');
-      }
-
       final request = http.MultipartRequest('POST', uri);
       
       // Add authentication headers
