@@ -182,7 +182,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     final descController = TextEditingController();
     final thumbController = TextEditingController();
     String dialogLanguageId = _selectedLanguageId ?? langProvider.languages.first.id;
-    String selectedStorageProvider = 'CLOUDINARY';
+    String selectedStorageProvider = 'CLOUDFLARE_R2';
 
     bool isUploadingFile = false;
     String? selectedFileName;
@@ -240,7 +240,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: selectedStorageProvider,
+                  initialValue: 'CLOUDFLARE_R2',
                   isExpanded: true,
                   dropdownColor: AppTheme.cardBg,
                   style: GoogleFonts.outfit(color: AppTheme.lightText, fontSize: 13),
@@ -248,23 +248,13 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                     labelText: 'Cloud Storage & Streaming Provider',
                     prefixIcon: Icon(Icons.cloud_queue_rounded, color: AppTheme.neonCyan),
                   ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: 'CLOUDINARY',
-                      child: Text('☁️ Cloudinary Video (≤ 100MB)', overflow: TextOverflow.ellipsis),
-                    ),
-                    const DropdownMenuItem(
+                  items: const [
+                    DropdownMenuItem(
                       value: 'CLOUDFLARE_R2',
-                      child: Text('⚡ Cloudflare R2 Bucket (Free Egress)', overflow: TextOverflow.ellipsis),
+                      child: Text('⚡ Cloudflare R2 Bucket (Direct High Speed)', overflow: TextOverflow.ellipsis),
                     ),
                   ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setDialogState(() {
-                        selectedStorageProvider = val;
-                      });
-                    }
-                  },
+                  onChanged: null,
                 ),
                 const SizedBox(height: 14),
                 // Device File Picker Dropzone Button
@@ -318,165 +308,84 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
 
                                 bool uploadSuccess = false;
 
-                                // ── PATH A: Direct-to-Cloudinary upload ──
-                                if (selectedStorageProvider == 'CLOUDINARY') {
-                                    try {
-                                      // Step 1: Get signed upload credentials from our backend (tiny JSON, no limit issue)
-                                      final sigUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/cloudinary-signature');
-                                      final sigRes = await http.post(
-                                        sigUri,
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                          if (token != null) 'Authorization': 'Bearer $token',
-                                        },
-                                        body: jsonEncode({'folder': 'videos'}),
+                                // ── Direct Presigned PUT to Cloudflare R2 Storage (Supports 30MB-40MB+ high speed) ──
+                                try {
+                                  final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
+                                  final presignedRes = await http.post(
+                                    presignedUri,
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      if (token != null) 'Authorization': 'Bearer $token',
+                                    },
+                                    body: jsonEncode({
+                                      'folder': 'videos',
+                                      'filename': video.name,
+                                      'mimeType': mimeType,
+                                    }),
+                                  );
+
+                                  if (presignedRes.statusCode == 200 || presignedRes.statusCode == 201) {
+                                    final pData = jsonDecode(presignedRes.body);
+                                    final uploadUrl = pData['data']?['uploadUrl'];
+                                    final r2Key = pData['data']?['r2ObjectKey'];
+                                    final publicUrl = pData['data']?['publicUrl'];
+
+                                    if (uploadUrl != null && r2Key != null) {
+                                      final videoBytes = await video.readAsBytes();
+                                      setDialogState(() {
+                                        uploadedBytes = totalLength;
+                                        uploadProgress = 1.0;
+                                      });
+
+                                      final putResponse = await http.put(
+                                        Uri.parse(uploadUrl),
+                                        headers: {'Content-Type': mimeType},
+                                        body: videoBytes,
                                       );
 
-                                      if (sigRes.statusCode == 200 || sigRes.statusCode == 201) {
-                                        Map<String, dynamic>? sigData;
-                                        try {
-                                          sigData = jsonDecode(sigRes.body);
-                                        } catch (_) {}
-
-                                        final uploadUrl = sigData?['data']?['uploadUrl'];
-                                        final signature = sigData?['data']?['signature'];
-                                        final ts = sigData?['data']?['timestamp'];
-                                        final apiKey = sigData?['data']?['apiKey'];
-                                        final folder = sigData?['data']?['folder'] ?? 'videos';
-                                        final eager = sigData?['data']?['eager'];
-
-                                        if (uploadUrl != null && signature != null && ts != null && apiKey != null) {
-                                          // Step 2: POST file directly to Cloudinary (no Vercel in the path)
-                                          final videoBytes = await video.readAsBytes();
-                                          setDialogState(() {
-                                            uploadedBytes = totalLength;
-                                            uploadProgress = 0.95;
-                                          });
-
-                                          final cloudRequest = http.MultipartRequest('POST', Uri.parse(uploadUrl));
-                                          cloudRequest.fields['api_key'] = apiKey.toString();
-                                          cloudRequest.fields['timestamp'] = ts.toString();
-                                          cloudRequest.fields['signature'] = signature.toString();
-                                          cloudRequest.fields['folder'] = folder.toString();
-                                          if (eager != null) {
-                                            cloudRequest.fields['eager'] = eager.toString();
-                                            cloudRequest.fields['eager_async'] = 'true';
-                                          }
-                                          cloudRequest.files.add(http.MultipartFile.fromBytes(
-                                            'file',
-                                            videoBytes,
-                                            filename: video.name,
-                                            contentType: MediaType.parse(mimeType),
-                                          ));
-
-                                          final cloudStreamRes = await cloudRequest.send();
-                                          final cloudRes = await http.Response.fromStream(cloudStreamRes);
-
-                                          if (cloudRes.statusCode == 200 || cloudRes.statusCode == 201) {
-                                            Map<String, dynamic>? cloudData;
-                                            try {
-                                              cloudData = jsonDecode(cloudRes.body);
-                                            } catch (_) {}
-                                            final secureUrl = cloudData?['secure_url'];
-                                            final durationSecs = cloudData?['duration'];
-                                            int dur = durationSecs != null ? (durationSecs as num).round() : 0;
-
-                                            if (secureUrl != null) {
-                                              setDialogState(() {
-                                                uploadedCloudinaryUrl = secureUrl;
-                                                uploadedR2ObjectKey = null; // No R2 key for Cloudinary
-                                                uploadedVideoDuration = dur;
-                                                uploadProgress = 1.0;
-                                                if (titleController.text.trim().isEmpty) {
-                                                  titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
-                                                }
-                                              });
-                                              uploadSuccess = true;
-                                            }
-                                          } else {
-                                            debugPrint('Cloudinary upload status ${cloudRes.statusCode}: ${cloudRes.body}');
+                                      if (putResponse.statusCode == 200 || putResponse.statusCode == 201 || putResponse.statusCode == 204) {
+                                        int dur = 0;
+                                        if (publicUrl != null && publicUrl.toString().isNotEmpty) {
+                                          try {
+                                            final probe = VideoPlayerController.networkUrl(Uri.parse(publicUrl.toString()));
+                                            await probe.initialize();
+                                            dur = probe.value.duration.inSeconds;
+                                            await probe.dispose();
+                                          } catch (e) {
+                                            debugPrint('Duration probe info: $e');
                                           }
                                         }
-                                      }
-                                    } catch (cloudErr) {
-                                      debugPrint('Cloudinary direct upload notice: $cloudErr');
-                                    }
-                                  }
 
-                                  // ── PATH B: Direct Presigned PUT to Cloudflare R2 (Handles 30MB-40MB+ files smoothly) ──
-                                  if (!uploadSuccess) {
-                                    try {
-                                      final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
-                                      final presignedRes = await http.post(
-                                        presignedUri,
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                          if (token != null) 'Authorization': 'Bearer $token',
-                                        },
-                                        body: jsonEncode({
-                                          'folder': 'videos',
-                                          'filename': video.name,
-                                          'mimeType': mimeType,
-                                        }),
-                                      );
-
-                                    if (presignedRes.statusCode == 200 || presignedRes.statusCode == 201) {
-                                      final pData = jsonDecode(presignedRes.body);
-                                      final uploadUrl = pData['data']?['uploadUrl'];
-                                      final r2Key = pData['data']?['r2ObjectKey'];
-                                      final publicUrl = pData['data']?['publicUrl'];
-
-                                      if (uploadUrl != null && r2Key != null) {
-                                        final videoBytes = await video.readAsBytes();
                                         setDialogState(() {
-                                          uploadedBytes = totalLength;
-                                          uploadProgress = 1.0;
+                                          uploadedCloudinaryUrl = publicUrl;
+                                          uploadedR2ObjectKey = r2Key;
+                                          uploadedVideoDuration = dur;
+                                          if (titleController.text.trim().isEmpty) {
+                                            titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                          }
                                         });
-
-                                        final putResponse = await http.put(
-                                          Uri.parse(uploadUrl),
-                                          headers: {'Content-Type': mimeType},
-                                          body: videoBytes,
-                                        );
-
-                                        if (putResponse.statusCode == 200 || putResponse.statusCode == 201 || putResponse.statusCode == 204) {
-                                          int dur = 0;
-                                          if (publicUrl != null && publicUrl.toString().isNotEmpty) {
-                                            try {
-                                              final probe = VideoPlayerController.networkUrl(Uri.parse(publicUrl.toString()));
-                                              await probe.initialize();
-                                              dur = probe.value.duration.inSeconds;
-                                              await probe.dispose();
-                                            } catch (e) {
-                                              debugPrint('Duration probe info: $e');
-                                            }
-                                          }
-
-                                          setDialogState(() {
-                                            uploadedCloudinaryUrl = publicUrl;
-                                            uploadedR2ObjectKey = r2Key;
-                                            uploadedVideoDuration = dur;
-                                            if (titleController.text.trim().isEmpty) {
-                                              titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
-                                            }
-                                          });
-                                          uploadSuccess = true;
-                                        } else {
-                                          if (dialogCtx.mounted) {
-                                            ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                              SnackBar(content: Text('Cloudflare R2 upload failed (${putResponse.statusCode})'), backgroundColor: Colors.redAccent),
-                                            );
-                                          }
+                                        uploadSuccess = true;
+                                      } else {
+                                        if (dialogCtx.mounted) {
+                                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                                            SnackBar(content: Text('Cloudflare R2 upload failed (${putResponse.statusCode})'), backgroundColor: Colors.redAccent),
+                                          );
                                         }
                                       }
                                     }
-                                  } catch (r2Err) {
-                                    debugPrint('R2 Presigned upload error: $r2Err');
+                                  } else {
                                     if (dialogCtx.mounted) {
                                       ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                        SnackBar(content: Text('Cloudflare R2 upload error: $r2Err'), backgroundColor: Colors.redAccent),
+                                        SnackBar(content: Text('Could not get R2 upload presigned URL (${presignedRes.statusCode})'), backgroundColor: Colors.redAccent),
                                       );
                                     }
+                                  }
+                                } catch (r2Err) {
+                                  debugPrint('Cloudflare R2 upload error: $r2Err');
+                                  if (dialogCtx.mounted) {
+                                    ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                                      SnackBar(content: Text('Cloudflare R2 upload error: $r2Err'), backgroundColor: Colors.redAccent),
+                                    );
                                   }
                                 }
                               } catch (e) {
@@ -515,9 +424,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                         Text(
                           isUploadingFile
                               ? (uploadProgress >= 0.99
-                                  ? (selectedStorageProvider == 'CLOUDFLARE_R2'
-                                      ? '⚡ Processing & Securing on Cloudflare R2... Please wait'
-                                      : '☁️ Processing & Transcoding on Cloudinary... Please wait')
+                                  ? '⚡ Processing & Securing on Cloudflare R2... Please wait'
                                   : 'Uploading (${(uploadedBytes / 1024 / 1024).toStringAsFixed(1)} MB / ${(totalBytes / 1024 / 1024).toStringAsFixed(1)} MB — ${(uploadProgress * 100).toStringAsFixed(0)}%)...')
                               : (uploadedCloudinaryUrl != null
                                   ? '✓ File Uploaded (${uploadedVideoDuration >= 60 ? "${uploadedVideoDuration ~/ 60}m ${uploadedVideoDuration % 60}s" : "${uploadedVideoDuration}s"} duration)'
@@ -545,11 +452,9 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                   ? '${mins}m ${secs.toString().padLeft(2, '0')}s elapsed'
                                   : '${secs}s elapsed';
                               if (uploadProgress >= 0.99) {
-                                return selectedStorageProvider == 'CLOUDFLARE_R2'
-                                    ? '⏱ $elapsed — Backend streaming to Cloudflare R2'
-                                    : '⏱ $elapsed — Transcoding HD & SD streams on Cloudinary';
+                                return '⏱ $elapsed — Direct Cloudflare R2 bucket security check';
                               }
-                              return '⏱ $elapsed — high-speed multi-part upload active';
+                              return '⏱ $elapsed — high-speed Cloudflare R2 upload active';
                             }(),
                             style: GoogleFonts.outfit(
                               color: AppTheme.neonCyan,
@@ -576,9 +481,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          uploadedR2ObjectKey != null
-                              ? 'Cloudflare R2 Bucket (vridhinetwork) ready'
-                              : 'Cloudinary Dedicated Account (qv1eskbe) ready',
+                          'Cloudflare R2 Bucket (vridhinetwork) ready',
                           style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonGreen, fontWeight: FontWeight.w600),
                         ),
                       ),
