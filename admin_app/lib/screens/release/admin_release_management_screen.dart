@@ -341,10 +341,10 @@ class _CreateReleaseForm extends StatefulWidget {
 class _CreateReleaseFormState extends State<_CreateReleaseForm> {
   final _formKey = GlobalKey<FormState>();
   late String _appType;
-  final _versionController = TextEditingController(text: '1.1.0');
-  final _buildNumberController = TextEditingController(text: '2');
-  final _minVersionController = TextEditingController(text: '1.0.0');
-  final _minBuildController = TextEditingController(text: '1');
+  late TextEditingController _versionController;
+  late TextEditingController _buildNumberController;
+  late TextEditingController _minVersionController;
+  late TextEditingController _minBuildController;
   final _titleController = TextEditingController(text: 'New Performance & Stability Release');
   final _notesController = TextEditingController(text: '• Enhanced release security\n• Bug fixes and UI optimizations');
   final _downloadUrlController = TextEditingController();
@@ -357,6 +357,26 @@ class _CreateReleaseFormState extends State<_CreateReleaseForm> {
   void initState() {
     super.initState();
     _appType = widget.appType;
+
+    final releaseProvider = Provider.of<AdminReleaseProvider>(context, listen: false);
+    int maxBuild = 0;
+    String latestVer = '1.0.0';
+
+    for (final rel in releaseProvider.releases) {
+      final bNum = rel['buildNumber'] is int ? rel['buildNumber'] as int : (int.tryParse(rel['buildNumber']?.toString() ?? '0') ?? 0);
+      if (bNum > maxBuild) {
+        maxBuild = bNum;
+        if (rel['version'] != null && rel['version'].toString().isNotEmpty) {
+          latestVer = rel['version'].toString();
+        }
+      }
+    }
+
+    final nextBuild = maxBuild > 0 ? maxBuild + 1 : 2;
+    _versionController = TextEditingController(text: maxBuild > 0 ? latestVer : '1.1.0');
+    _buildNumberController = TextEditingController(text: '$nextBuild');
+    _minVersionController = TextEditingController(text: '1.0.0');
+    _minBuildController = TextEditingController(text: maxBuild > 0 ? '$maxBuild' : '1');
   }
 
   Future<void> _pickApkFile() async {
