@@ -318,115 +318,107 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
 
                                 bool uploadSuccess = false;
 
-                                // ── PATH A: Direct-to-Cloudinary upload (bypasses Vercel 4.5MB limit) ──
+                                // ── PATH A: Direct-to-Cloudinary upload ──
                                 if (selectedStorageProvider == 'CLOUDINARY') {
-                                  // Step 1: Get signed upload credentials from our backend (tiny JSON, no limit issue)
-                                  final sigUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/cloudinary-signature');
-                                  final sigRes = await http.post(
-                                    sigUri,
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                      if (token != null) 'Authorization': 'Bearer $token',
-                                    },
-                                    body: jsonEncode({'folder': 'videos'}),
-                                  );
+                                    try {
+                                      // Step 1: Get signed upload credentials from our backend (tiny JSON, no limit issue)
+                                      final sigUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/cloudinary-signature');
+                                      final sigRes = await http.post(
+                                        sigUri,
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          if (token != null) 'Authorization': 'Bearer $token',
+                                        },
+                                        body: jsonEncode({'folder': 'videos'}),
+                                      );
 
-                                  if (sigRes.statusCode == 200 || sigRes.statusCode == 201) {
-                                    final sigData = jsonDecode(sigRes.body);
-                                    final uploadUrl = sigData['data']?['uploadUrl'];
-                                    final signature = sigData['data']?['signature'];
-                                    final ts = sigData['data']?['timestamp'];
-                                    final apiKey = sigData['data']?['apiKey'];
-                                    final folder = sigData['data']?['folder'] ?? 'videos';
-                                    final eager = sigData['data']?['eager'];
-
-                                    if (uploadUrl != null && signature != null && ts != null && apiKey != null) {
-                                      // Step 2: POST file directly to Cloudinary (no Vercel in the path)
-                                      final videoBytes = await video.readAsBytes();
-                                      setDialogState(() {
-                                        uploadedBytes = totalLength;
-                                        uploadProgress = 0.95;
-                                      });
-
-                                      final cloudRequest = http.MultipartRequest('POST', Uri.parse(uploadUrl));
-                                      cloudRequest.fields['api_key'] = apiKey.toString();
-                                      cloudRequest.fields['timestamp'] = ts.toString();
-                                      cloudRequest.fields['signature'] = signature.toString();
-                                      cloudRequest.fields['folder'] = folder.toString();
-                                      if (eager != null) {
-                                        cloudRequest.fields['eager'] = eager.toString();
-                                        cloudRequest.fields['eager_async'] = 'true';
-                                      }
-                                      cloudRequest.files.add(http.MultipartFile.fromBytes(
-                                        'file',
-                                        videoBytes,
-                                        filename: video.name,
-                                        contentType: MediaType.parse(mimeType),
-                                      ));
-
-                                      final cloudStreamRes = await cloudRequest.send();
-                                      final cloudRes = await http.Response.fromStream(cloudStreamRes);
-
-                                      if (cloudRes.statusCode == 200 || cloudRes.statusCode == 201) {
-                                        final cloudData = jsonDecode(cloudRes.body);
-                                        final secureUrl = cloudData['secure_url'];
-                                        final durationSecs = cloudData['duration'];
-                                        int dur = durationSecs != null ? (durationSecs as num).round() : 0;
-
-                                        setDialogState(() {
-                                          uploadedCloudinaryUrl = secureUrl;
-                                          uploadedR2ObjectKey = null; // No R2 key for Cloudinary
-                                          uploadedVideoDuration = dur;
-                                          uploadProgress = 1.0;
-                                          if (titleController.text.trim().isEmpty) {
-                                            titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
-                                          }
-                                        });
-                                        uploadSuccess = true;
-                                      } else {
-                                        String msg = 'Cloudinary upload failed (${cloudRes.statusCode})';
+                                      if (sigRes.statusCode == 200 || sigRes.statusCode == 201) {
+                                        Map<String, dynamic>? sigData;
                                         try {
-                                          final errData = jsonDecode(cloudRes.body);
-                                          msg = errData['error']?['message'] ?? errData['message'] ?? msg;
+                                          sigData = jsonDecode(sigRes.body);
                                         } catch (_) {}
-                                        if (dialogCtx.mounted) {
-                                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                            SnackBar(content: Text('Video upload error: $msg'), backgroundColor: Colors.redAccent),
-                                          );
+
+                                        final uploadUrl = sigData?['data']?['uploadUrl'];
+                                        final signature = sigData?['data']?['signature'];
+                                        final ts = sigData?['data']?['timestamp'];
+                                        final apiKey = sigData?['data']?['apiKey'];
+                                        final folder = sigData?['data']?['folder'] ?? 'videos';
+                                        final eager = sigData?['data']?['eager'];
+
+                                        if (uploadUrl != null && signature != null && ts != null && apiKey != null) {
+                                          // Step 2: POST file directly to Cloudinary (no Vercel in the path)
+                                          final videoBytes = await video.readAsBytes();
+                                          setDialogState(() {
+                                            uploadedBytes = totalLength;
+                                            uploadProgress = 0.95;
+                                          });
+
+                                          final cloudRequest = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+                                          cloudRequest.fields['api_key'] = apiKey.toString();
+                                          cloudRequest.fields['timestamp'] = ts.toString();
+                                          cloudRequest.fields['signature'] = signature.toString();
+                                          cloudRequest.fields['folder'] = folder.toString();
+                                          if (eager != null) {
+                                            cloudRequest.fields['eager'] = eager.toString();
+                                            cloudRequest.fields['eager_async'] = 'true';
+                                          }
+                                          cloudRequest.files.add(http.MultipartFile.fromBytes(
+                                            'file',
+                                            videoBytes,
+                                            filename: video.name,
+                                            contentType: MediaType.parse(mimeType),
+                                          ));
+
+                                          final cloudStreamRes = await cloudRequest.send();
+                                          final cloudRes = await http.Response.fromStream(cloudStreamRes);
+
+                                          if (cloudRes.statusCode == 200 || cloudRes.statusCode == 201) {
+                                            Map<String, dynamic>? cloudData;
+                                            try {
+                                              cloudData = jsonDecode(cloudRes.body);
+                                            } catch (_) {}
+                                            final secureUrl = cloudData?['secure_url'];
+                                            final durationSecs = cloudData?['duration'];
+                                            int dur = durationSecs != null ? (durationSecs as num).round() : 0;
+
+                                            if (secureUrl != null) {
+                                              setDialogState(() {
+                                                uploadedCloudinaryUrl = secureUrl;
+                                                uploadedR2ObjectKey = null; // No R2 key for Cloudinary
+                                                uploadedVideoDuration = dur;
+                                                uploadProgress = 1.0;
+                                                if (titleController.text.trim().isEmpty) {
+                                                  titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+                                                }
+                                              });
+                                              uploadSuccess = true;
+                                            }
+                                          } else {
+                                            debugPrint('Cloudinary upload status ${cloudRes.statusCode}: ${cloudRes.body}');
+                                          }
                                         }
                                       }
-                                    }
-                                  } else {
-                                    // Signature endpoint failed
-                                    String msg = 'Could not get Cloudinary upload signature (${sigRes.statusCode})';
-                                    try {
-                                      final errData = jsonDecode(sigRes.body);
-                                      msg = errData['message'] ?? errData['error'] ?? msg;
-                                    } catch (_) {}
-                                    if (dialogCtx.mounted) {
-                                      ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                        SnackBar(content: Text('Video upload error: $msg'), backgroundColor: Colors.redAccent),
-                                      );
+                                    } catch (cloudErr) {
+                                      debugPrint('Cloudinary direct upload notice: $cloudErr');
                                     }
                                   }
-                                }
 
-                                // ── PATH B: Direct Presigned PUT to Cloudflare R2 ──
-                                if (!uploadSuccess && selectedStorageProvider == 'CLOUDFLARE_R2') {
-                                  try {
-                                    final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
-                                    final presignedRes = await http.post(
-                                      presignedUri,
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                        if (token != null) 'Authorization': 'Bearer $token',
-                                      },
-                                      body: jsonEncode({
-                                        'folder': 'videos',
-                                        'filename': video.name,
-                                        'mimeType': mimeType,
-                                      }),
-                                    );
+                                  // ── PATH B: Direct Presigned PUT to Cloudflare R2 (Handles 30MB-40MB+ files smoothly) ──
+                                  if (!uploadSuccess) {
+                                    try {
+                                      final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
+                                      final presignedRes = await http.post(
+                                        presignedUri,
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          if (token != null) 'Authorization': 'Bearer $token',
+                                        },
+                                        body: jsonEncode({
+                                          'folder': 'videos',
+                                          'filename': video.name,
+                                          'mimeType': mimeType,
+                                        }),
+                                      );                     );
 
                                     if (presignedRes.statusCode == 200 || presignedRes.statusCode == 201) {
                                       final pData = jsonDecode(presignedRes.body);
