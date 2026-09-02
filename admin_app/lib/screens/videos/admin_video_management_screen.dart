@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -182,7 +180,6 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     final descController = TextEditingController();
     final thumbController = TextEditingController();
     String dialogLanguageId = _selectedLanguageId ?? langProvider.languages.first.id;
-    String selectedStorageProvider = 'CLOUDFLARE_R2';
 
     bool isUploadingFile = false;
     String? selectedFileName;
@@ -306,8 +303,6 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                   'mpg': 'video/mpeg',
                                 }[ext] ?? 'video/mp4';
 
-                                bool uploadSuccess = false;
-
                                 // ── Direct Presigned PUT to Cloudflare R2 Storage (Supports 30MB-40MB+ high speed) ──
                                 try {
                                   final presignedUri = Uri.parse('${ApiConstants.baseUrl}/upload-pipeline/presigned-url');
@@ -364,7 +359,6 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                             titleController.text = video.name.replaceAll(RegExp(r'\.[^.]+$'), '');
                                           }
                                         });
-                                        uploadSuccess = true;
                                       } else {
                                         if (dialogCtx.mounted) {
                                           ScaffoldMessenger.of(dialogCtx).showSnackBar(
