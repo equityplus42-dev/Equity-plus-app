@@ -100,8 +100,17 @@ class UpdateProvider extends ChangeNotifier {
     }
   }
 
-  /// Initialize package info & retrieve real installed app version metadata
+  Future<void>? _initFuture;
+
   Future<void> initPackageInfo({String appType = 'USER_APP'}) async {
+    if (_isInitialized) return;
+    if (_initFuture != null) return _initFuture;
+
+    _initFuture = _doInitPackageInfo(appType);
+    return _initFuture;
+  }
+
+  Future<void> _doInitPackageInfo(String appType) async {
     _appType = appType;
     try {
       if (!kIsWeb) {
