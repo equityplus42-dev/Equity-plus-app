@@ -35,39 +35,7 @@ class CloudinaryService {
    * @returns {Promise<{url: string, duration: number}>}
    */
   async uploadVideo(buffer, folder = 'videos') {
-    const hasVideoConfig = videoConfig.cloud_name && videoConfig.api_key && videoConfig.api_secret;
-
-    if (!hasVideoConfig) {
-      throw new Error(
-        '[CloudinaryService] Dedicated Video Cloudinary (CLOUDINARY_VIDEO_*) configuration is missing. ' +
-        'Video uploads require the dedicated video account (cloud: qv1eskbe). No fallback is permitted.'
-      );
-    }
-
-    console.info(`[CloudinaryService] Uploading video strictly to Dedicated Video Cloudinary account: ${videoConfig.cloud_name}`);
-
-    const result = await uploadWithConfig(videoConfig, buffer, {
-      folder,
-      resource_type: 'video',
-      // ── Eager Transcoding ─────────────────────────────────────────────────────
-      // Pre-process the video into multiple quality renditions immediately on upload
-      // so no user ever triggers the first-play encoding lag.
-      eager: [
-        // HLS Adaptive Bitrate (Auto quality — best for native apps)
-        { streaming_profile: 'hd', format: 'm3u8' },
-        { streaming_profile: 'sd', format: 'm3u8' },
-        // Fixed quality MP4s (for quality selector in app)
-        { width: 1920, height: 1080, crop: 'limit', quality: 'auto', format: 'mp4' },
-        { width: 1280, height: 720,  crop: 'limit', quality: 'auto', format: 'mp4' },
-        { width: 854,  height: 480,  crop: 'limit', quality: 'auto', format: 'mp4' },
-        { width: 640,  height: 360,  crop: 'limit', quality: 'auto', format: 'mp4' },
-        { width: 426,  height: 240,  crop: 'limit', quality: 'auto', format: 'mp4' },
-      ],
-      eager_async: true, // Don't block upload response — process renditions in background
-    });
-
-    const durationSecs = result.duration ? Math.round(result.duration) : 0;
-    return { url: result.secure_url, duration: durationSecs };
+    throw new Error('Cloudinary video upload is permanently disabled. All video content must be uploaded directly to Cloudflare R2 Bucket.');
   }
 }
 

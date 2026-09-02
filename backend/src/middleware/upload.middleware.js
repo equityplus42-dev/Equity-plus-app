@@ -24,7 +24,7 @@ const uploadSingleMedia = (fieldName) => {
     if (contentLength > 4 * 1024 * 1024) {
       return ApiResponse.error(
         res,
-        'Direct file upload to Vercel endpoint exceeds Vercel serverless 4.5MB payload limit. For files larger than 4MB (like 30-40MB videos), please use direct presigned uploads (/upload-pipeline/presigned-url or /upload-pipeline/cloudinary-signature).',
+        'Direct file upload to Vercel endpoint exceeds Vercel serverless 4.5MB payload limit. For files larger than 4MB (like 30-40MB videos), please use direct presigned uploads to Cloudflare R2 (/upload-pipeline/presigned-url).',
         413,
         'PAYLOAD_TOO_LARGE'
       );

@@ -91,37 +91,7 @@ class UploadPipelineController {
    */
   async getCloudinaryUploadSignature(req, res, next) {
     try {
-      const hasVideoConfig = videoConfig.cloud_name && videoConfig.api_key && videoConfig.api_secret;
-      if (!hasVideoConfig) {
-        return ApiResponse.error(res, 'Cloudinary video account not configured on server.', 500);
-      }
-
-      const folder = (req.body && req.body.folder) || 'videos';
-      const timestamp = Math.round(Date.now() / 1000);
-
-      // Params to sign — must match exactly what the client will send in the multipart form
-      const paramsToSign = {
-        eager: 'sp_hd/m3u8|sp_sd/m3u8|c_limit,h_1080,q_auto,w_1920/mp4|c_limit,h_720,q_auto,w_1280/mp4|c_limit,h_480,q_auto,w_854/mp4|c_limit,h_360,q_auto,w_640/mp4|c_limit,h_240,q_auto,w_426/mp4',
-        eager_async: 'true',
-        folder,
-        timestamp,
-      };
-
-      // Set the dedicated video account config before signing
-      cloudinaryV2.config(videoConfig);
-      const signature = cloudinaryV2.utils.api_sign_request(paramsToSign, videoConfig.api_secret);
-
-      return ApiResponse.success(res, 'Cloudinary upload signature generated', {
-        signature,
-        timestamp,
-        apiKey: videoConfig.api_key,
-        cloudName: videoConfig.cloud_name,
-        folder,
-        eager: paramsToSign.eager,
-        eagerAsync: true,
-        // Flutter POSTs the file directly to this URL using the signature — no server proxy needed
-        uploadUrl: `https://api.cloudinary.com/v1_1/${videoConfig.cloud_name}/video/upload`,
-      });
+      return ApiResponse.error(res, 'Cloudinary video uploads are discontinued. All video uploads must use Cloudflare R2 (/upload-pipeline/presigned-url).', 400);
     } catch (error) {
       next(error);
     }
