@@ -226,28 +226,59 @@ class ForceUpdateScreen extends StatelessWidget {
 
       case DownloadStatus.readyToInstall:
       case DownloadStatus.installing:
-        return SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: () => provider.triggerInstallation(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.neonGreen,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.system_security_update_good, size: 22),
-                SizedBox(width: 8),
-                Text(
+      case DownloadStatus.success:
+        return Column(
+          children: [
+            if (provider.errorMessage != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                ),
+                child: Text(
+                  provider.errorMessage!,
+                  style: const TextStyle(color: Colors.amberAccent, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => provider.triggerInstallation(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.neonGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 4,
+                ),
+                icon: const Icon(Icons.system_security_update_good, size: 22),
+                label: const Text(
                   'Install Admin APK Now',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => provider.openWebsiteDownloadUrl(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white30),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.language_rounded, size: 20, color: AppTheme.primaryGold),
+                label: const Text('Download & Install via Browser', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
         );
 
       case DownloadStatus.failed:
@@ -283,12 +314,6 @@ class ForceUpdateScreen extends StatelessWidget {
               ),
             ),
           ],
-        );
-
-      case DownloadStatus.success:
-        return const Text(
-          'Update downloaded! Please complete installation.',
-          style: TextStyle(color: AppTheme.neonGreen, fontWeight: FontWeight.bold),
         );
     }
   }

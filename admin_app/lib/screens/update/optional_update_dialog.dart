@@ -105,12 +105,23 @@ class OptionalUpdateDialog extends StatelessWidget {
                   },
                   child: const Text('Later', style: TextStyle(color: Colors.white54)),
                 ),
-                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    updateProvider.openWebsiteDownloadUrl();
+                  },
+                  icon: const Icon(Icons.language_rounded, size: 16, color: AppTheme.primaryGold),
+                  label: const Text('Browser', style: TextStyle(color: AppTheme.primaryGold, fontSize: 12)),
+                ),
+                const SizedBox(width: 4),
                 ElevatedButton(
                   onPressed: updateProvider.status == DownloadStatus.downloading
                       ? null
                       : () {
-                          updateProvider.downloadAndInstallApk();
+                          if (updateProvider.status == DownloadStatus.readyToInstall || updateProvider.status == DownloadStatus.success) {
+                            updateProvider.triggerInstallation();
+                          } else {
+                            updateProvider.downloadAndInstallApk();
+                          }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryGold,
@@ -118,7 +129,7 @@ class OptionalUpdateDialog extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   child: Text(
-                    updateProvider.status == DownloadStatus.readyToInstall
+                    updateProvider.status == DownloadStatus.readyToInstall || updateProvider.status == DownloadStatus.success
                         ? 'Install Now'
                         : 'Update Now',
                     style: const TextStyle(fontWeight: FontWeight.bold),

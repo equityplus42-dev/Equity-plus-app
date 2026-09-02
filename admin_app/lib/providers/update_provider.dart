@@ -317,6 +317,13 @@ class UpdateProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!kIsWeb && Platform.isAndroid) {
+        final installPerm = await Permission.requestInstallPackages.status;
+        if (!installPerm.isGranted) {
+          await Permission.requestInstallPackages.request();
+        }
+      }
+
       final result = await OpenFilex.open(
         _downloadedFilePath!,
         type: 'application/vnd.android.package-archive',
@@ -325,13 +332,14 @@ class UpdateProvider extends ChangeNotifier {
       if (result.type == ResultType.done) {
         _status = DownloadStatus.success;
       } else {
-        _errorMessage = 'Installer notification: ${result.message}';
+        debugPrint('[UpdateProvider] OpenFilex open result: ${result.type} - ${result.message}');
+        _errorMessage = 'Package Installer: ${result.message}. Please grant "Install Unknown Apps" permission in device settings or tap "Download via Browser".';
         _status = DownloadStatus.readyToInstall;
       }
       notifyListeners();
     } catch (e) {
       _errorMessage = 'Installation launch failed: $e';
-      _status = DownloadStatus.failed;
+      _status = DownloadStatus.readyToInstall;
       notifyListeners();
     }
   }
