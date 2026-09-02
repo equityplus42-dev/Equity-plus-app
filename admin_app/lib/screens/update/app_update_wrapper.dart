@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/update_provider.dart';
@@ -13,6 +14,8 @@ class AppUpdateWrapper extends StatefulWidget {
 }
 
 class _AppUpdateWrapperState extends State<AppUpdateWrapper> {
+  Timer? _pollingTimer;
+
   @override
   void initState() {
     super.initState();
@@ -21,6 +24,19 @@ class _AppUpdateWrapperState extends State<AppUpdateWrapper> {
       updateProvider.configureAppType('ADMIN_APP');
       updateProvider.checkForUpdates();
     });
+
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) {
+        final updateProvider = Provider.of<UpdateProvider>(context, listen: false);
+        updateProvider.checkForUpdates();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 
   @override
