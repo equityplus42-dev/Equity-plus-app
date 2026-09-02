@@ -418,7 +418,7 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                                           'filename': video.name,
                                           'mimeType': mimeType,
                                         }),
-                                      );                     );
+                                      );
 
                                     if (presignedRes.statusCode == 200 || presignedRes.statusCode == 201) {
                                       final pData = jsonDecode(presignedRes.body);
