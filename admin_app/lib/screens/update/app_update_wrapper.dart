@@ -13,28 +13,43 @@ class AppUpdateWrapper extends StatefulWidget {
   State<AppUpdateWrapper> createState() => _AppUpdateWrapperState();
 }
 
-class _AppUpdateWrapperState extends State<AppUpdateWrapper> {
+class _AppUpdateWrapperState extends State<AppUpdateWrapper> with WidgetsBindingObserver {
   Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final updateProvider = Provider.of<UpdateProvider>(context, listen: false);
       updateProvider.configureAppType('ADMIN_APP');
-      updateProvider.checkForUpdates();
+      updateProvider.checkForUpdates(forceRefreshPackageInfo: true);
     });
 
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) {
         final updateProvider = Provider.of<UpdateProvider>(context, listen: false);
-        updateProvider.checkForUpdates();
+        // Only poll background checks when not actively in an update flow or download
+        if (!updateProvider.forceUpdate && updateProvider.status == DownloadStatus.idle) {
+          updateProvider.checkForUpdates();
+        }
       }
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      final updateProvider = Provider.of<UpdateProvider>(context, listen: false);
+      // Re-read installed PackageInfo binary version from platform when resuming app
+      updateProvider.checkForUpdates(forceRefreshPackageInfo: true);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollingTimer?.cancel();
     super.dispose();
   }

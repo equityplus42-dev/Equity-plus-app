@@ -24,8 +24,10 @@ async function appVersionMiddleware(req, res, next) {
 
     const pathName = req.path || req.originalUrl || '';
 
-    // 2. Check excluded endpoints
-    const isExcluded = EXCLUDED_PATHS.some((excluded) => pathName.startsWith(excluded)) ||
+    // 2. Check excluded endpoints (version check endpoint MUST ALWAYS BE ACCESSIBLE)
+    const isExcluded =
+      EXCLUDED_PATHS.some((excluded) => pathName.startsWith(excluded)) ||
+      pathName.includes('/app-version/check') ||
       pathName.includes('/app-version/admin') ||
       pathName.includes('/app-version/download');
 

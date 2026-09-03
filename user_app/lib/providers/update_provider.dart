@@ -100,11 +100,12 @@ class UpdateProvider extends ChangeNotifier {
     }
   }
 
+  bool _isChecking = false;
   Future<void>? _initFuture;
 
-  Future<void> initPackageInfo({String appType = 'USER_APP'}) async {
-    if (_isInitialized) return;
-    if (_initFuture != null) return _initFuture;
+  Future<void> initPackageInfo({String appType = 'USER_APP', bool forceRefresh = false}) async {
+    if (_isInitialized && !forceRefresh) return;
+    if (_initFuture != null && !forceRefresh) return _initFuture;
 
     _initFuture = _doInitPackageInfo(appType);
     return _initFuture;
@@ -137,12 +138,21 @@ class UpdateProvider extends ChangeNotifier {
   }
 
   /// Perform version check against backend API endpoint
-  Future<void> checkForUpdates() async {
-    if (!_isInitialized) {
-      await initPackageInfo(appType: _appType);
-    }
+  Future<void> checkForUpdates({bool forceRefreshPackageInfo = false}) async {
+    if (_isChecking) return; // Prevent concurrent version-check recursion
 
+    _isChecking = true;
     try {
+      // Re-read installed app build number from native platform OS binary
+      if (!kIsWeb) {
+        try {
+          final info = await PackageInfo.fromPlatform();
+          if (info.version.isNotEmpty) _currentVersion = info.version;
+          final parsedBuild = int.tryParse(info.buildNumber);
+          if (parsedBuild != null) _currentBuildNumber = parsedBuild;
+        } catch (_) {}
+      }
+
       final queryParams = {
         'appType': _appType,
         'platform': _platform,
@@ -153,8 +163,9 @@ class UpdateProvider extends ChangeNotifier {
       final response = await _apiClient.get('/app-version/check', queryParams: queryParams);
       if (response != null && response['success'] == true && response['data'] != null) {
         final data = response['data'];
-        _updateAvailable = data['updateAvailable'] == true;
-        _forceUpdate = data['forceUpdate'] == true;
+        final bool isAvail = data['updateAvailable'] == true;
+        final bool isForce = data['forceUpdate'] == true;
+
         _latestVersion = data['latestVersion'] ?? _currentVersion;
         _latestBuildNumber = data['latestBuildNumber'] ?? _currentBuildNumber;
         _releaseTitle = data['releaseTitle'] ?? 'New Update Available';
@@ -164,15 +175,32 @@ class UpdateProvider extends ChangeNotifier {
         _fileSizeBytes = data['fileSizeBytes'] ?? 0;
         _expectedSha256 = data['sha256Checksum'];
 
+        // If the installed build actually matches or exceeds requirements, clear force update
+        if (!isAvail && !isForce) {
+          _updateAvailable = false;
+          _forceUpdate = false;
+          _status = DownloadStatus.idle;
+        } else {
+          _updateAvailable = isAvail;
+          _forceUpdate = isForce;
+        }
+
         notifyListeners();
       }
     } catch (e) {
       debugPrint('[UpdateProvider] Update check error (non-fatal): $e');
+    } finally {
+      _isChecking = false;
     }
   }
 
   /// Trigger force update state globally when API interceptor catches APP_UPDATE_REQUIRED
   void triggerForceUpdateFromApi(Map<String, dynamic> data) {
+    // Single-flight lock: ignore duplicate 426 interceptor calls while already in update flow
+    if (_forceUpdate && _status != DownloadStatus.idle) {
+      return;
+    }
+
     _updateAvailable = true;
     _forceUpdate = true;
     _latestVersion = data['latestVersion'] ?? _currentVersion;
@@ -186,7 +214,6 @@ class UpdateProvider extends ChangeNotifier {
 
     notifyListeners();
   }
-
 
   void dismissOptionalUpdate() {
     _dismissedOptional = true;
@@ -202,8 +229,10 @@ class UpdateProvider extends ChangeNotifier {
       return;
     }
 
-    if (_status == DownloadStatus.downloading || _status == DownloadStatus.verifying) {
-      return; // Prevent concurrent duplicate downloads
+    if (_status == DownloadStatus.downloading ||
+        _status == DownloadStatus.verifying ||
+        _status == DownloadStatus.installing) {
+      return; // Prevent concurrent duplicate downloads or install attempts
     }
 
     _status = DownloadStatus.downloading;
@@ -340,6 +369,8 @@ class UpdateProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
+
+    if (_status == DownloadStatus.installing) return; // Prevent duplicate installer launches
 
     _status = DownloadStatus.installing;
     notifyListeners();
