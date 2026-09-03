@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:js_util' as js_util;
-import 'dart:js' as js;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +10,7 @@ import '../../providers/user_payment_provider.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
+import 'web_payment_helper.dart';
 
 class PaymentCheckoutScreen extends StatefulWidget {
   const PaymentCheckoutScreen({super.key});
@@ -198,68 +197,58 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
 
   void _launchRazorpayWebCheckout(String orderId, String keyId, UserPaymentProvider paymentProv) {
     if (kIsWeb) {
-      try {
-        final authUser = Provider.of<AuthProvider>(context, listen: false).user;
-        final int amountInPaise = _amountInRupees * 100;
+      final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+      final int amountInPaise = _amountInRupees * 100;
 
-        js_util.callMethod(
-          js_util.globalThis,
-          'launchRazorpayCheckout',
-          [
-            keyId,
-            orderId,
-            amountInPaise,
-            _productName,
-            'Vridhi Network Membership',
-            authUser?.email ?? '',
-            authUser?.phoneNumber ?? '',
-            js.allowInterop((paymentId, returnedOrderId, signature) async {
-              final success = await paymentProv.verifyPayment(
-                orderId: returnedOrderId ?? orderId,
-                paymentId: paymentId,
-                signature: signature,
+      launchRazorpayWebCheckoutHelper(
+        keyId: keyId,
+        orderId: orderId,
+        amountInPaise: amountInPaise,
+        productName: _productName,
+        userEmail: authUser?.email ?? '',
+        userPhone: authUser?.phoneNumber ?? '',
+        onSuccess: (paymentId, returnedOrderId, signature) async {
+          final success = await paymentProv.verifyPayment(
+            orderId: returnedOrderId.isNotEmpty ? returnedOrderId : orderId,
+            paymentId: paymentId,
+            signature: signature,
+          );
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('🎉 Razorpay Live Payment Verified! Redirecting to Dashboard...'),
+                  backgroundColor: AppTheme.neonGreen,
+                ),
               );
-              if (mounted) {
-                setState(() => _isProcessing = false);
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('🎉 Razorpay Live Payment Verified! Redirecting to Dashboard...'),
-                      backgroundColor: AppTheme.neonGreen,
-                    ),
-                  );
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    AppRoutes.dashboard,
-                    (route) => false,
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(paymentProv.errorMessage ?? 'Payment verification failed'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
-              }
-            }),
-            js.allowInterop((errorMsg) {
-              if (mounted) {
-                setState(() => _isProcessing = false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(errorMsg?.toString() ?? 'Payment cancelled.'),
-                    backgroundColor: Colors.amber,
-                  ),
-                );
-              }
-            }),
-          ],
-        );
-      } catch (err) {
-        debugPrint('Error launching web Razorpay: $err');
-        _showSimulatedCheckoutModal(orderId, keyId, paymentProv);
-      }
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRoutes.dashboard,
+                (route) => false,
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(paymentProv.errorMessage ?? 'Payment verification failed'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
+          }
+        },
+        onError: (errorMsg) {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMsg),
+                backgroundColor: Colors.amber,
+              ),
+            );
+          }
+        },
+      );
     } else {
       _showSimulatedCheckoutModal(orderId, keyId, paymentProv);
     }
