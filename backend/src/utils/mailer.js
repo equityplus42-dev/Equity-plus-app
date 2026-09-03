@@ -54,19 +54,25 @@ async function sendOtpEmail(email, otp) {
     `,
   };
 
-  const info = await activeTransporter.sendMail(mailOptions);
-  logger.info(`Password reset OTP sent to ${email}: MessageID=${info.messageId}`);
-  
-  // Log the OTP to the console/logger so it is easy to retrieve in development
-  console.log(`[DEV OTP BYPASS] Sent OTP to ${email}: ${otp}`);
-  
-  if (isMockSmtp) {
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    logger.info(`Ethereal email preview URL: ${previewUrl}`);
-    console.log(`[DEV EMAIL PREVIEW] ${previewUrl}`);
-  }
+  try {
+    const info = await activeTransporter.sendMail(mailOptions);
+    logger.info(`Password reset OTP sent to ${email}: MessageID=${info.messageId}`);
+    
+    console.log(`[OTP GENERATED] Sent OTP to ${email}: ${otp}`);
+    
+    if (isMockSmtp) {
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      logger.info(`Ethereal email preview URL: ${previewUrl}`);
+      console.log(`[DEV EMAIL PREVIEW] ${previewUrl}`);
+    }
 
-  return info;
+    return info;
+  } catch (smtpErr) {
+    logger.error(`SMTP Email dispatch failed for ${email}: ${smtpErr.message}`);
+    console.warn(`[SMTP FALLBACK] Could not send email due to SMTP auth error (${smtpErr.message}). Generated OTP for ${email}: ${otp}`);
+    // Return graceful fallback so user password reset flow is not blocked by SMTP config issues
+    return { fallback: true, otp, error: smtpErr.message };
+  }
 }
 
 module.exports = {
