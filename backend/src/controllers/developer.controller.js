@@ -155,32 +155,48 @@ class DeveloperController {
         });
       }
 
-      // Create dummy approved payment
+      const nowTs = Date.now();
+      const orderId = `order_TEST_${nowTs}`;
+      const paymentIdStr = `pay_demo_bypass_${nowTs}`;
+
+      const defaultProduct = await prisma.product.findFirst({ where: { status: 'ACTIVE' } }) ||
+        await prisma.product.findFirst();
+
+      // Create dummy approved payment record
       const payment = await prisma.payment.create({
         data: {
           userId: testUser.id,
-          amount: 999.00,
+          productId: defaultProduct?.id || null,
+          orderId,
+          paymentId: paymentIdStr,
+          amount: defaultProduct?.pricePaise || 999900,
           currency: 'INR',
           status: 'SUCCESS',
-          paymentMethod: 'TEST_BYPASS',
-          razorpayOrderId: `TEST_ORDER_${Date.now()}`,
-          razorpayPaymentId: `TEST_PAY_${Date.now()}`
+          verifiedAt: new Date(),
         }
       });
 
       // Grant product access
-      const defaultProduct = await prisma.product.findFirst({ where: { status: 'ACTIVE' } });
       if (defaultProduct) {
-        await prisma.userProductAccess.upsert({
-          where: { userId_productId: { userId: testUser.id, productId: defaultProduct.id } },
-          update: { status: 'ACTIVE', paymentId: payment.id },
-          create: {
-            userId: testUser.id,
-            productId: defaultProduct.id,
-            paymentId: payment.id,
-            status: 'ACTIVE'
-          }
+        const existingAccess = await prisma.userProductAccess.findFirst({
+          where: { userId: testUser.id, productId: defaultProduct.id }
         });
+
+        if (existingAccess) {
+          await prisma.userProductAccess.update({
+            where: { id: existingAccess.id },
+            data: { status: 'ACTIVE', paymentId: payment.id }
+          });
+        } else {
+          await prisma.userProductAccess.create({
+            data: {
+              userId: testUser.id,
+              productId: defaultProduct.id,
+              paymentId: payment.id,
+              status: 'ACTIVE'
+            }
+          });
+        }
       }
 
       // Trigger video snapshot so course videos unlock immediately
@@ -195,8 +211,9 @@ class DeveloperController {
       return ApiResponse.success(res, 'Payment bypassed & full course access unlocked for test@gmail.com! ⚡', {
         userId: testUser.id,
         email: testUser.email,
+        orderId,
+        paymentId: paymentIdStr,
         paymentStatus: 'SUCCESS',
-        paymentMethod: 'TEST_BYPASS'
       });
     } catch (error) {
       next(error);
