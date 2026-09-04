@@ -32,5 +32,5 @@ module.exports = {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
   LOG_LEVEL: process.env.LOG_LEVEL,
-  APP_DOMAIN: process.env.APP_DOMAIN || 'referral-system.com',
+  APP_DOMAIN: process.env.APP_DOMAIN || 'vridhi-network-app.vercel.app',
 };

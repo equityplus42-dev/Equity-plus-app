@@ -3,7 +3,7 @@ class ApiConstants {
   // Set to false to connect to the live Vercel backend.
   static const bool useLocalBackend = false;
 
-  static const String _prodUrl = 'https://equity-plus-app.vercel.app/api/v1';
+  static const String _prodUrl = 'https://vridhi-network-app.vercel.app/api/v1';
 
   // Candidate Base URLs for local ADB, Wi-Fi, and production resilience
   static const List<String> candidateBaseUrls = [
@@ -11,7 +11,7 @@ class ApiConstants {
     'http://192.168.31.64:5000/api/v1',
     'http://192.168.31.217:5000/api/v1',
     'http://10.0.2.2:5000/api/v1',
-    'https://equity-plus-app.vercel.app/api/v1',
+    'https://vridhi-network-app.vercel.app/api/v1',
   ];
 
   static String activeBaseUrl = useLocalBackend ? candidateBaseUrls.first : _prodUrl;

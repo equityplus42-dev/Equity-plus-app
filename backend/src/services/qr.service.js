@@ -7,8 +7,9 @@ const decodeQR = require('./qr/decodeQR');
  */
 class QrService {
   async generateReferralQR(referralCode) {
-    // Keep compatibility for legacy controllers if needed
-    const referralLink = `https://referral-system.com/register?ref=${referralCode}`;
+    const env = require('../config/env');
+    const domain = env.APP_DOMAIN || 'vridhi-network-app.vercel.app';
+    const referralLink = `https://${domain}/download?ref=${referralCode}`;
     return generateQR(referralLink);
   }
 }
