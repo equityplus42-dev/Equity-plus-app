@@ -280,6 +280,92 @@ class VideoService {
       throw new Error('User not found');
     }
 
+    const isTestUser = Boolean(user.isTestUser || user.email === 'test@gmail.com');
+
+    // DEVELOPER TEST USER OVERRIDE:
+    // Can view all language categories and all active videos inside them without any locks
+    if (isTestUser) {
+      const availableLanguages = await prisma.language.findMany({
+        orderBy: [{ name: 'asc' }],
+        select: { id: true, name: true, code: true, isDefault: true },
+      });
+
+      const { languageId: requestedLanguageId } = queryOptions;
+      const whereClause = {
+        isActive: true,
+        status: { in: ['AVAILABLE', 'ASSIGNED', 'IN_USE'] },
+      };
+
+      if (requestedLanguageId) {
+        whereClause.languageId = requestedLanguageId;
+      }
+
+      if (query && query.trim().length > 0) {
+        whereClause.OR = [
+          { title: { contains: query.trim(), mode: 'insensitive' } },
+          { description: { contains: query.trim(), mode: 'insensitive' } },
+        ];
+      }
+
+      let orderBy = [{ orderIndex: 'asc' }, { createdAt: 'asc' }];
+      if (sortBy === 'NEWEST') orderBy = [{ createdAt: 'desc' }];
+      if (sortBy === 'OLDEST') orderBy = [{ createdAt: 'asc' }];
+
+      const allActiveVideos = await prisma.video.findMany({
+        where: whereClause,
+        orderBy,
+        include: { language: true, product: true },
+      });
+
+      const userProgressRecords = await prisma.userVideoProgress.findMany({
+        where: { userId },
+      });
+      const progressMap = new Map(userProgressRecords.map((r) => [r.videoId, r]));
+
+      const unlockedVideos = allActiveVideos.map((v) => {
+        const prog = progressMap.get(v.id);
+        const isR2Video = Boolean(v.r2ObjectKey) ||
+          (v.videoUrl && (v.videoUrl.includes('r2.cloudflarestorage.com') || v.videoUrl.includes('.r2.dev')));
+
+        return {
+          id: v.id,
+          title: v.title,
+          description: v.description,
+          videoUrl: isR2Video ? null : v.videoUrl,
+          thumbnailUrl: v.thumbnailUrl,
+          duration: v.duration,
+          languageId: v.languageId,
+          languageName: v.language.name,
+          productName: v.product?.name || null,
+          status: v.status,
+          orderIndex: v.orderIndex,
+          provider: v.provider || (isR2Video ? 'CLOUDFLARE_R2' : 'CLOUDINARY'),
+          watchedSecs: prog ? prog.watchedSecs : 0,
+          isCompleted: prog ? prog.isCompleted : false,
+          isLocked: false,
+          unlockNotice: null,
+          createdAt: v.createdAt,
+        };
+      });
+
+      return {
+        needsLanguageSelection: false,
+        isTestUser: true,
+        availableLanguages,
+        assignedLanguage: user.profile?.assignedLanguage || availableLanguages[0] || null,
+        assignedProduct: user.profile?.assignedProduct || null,
+        isDisclaimerAccepted: true,
+        disclaimerNeedsReacceptance: false,
+        currentDisclaimerVersion: 1,
+        userSnapshot: null,
+        snapshot: null,
+        progress: null,
+        unlockedVideos,
+        lockedVideos: [],
+        videos: unlockedVideos,
+      };
+    }
+
     // State 4 Normalization: If languageSelectionRequired is true BUT assignedLanguageId is already set,
     // normalize DB to false safely without altering assignedLanguageId.
     if (user.profile?.languageSelectionRequired && user.profile?.assignedLanguageId) {
@@ -696,39 +782,43 @@ class VideoService {
       throw new Error('Video unavailable or inactive');
     }
 
-    // Verify language assignment
-    if (user.profile?.assignedLanguageId && user.profile.assignedLanguageId !== video.languageId) {
-      throw new Error('Video language does not match user assigned language');
-    }
+    const isTestUser = Boolean(user.isTestUser || user.email === 'test@gmail.com');
 
-    // Verify product access authorization server-side
-    if (video.productId) {
-      const productAccessService = require('./productAccess.service');
-      const hasAccess = await productAccessService.hasActiveAccess(userId, video.productId);
-      if (!hasAccess) {
-        throw new Error('Active product access required to stream this video');
+    if (!isTestUser) {
+      // Verify language assignment
+      if (user.profile?.assignedLanguageId && user.profile.assignedLanguageId !== video.languageId) {
+        throw new Error('Video language does not match user assigned language');
       }
-    }
 
-    // Check if admin manually revoked access to this video for this user
-    const revokedAssignment = await prisma.videoAssignment.findFirst({
-      where: { userId, videoId, status: 'REVOKED' },
-    });
-    if (revokedAssignment) {
-      throw new Error('Access to this video has been revoked for your account');
-    }
+      // Verify product access authorization server-side
+      if (video.productId) {
+        const productAccessService = require('./productAccess.service');
+        const hasAccess = await productAccessService.hasActiveAccess(userId, video.productId);
+        if (!hasAccess) {
+          throw new Error('Active product access required to stream this video');
+        }
+      }
 
-    // Verify snapshot permission and direct assignment
-    const snapshot = await this.getOrCreateUserSnapshot(userId);
-    const isSnapshotVideo = snapshot.snapshotVideos.some((sv) => sv.videoId === videoId);
+      // Check if admin manually revoked access to this video for this user
+      const revokedAssignment = await prisma.videoAssignment.findFirst({
+        where: { userId, videoId, status: 'REVOKED' },
+      });
+      if (revokedAssignment) {
+        throw new Error('Access to this video has been revoked for your account');
+      }
 
-    const directAssignment = await prisma.videoAssignment.findFirst({
-      where: { userId, videoId, status: 'ACTIVE' },
-    });
-    const isDirectAssigned = Boolean(directAssignment);
+      // Verify snapshot permission and direct assignment
+      const snapshot = await this.getOrCreateUserSnapshot(userId);
+      const isSnapshotVideo = snapshot.snapshotVideos.some((sv) => sv.videoId === videoId);
 
-    if (!isSnapshotVideo && !snapshot.newVideosUnlocked && !isDirectAssigned) {
-      throw new Error('Video is locked until 25% learning progress or 30 days');
+      const directAssignment = await prisma.videoAssignment.findFirst({
+        where: { userId, videoId, status: 'ACTIVE' },
+      });
+      const isDirectAssigned = Boolean(directAssignment);
+
+      if (!isSnapshotVideo && !snapshot.newVideosUnlocked && !isDirectAssigned) {
+        throw new Error('Video is locked until 25% learning progress or 30 days');
+      }
     }
 
     // ── Determine provider and generate playback URL ──────────────────────────
