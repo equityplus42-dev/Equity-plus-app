@@ -3,3 +3,9 @@ node_modules
 .env
 
 /generated/prisma
+
+# Scratch, uploads & APK binaries
+scratch/
+uploads/
+src/uploads/
+*.apk

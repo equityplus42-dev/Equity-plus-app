@@ -95,9 +95,17 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# ── Uploads / Temp ────────────────────────────────────────────────────────────
+# ── Uploads / Temp / Scratch ──────────────────────────────────────────────────
+uploads/
+backend/uploads/
+backend/src/uploads/
 backend/src/uploads/temp/*
 !backend/src/uploads/temp/.gitkeep
+scratch/
+backend/scratch/
+
+# Binary APK builds
+*.apk
 
 # ── Test artifacts ────────────────────────────────────────────────────────────
 *.lcov

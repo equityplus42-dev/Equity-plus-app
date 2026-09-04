@@ -281,6 +281,7 @@ class UpdateProvider extends ChangeNotifier {
       final stopwatch = Stopwatch()..start();
       int lastBytes = 0;
       int lastTimeMs = 0;
+      double lastNotifiedProgress = 0.0;
 
       await for (final chunk in response.stream) {
         _receivedBytes += chunk.length;
@@ -291,26 +292,37 @@ class UpdateProvider extends ChangeNotifier {
         }
 
         final elapsedMs = stopwatch.elapsedMilliseconds;
-        if (elapsedMs - lastTimeMs > 500) {
-          final diffBytes = _receivedBytes - lastBytes;
-          final diffSecs = (elapsedMs - lastTimeMs) / 1000.0;
-          if (diffSecs > 0) {
-            final bytesPerSec = diffBytes / diffSecs;
-            if (bytesPerSec > 1024 * 1024) {
-              _downloadSpeed = '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
-            } else {
-              _downloadSpeed = '${(bytesPerSec / 1024).toStringAsFixed(0)} KB/s';
-            }
-          }
-          lastBytes = _receivedBytes;
-          lastTimeMs = elapsedMs;
-        }
+        final timePassed = (elapsedMs - lastTimeMs) >= 500;
+        final progressPassed = (_progress - lastNotifiedProgress) >= 0.01;
 
-        notifyListeners();
+        if (timePassed || progressPassed) {
+          if (elapsedMs - lastTimeMs > 0) {
+            final diffBytes = _receivedBytes - lastBytes;
+            final diffSecs = (elapsedMs - lastTimeMs) / 1000.0;
+            if (diffSecs > 0) {
+              final bytesPerSec = diffBytes / diffSecs;
+              if (bytesPerSec > 1024 * 1024) {
+                _downloadSpeed = '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+              } else {
+                _downloadSpeed = '${(bytesPerSec / 1024).toStringAsFixed(0)} KB/s';
+              }
+            }
+            lastBytes = _receivedBytes;
+            lastTimeMs = elapsedMs;
+          }
+          lastNotifiedProgress = _progress;
+          notifyListeners();
+        }
       }
 
+      await sink.flush();
       await sink.close();
       stopwatch.stop();
+
+      // Ensure final 100% download state is notified to UI before verification
+      _progress = 1.0;
+      if (_totalBytes > 0) _receivedBytes = _totalBytes;
+      notifyListeners();
 
       _downloadedFilePath = file.path;
 

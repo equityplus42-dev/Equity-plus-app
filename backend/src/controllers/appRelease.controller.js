@@ -117,15 +117,81 @@ class AppReleaseController {
   async downloadFile(req, res, next) {
     try {
       const { appType, version, filename } = req.params;
-      const filePath = path.join(__dirname, '../../uploads/releases', appType.toLowerCase(), version, filename);
 
-      if (!fs.existsSync(filePath)) {
-        return ApiResponse.error(res, 'Requested APK file was not found on server', 404);
+      // 0. Validate path parameters against strict character whitelist
+      const validSegmentRegex = /^[a-zA-Z0-9._-]+$/;
+      if (
+        !appType || !validSegmentRegex.test(appType) ||
+        !version || !validSegmentRegex.test(version) ||
+        !filename || !validSegmentRegex.test(filename)
+      ) {
+        return ApiResponse.error(res, 'Invalid download request path parameters', 400);
       }
 
-      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      return res.sendFile(filePath);
+      const normalizedAppType = appType.toUpperCase();
+
+      // 1. Enforce canonical resolved path boundary check for local file storage
+      const allowedDir = path.resolve(__dirname, '../../uploads/releases');
+      const filePath = path.resolve(
+        allowedDir,
+        appType.toLowerCase(),
+        version,
+        filename
+      );
+
+      if (!filePath.startsWith(allowedDir + path.sep)) {
+        return ApiResponse.error(res, 'Access denied: Path traversal boundary violated', 400);
+      }
+
+      // If local file exists, serve it
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.sendFile(filePath);
+      }
+
+      // 2. Stream from Cloudflare R2 bucket if r2ObjectKey exists for this release
+      const prisma = require('../config/database');
+      const release = await prisma.appRelease.findFirst({
+        where: { appType: normalizedAppType, version },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      let objectKey = release?.r2ObjectKey;
+      if (!objectKey && release?.downloadUrl) {
+        const cloudflareR2Service = require('../services/cloudflareR2.service');
+        objectKey = cloudflareR2Service.extractR2ObjectKeyFromUrl(release.downloadUrl);
+      }
+
+      if (objectKey) {
+        const cloudflareR2Service = require('../services/cloudflareR2.service');
+        const s3Client = cloudflareR2Service.getS3Client();
+        if (s3Client) {
+          const { GetObjectCommand } = require('@aws-sdk/client-s3');
+          const command = new GetObjectCommand({
+            Bucket: cloudflareR2Service.bucketName,
+            Key: objectKey,
+          });
+
+          const r2Response = await s3Client.send(command);
+
+          // Register client-disconnect cleanup to destroy the AWS SDK readable stream
+          res.on('close', () => {
+            if (r2Response.Body && typeof r2Response.Body.destroy === 'function') {
+              r2Response.Body.destroy();
+            }
+          });
+
+          res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+          if (r2Response.ContentLength) {
+            res.setHeader('Content-Length', r2Response.ContentLength);
+          }
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          return r2Response.Body.pipe(res);
+        }
+      }
+
+      return ApiResponse.error(res, 'Requested APK file was not found on server or R2 storage', 404);
     } catch (err) {
       next(err);
     }

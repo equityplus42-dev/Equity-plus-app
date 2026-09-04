@@ -59,16 +59,39 @@ class AppReleaseService {
     // Force update if obsolete OR if the latest release explicitly sets forceUpdate=true
     const mustForceUpdate = obsolete || (latestRelease.forceUpdate && updateAvail);
 
-    // Generate active Cloudflare R2 download URL if r2ObjectKey exists
+    // Generate active Cloudflare R2 download URL if r2ObjectKey exists or can be extracted
     let activeDownloadUrl = latestRelease.downloadUrl;
-    if (latestRelease.r2ObjectKey && cloudflareR2Service.isConfigured()) {
+    let targetR2Key = latestRelease.r2ObjectKey;
+
+    if (!targetR2Key && latestRelease.downloadUrl) {
+      targetR2Key = cloudflareR2Service.extractR2ObjectKeyFromUrl(latestRelease.downloadUrl);
+      if (targetR2Key) {
+        // Auto-heal database record by storing extracted r2ObjectKey
+        try {
+          await appReleaseRepository.update(latestRelease.id, { r2ObjectKey: targetR2Key });
+        } catch (err) {
+          logger.warn(`[AppReleaseService] Non-fatal error auto-healing r2ObjectKey: ${err.message}`);
+        }
+      }
+    }
+
+    if (targetR2Key && cloudflareR2Service.isConfigured()) {
       const isCustomPublicDomain = cloudflareR2Service.publicDomain && !cloudflareR2Service.publicDomain.includes('cloudflarestorage.com');
       if (isCustomPublicDomain) {
         const domain = cloudflareR2Service.publicDomain.replace(/\/$/, '');
-        activeDownloadUrl = `${domain}/${latestRelease.r2ObjectKey}`;
+        activeDownloadUrl = `${domain}/${targetR2Key}`;
       } else {
-        const freshR2Url = await cloudflareR2Service.generatePlaybackUrl(latestRelease.r2ObjectKey, 604800);
-        if (freshR2Url) activeDownloadUrl = freshR2Url;
+        // Generate fresh temporary 1-hour presigned GET URL for direct R2 download (bypasses Vercel/Node bandwidth limits)
+        const freshR2Url = await cloudflareR2Service.generatePlaybackUrl(targetR2Key, 3600);
+        if (freshR2Url) {
+          activeDownloadUrl = freshR2Url;
+        } else {
+          // Streaming backend fallback if R2 signed URL generation fails
+          const domain = process.env.APP_DOMAIN || 'localhost:5000';
+          const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+          const apkName = latestRelease.apkFileName || `${normalizedAppType.toLowerCase()}-${latestRelease.version}.apk`;
+          activeDownloadUrl = `${protocol}://${domain}/api/v1/app-version/download-file/${normalizedAppType.toLowerCase()}/${latestRelease.version}/${apkName}`;
+        }
       }
     }
 
@@ -166,7 +189,12 @@ class AppReleaseService {
     let finalDownloadUrl = providedDownloadUrl || null;
     let finalChecksum = providedChecksum || null;
     let fileSize = null;
-    let r2ObjectKey = null;
+    let r2ObjectKey = payload.r2ObjectKey || null;
+
+    if (!r2ObjectKey && providedDownloadUrl) {
+      r2ObjectKey = cloudflareR2Service.extractR2ObjectKeyFromUrl(providedDownloadUrl);
+    }
+
     let apkFileName = providedApkFileName || `${normalizedAppType.toLowerCase()}-${version}.apk`;
     const packageName = providedPackageName || (normalizedAppType === 'USER_APP' ? 'com.vridhi.userapp' : 'com.vridhi.adminapp');
 
