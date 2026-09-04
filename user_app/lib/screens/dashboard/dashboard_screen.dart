@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/user_payment_provider.dart';
+import '../../core/constants/api_constants.dart';
 import '../../widgets/floating_campaign_ad.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -55,8 +56,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _shareReferralLink(String code) {
+    final domain = ApiConstants.baseUrl.replaceAll('/api/v1', '');
     Share.share(
-      'Join my Vridhi Network! Sign up using my code $code at: https://referral-system.com/register?ref=$code',
+      'Join my Vridhi Network! Download the User App and sign up using my referral code $code: $domain/download?ref=$code',
       subject: 'Vridhi Network Invite',
     );
   }

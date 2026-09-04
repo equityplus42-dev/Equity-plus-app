@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/network/api_client.dart';
+import '../../services/deep_link_service.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -65,6 +66,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _fetchLanguages();
+    _loadDeferredReferralCode();
+  }
+
+  Future<void> _loadDeferredReferralCode() async {
+    final code = await DeepLinkService().getOrRecoverPendingReferralCode();
+    if (code != null && code.isNotEmpty && mounted) {
+      if (_refCodeController.text.isEmpty) {
+        setState(() {
+          _refCodeController.text = code;
+        });
+      }
+    }
   }
 
   Future<void> _fetchLanguages() async {
@@ -120,6 +133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
+      await DeepLinkService().clearPendingReferralCode();
       final user = authProvider.user;
       final bool hasKyc = user != null &&
           user.panNumber != null &&

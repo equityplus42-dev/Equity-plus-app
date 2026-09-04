@@ -103,6 +103,12 @@ app.get('/api/docs', (req, res) => {
   res.send(swaggerHtml);
 });
 
+const landingController = require('./controllers/landing.controller');
+
+// Public Web Landing & Referral APK Download Endpoints
+app.get('/download', (req, res, next) => landingController.handleReferralLanding(req, res, next));
+app.get('/r/:refCode', (req, res, next) => landingController.handleReferralLanding(req, res, next));
+
 // 6. Bind API routes (mounted under /api/v1/ via the routes aggregator)
 app.use('/api', apiRouter);
 

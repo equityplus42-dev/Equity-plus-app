@@ -56,6 +56,36 @@ class ReferralController {
       next(error);
     }
   }
+
+  /**
+   * Public deferred referral lookup by client IP
+   * GET /api/v1/referrals/deferred-lookup
+   */
+  async getDeferredReferral(req, res, next) {
+    try {
+      const ipAddress = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1')
+        .toString()
+        .split(',')[0]
+        .trim();
+
+      const prisma = require('../config/database');
+      const deferred = await prisma.deferredReferral.findFirst({
+        where: {
+          ipAddress,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!deferred) {
+        return ApiResponse.success(res, 'No deferred referral found', { referralCode: null });
+      }
+
+      return ApiResponse.success(res, 'Deferred referral code retrieved', { referralCode: deferred.referralCode });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new ReferralController();

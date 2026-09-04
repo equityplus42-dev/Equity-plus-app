@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:async';
 import '../../widgets/change_password_dialog.dart';
+import '../../core/constants/api_constants.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -60,8 +61,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _shareReferralLink(String code) {
+    final domain = ApiConstants.baseUrl.replaceAll('/api/v1', '');
     Share.share(
-      'Join my Vridhi Network! Sign up using my code $code at: https://referral-system.com/register?ref=$code',
+      'Join my Vridhi Network! Download the User App and sign up using my referral code $code: $domain/download?ref=$code',
       subject: 'Vridhi Network Invite',
     );
   }

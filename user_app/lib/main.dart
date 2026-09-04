@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app.dart';
 import 'core/storage/storage_service.dart';
 import 'providers/update_provider.dart';
+import 'services/deep_link_service.dart';
 
 void main() async {
   // Ensure framework services are active
@@ -14,6 +15,7 @@ void main() async {
   await storage.init();
 
   await UpdateProvider().initPackageInfo(appType: 'USER_APP');
+  await DeepLinkService().initDeepLinks();
 
   runApp(const ReferralApp());
 }
