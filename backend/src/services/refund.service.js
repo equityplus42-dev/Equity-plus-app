@@ -122,7 +122,15 @@ class RefundService {
    * Admin: Get all refund requests
    */
   async getAdminRefundRequests({ status, limit = 50, page = 1 }) {
-    const where = {};
+    const testUserFilter = {
+      isTestUser: false,
+      email: { not: 'test@gmail.com' },
+    };
+
+    const where = {
+      user: testUserFilter,
+    };
+
     if (status) {
       where.status = status;
     }

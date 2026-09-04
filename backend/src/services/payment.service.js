@@ -239,15 +239,30 @@ class PaymentService {
    * Admin: Get global payments list
    */
   async getAdminPayments({ status, search, limit = 50, page = 1 }) {
-    const where = {};
+    const testUserFilter = {
+      isTestUser: false,
+      email: { not: 'test@gmail.com' },
+    };
+
+    const where = {
+      user: testUserFilter,
+    };
+
     if (status) {
       where.status = status;
     }
-    if (search) {
-      where.OR = [
-        { orderId: { contains: search } },
-        { paymentId: { contains: search } },
-        { user: { email: { contains: search } } },
+
+    if (search && search.trim().length > 0) {
+      const q = search.trim();
+      where.AND = [
+        { user: testUserFilter },
+        {
+          OR: [
+            { orderId: { contains: q } },
+            { paymentId: { contains: q } },
+            { user: { email: { contains: q } } },
+          ],
+        },
       ];
     }
 
