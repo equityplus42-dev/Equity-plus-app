@@ -140,6 +140,9 @@ class UserVideoProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  bool _isTestUser = false;
+  String? _selectedLanguageId;
+
   List<UserVideoModel> get unlockedVideos => _unlockedVideos;
   List<UserVideoModel> get lockedVideos => _lockedVideos;
   List<UserVideoModel> get allVideos => [..._unlockedVideos, ..._lockedVideos];
@@ -148,6 +151,9 @@ class UserVideoProvider extends ChangeNotifier {
   bool get isDisclaimerAccepted => _isDisclaimerAccepted;
   bool get disclaimerNeedsReacceptance => _disclaimerNeedsReacceptance;
   int get currentDisclaimerVersion => _currentDisclaimerVersion;
+
+  bool get isTestUser => _isTestUser;
+  String? get selectedLanguageId => _selectedLanguageId;
 
   bool get needsLanguageSelection => _needsLanguageSelection;
   List<Map<String, dynamic>> get availableLanguages => _availableLanguages;
@@ -158,14 +164,24 @@ class UserVideoProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchUserVideos() async {
+  Future<void> fetchUserVideos({String? languageId}) async {
     _isLoading = true;
     _errorMessage = null;
+    if (languageId != null) {
+      _selectedLanguageId = languageId;
+    }
     notifyListeners();
 
     try {
-      final response = await _apiClient.get(ApiConstants.userVideos);
+      String endpoint = ApiConstants.userVideos;
+      if (_selectedLanguageId != null && _selectedLanguageId!.isNotEmpty) {
+        endpoint += '?languageId=$_selectedLanguageId';
+      }
+
+      final response = await _apiClient.get(endpoint);
       final data = response['data'] ?? {};
+
+      _isTestUser = data['isTestUser'] == true;
 
       _needsLanguageSelection = data['needsLanguageSelection'] == true;
       if (data['availableLanguages'] != null) {
@@ -195,10 +211,15 @@ class UserVideoProvider extends ChangeNotifier {
       final snapshotData = data['userSnapshot'] ?? data['snapshot'];
       if (snapshotData != null) {
         _snapshot = SnapshotModel.fromJson(snapshotData);
+      } else {
+        _snapshot = null;
       }
+
       final progressData = data['userSnapshot'] ?? data['progress'];
       if (progressData != null) {
         _progress = SnapshotProgressModel.fromJson(progressData);
+      } else {
+        _progress = null;
       }
 
       final List rawUnlocked = data['unlockedVideos'] ?? [];
@@ -214,6 +235,11 @@ class UserVideoProvider extends ChangeNotifier {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
     }
+  }
+
+  Future<void> filterByLanguage(String? languageId) async {
+    _selectedLanguageId = languageId;
+    await fetchUserVideos();
   }
 
   Future<bool> selectLanguage(String languageId) async {

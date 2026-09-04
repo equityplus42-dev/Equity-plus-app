@@ -25,19 +25,6 @@ class VideoService {
    * Get or create permanent UserVideoSnapshot on first video hub entry
    */
   async getOrCreateUserSnapshot(userId) {
-    let snapshot = await prisma.userVideoSnapshot.findUnique({
-      where: { userId },
-      include: {
-        snapshotVideos: true,
-        language: true,
-      },
-    });
-
-    if (snapshot) {
-      await this.syncUserInitialVideoAssignments(userId, snapshot);
-      return snapshot;
-    }
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -49,6 +36,23 @@ class VideoService {
 
     if (!user) {
       throw new Error('User not found');
+    }
+
+    if (user.isTestUser || user.email === 'test@gmail.com') {
+      return null;
+    }
+
+    let snapshot = await prisma.userVideoSnapshot.findUnique({
+      where: { userId },
+      include: {
+        snapshotVideos: true,
+        language: true,
+      },
+    });
+
+    if (snapshot) {
+      await this.syncUserInitialVideoAssignments(userId, snapshot);
+      return snapshot;
     }
 
     let languageId = user.profile?.assignedLanguageId;

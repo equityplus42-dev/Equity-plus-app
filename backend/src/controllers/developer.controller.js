@@ -199,8 +199,14 @@ class DeveloperController {
         }
       }
 
-      // Trigger video snapshot so course videos unlock immediately
-      await videoService.getUserVideos(testUser.id, { triggerSnapshot: true });
+      // Ensure snapshot is null for test user so all videos remain dynamically unlocked
+      const existingSnapshot = await prisma.userVideoSnapshot.findUnique({ where: { userId: testUser.id } });
+      if (existingSnapshot) {
+        await prisma.snapshotVideo.deleteMany({ where: { snapshotId: existingSnapshot.id } });
+        await prisma.userVideoSnapshot.delete({ where: { id: existingSnapshot.id } });
+      }
+
+      await videoService.getUserVideos(testUser.id);
 
       await auditLogService.log(req, 'TEST_USER_PAYMENT_BYPASSED', testUser.id, {
         paymentId: payment.id,
