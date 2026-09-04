@@ -1,3 +1,7 @@
+const prisma = require('../config/database');
+const appReleaseService = require('../services/appRelease.service');
+const logger = require('../utils/logger');
+
 function extractClientIp(req) {
   const rawIp = req.headers['x-real-ip'] || 
                 (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0] : null) || 
