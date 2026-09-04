@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -15,7 +16,7 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -25,13 +26,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _refCodeController = TextEditingController();
   bool _obscurePassword = true;
   bool _initializedWithArgs = false;
+  StreamSubscription<String>? _codeSubscription;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_initializedWithArgs) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      if (args != null && args is String) {
+      if (args != null && args is String && args.isNotEmpty) {
         _refCodeController.text = args;
       }
       _initializedWithArgs = true;
@@ -49,6 +51,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _codeSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _firstNameController.dispose();
@@ -65,8 +69,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchLanguages();
     _loadDeferredReferralCode();
+
+    _codeSubscription = DeepLinkService().referralCodeStream.listen((code) {
+      if (mounted && code.isNotEmpty && _refCodeController.text.isEmpty) {
+        setState(() {
+          _refCodeController.text = code;
+        });
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadDeferredReferralCode();
+    }
   }
 
   Future<void> _loadDeferredReferralCode() async {

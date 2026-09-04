@@ -63,19 +63,36 @@ class ReferralController {
    */
   async getDeferredReferral(req, res, next) {
     try {
-      const ipAddress = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1')
-        .toString()
-        .split(',')[0]
-        .trim();
+      const rawIp = req.headers['x-real-ip'] || 
+                    (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0] : null) || 
+                    req.socket?.remoteAddress || 
+                    req.ip || 
+                    '127.0.0.1';
+      const ipAddress = rawIp.toString().trim().replace(/^::ffff:/, '');
 
       const prisma = require('../config/database');
-      const deferred = await prisma.deferredReferral.findFirst({
+      let deferred = await prisma.deferredReferral.findFirst({
         where: {
           ipAddress,
           expiresAt: { gt: new Date() },
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      // Subnet fallback (/24) for cellular carrier network IP changes
+      if (!deferred && ipAddress.includes('.')) {
+        const ipParts = ipAddress.split('.');
+        if (ipParts.length === 4) {
+          const subnetPrefix = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.`;
+          deferred = await prisma.deferredReferral.findFirst({
+            where: {
+              ipAddress: { startsWith: subnetPrefix },
+              expiresAt: { gt: new Date() },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+        }
+      }
 
       if (!deferred) {
         return ApiResponse.success(res, 'No deferred referral found', { referralCode: null });

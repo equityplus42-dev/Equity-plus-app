@@ -1,6 +1,11 @@
-const prisma = require('../config/database');
-const appReleaseService = require('../services/appRelease.service');
-const logger = require('../utils/logger');
+function extractClientIp(req) {
+  const rawIp = req.headers['x-real-ip'] || 
+                (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0] : null) || 
+                req.socket?.remoteAddress || 
+                req.ip || 
+                '127.0.0.1';
+  return rawIp.toString().trim().replace(/^::ffff:/, '');
+}
 
 class LandingController {
   /**
@@ -29,10 +34,7 @@ class LandingController {
             : referrer.email;
 
           // Record client IP + user-agent for post-install deferred referral attribution
-          const ipAddress = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1')
-            .toString()
-            .split(',')[0]
-            .trim();
+          const ipAddress = extractClientIp(req);
           const userAgent = (req.headers['user-agent'] || '').toString();
 
           try {
@@ -160,13 +162,29 @@ class LandingController {
   </div>
 
   <script>
-    // Copy referral code to clipboard on download click
-    document.getElementById('downloadBtn')?.addEventListener('click', function() {
+    function copyRef() {
       const code = "${refCode}";
-      if (code && navigator.clipboard) {
-        navigator.clipboard.writeText(code).catch(function(err) {});
+      if (!code) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).catch(function() { fallbackCopy(code); });
+      } else {
+        fallbackCopy(code);
       }
-    });
+    }
+    function fallbackCopy(text) {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch (err) {}
+    }
+    window.addEventListener('DOMContentLoaded', copyRef);
+    document.getElementById('downloadBtn')?.addEventListener('click', copyRef);
   </script>
 </body>
 </html>

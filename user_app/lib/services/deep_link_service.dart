@@ -14,6 +14,9 @@ class DeepLinkService {
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _sub;
 
+  final StreamController<String> _codeStreamController = StreamController<String>.broadcast();
+  Stream<String> get referralCodeStream => _codeStreamController.stream;
+
   /// Initialize App Links listener on app cold/warm start
   Future<void> initDeepLinks() async {
     try {
@@ -43,7 +46,7 @@ class DeepLinkService {
       refCode = uri.queryParameters['ref'];
     } else if (uri.pathSegments.isNotEmpty) {
       final lastSeg = uri.pathSegments.last;
-      if (uri.pathSegments.contains('r') || lastSeg.length == 8) {
+      if (uri.pathSegments.contains('r') || lastSeg.length >= 4) {
         refCode = lastSeg;
       }
     }
@@ -55,9 +58,11 @@ class DeepLinkService {
 
   /// Save pending referral code into persistent storage
   Future<void> savePendingReferralCode(String code) async {
+    final cleanCode = code.trim().toUpperCase();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPendingRefCode, code.trim().toUpperCase());
-    debugPrint('[DeepLinkService] Pending referral code saved: ${code.trim().toUpperCase()}');
+    await prefs.setString(_keyPendingRefCode, cleanCode);
+    _codeStreamController.add(cleanCode);
+    debugPrint('[DeepLinkService] Pending referral code saved & broadcasted: $cleanCode');
   }
 
   /// Get or recover pending referral code using multi-layer fallback pipeline
@@ -84,13 +89,27 @@ class DeepLinkService {
       debugPrint('[DeepLinkService] Deferred API lookup non-fatal error: $e');
     }
 
-    // 3. Fallback: Check device Clipboard for uppercase 8-character referral code format
+    // 3. Fallback: Check device Clipboard for referral code, URL parameter, or shared message
     try {
       final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
       final clipText = clipboardData?.text?.trim();
-      if (clipText != null && RegExp(r'^[A-Z0-9]{8}$').hasMatch(clipText)) {
-        await savePendingReferralCode(clipText);
-        return clipText;
+      if (clipText != null && clipText.isNotEmpty) {
+        String? extractedCode;
+        if (clipText.contains('ref=')) {
+          final match = RegExp(r'ref=([A-Za-z0-9_-]+)').firstMatch(clipText);
+          if (match != null) extractedCode = match.group(1);
+        } else if (clipText.contains('/r/')) {
+          final match = RegExp(r'/r/([A-Za-z0-9_-]+)').firstMatch(clipText);
+          if (match != null) extractedCode = match.group(1);
+        } else if (RegExp(r'^[A-Za-z0-9_-]{4,20}$').hasMatch(clipText)) {
+          extractedCode = clipText;
+        }
+
+        if (extractedCode != null && extractedCode.trim().isNotEmpty) {
+          final cleanCode = extractedCode.trim().toUpperCase();
+          await savePendingReferralCode(cleanCode);
+          return cleanCode;
+        }
       }
     } catch (e) {
       debugPrint('[DeepLinkService] Clipboard fallback check error: $e');
