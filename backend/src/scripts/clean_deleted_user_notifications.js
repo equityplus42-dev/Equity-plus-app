@@ -9,28 +9,36 @@ async function main() {
     select: { email: true, id: true }
   });
 
+  const activeUserIds = activeUsers.map(u => u.id);
   const activeEmails = new Set(activeUsers.map(u => u.email.toLowerCase()));
 
-  const allNotifications = await prisma.notification.findMany({
+  // 1. Delete notifications for inactive/deleted user IDs
+  const deletedById = await prisma.notification.deleteMany({
+    where: {
+      userId: { notIn: activeUserIds }
+    }
+  });
+  console.log(`Deleted ${deletedById.count} notifications for inactive/deleted admin/user IDs.`);
+
+  // 2. Delete USER_JOINED notifications for non-existent emails
+  const allJoinedNotifs = await prisma.notification.findMany({
     where: { type: 'USER_JOINED' }
   });
 
   let deletedCount = 0;
-
-  for (const n of allNotifications) {
-    // Extract email from message, e.g., 'New User Registered: "Name" (email@domain.com) joined...'
+  for (const n of allJoinedNotifs) {
     const match = n.message.match(/\(([^)]+)\)/);
     if (match && match[1]) {
       const emailInMsg = match[1].trim().toLowerCase();
       if (!activeEmails.has(emailInMsg)) {
-        await prisma.notification.delete({ where: { id: n.id } });
+        await prisma.notification.deleteMany({ where: { id: n.id } });
         console.log(`Deleted orphaned joining notification for deleted email: "${emailInMsg}"`);
         deletedCount++;
       }
     }
   }
 
-  console.log(`Done! Purged ${deletedCount} orphaned notifications for deleted users.`);
+  console.log(`Done! Purged ${deletedCount} orphaned notifications for deleted user emails.`);
 }
 
 main()

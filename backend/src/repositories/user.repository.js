@@ -129,6 +129,15 @@ class UserRepository {
       },
     });
 
+    const fullName = user.profile ? `${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim() : null;
+    const notificationOrConditions = [
+      { userId: id },
+      { message: { contains: user.email } }
+    ];
+    if (fullName && fullName.length > 2) {
+      notificationOrConditions.push({ message: { contains: fullName } });
+    }
+
     // 2. Permanently hard delete user from main active User table and clean up child records
     await prisma.$transaction([
       prisma.userVideoProgress.deleteMany({ where: { userId: id } }),
@@ -139,10 +148,7 @@ class UserRepository {
       prisma.playbackSession.deleteMany({ where: { userId: id } }),
       prisma.notification.deleteMany({
         where: {
-          OR: [
-            { userId: id },
-            { message: { contains: user.email } }
-          ]
+          OR: notificationOrConditions
         }
       }),
       prisma.referral.deleteMany({ where: { OR: [{ refereeId: id }, { referrerId: id }] } }),
