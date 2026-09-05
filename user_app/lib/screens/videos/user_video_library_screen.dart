@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../providers/user_video_provider.dart';
-import '../../widgets/disclaimer_dialog.dart';
 import '../../widgets/language_selection_modal.dart';
 import 'video_player_screen.dart';
 import '../../core/theme/app_theme.dart';
@@ -59,14 +58,6 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
     }
 
     if (!mounted) return;
-
-    if (!provider.isDisclaimerAccepted || provider.disclaimerNeedsReacceptance) {
-      final accepted = await DisclaimerDialog.show(context);
-      if (!accepted && mounted) {
-        Navigator.of(context).pop(); // Opt out automatically
-        return;
-      }
-    }
 
     if (mounted) {
       setState(() {

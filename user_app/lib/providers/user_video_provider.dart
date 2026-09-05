@@ -133,7 +133,7 @@ class UserVideoProvider extends ChangeNotifier {
   List<UserVideoModel> _lockedVideos = [];
   String? _assignedLanguageName;
   String? _assignedProductName;
-  bool _isDisclaimerAccepted = false;
+  bool _isDisclaimerAccepted = true;
   bool _disclaimerNeedsReacceptance = false;
   int _currentDisclaimerVersion = 1;
 
