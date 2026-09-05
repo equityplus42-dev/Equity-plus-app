@@ -55,9 +55,11 @@ class JoiningSnapshotService {
         },
       });
 
-      // Notify Admins about the new user joining
-      const joinMsg = `New User Registered: "${userName}" (${user.email}) joined on ${new Date(user.createdAt).toLocaleDateString()} using referral code ${user.referralCode || 'N/A'}${referrerName ? ` (Referred by ${referrerName})` : ''}.`;
-      await notificationService.notifyAdmins('New User Joined! 👤', joinMsg, 'USER_JOINED', user.id);
+      // Notify Admins about the new user joining (Only for regular USER registrations)
+      if (user.role === 'USER' && !user.isTestUser && user.email !== 'test@gmail.com') {
+        const joinMsg = `New User Registered: "${userName}" (${user.email}) joined on ${new Date(user.createdAt).toLocaleDateString()} using referral code ${user.referralCode || 'N/A'}${referrerName ? ` (Referred by ${referrerName})` : ''}.`;
+        await notificationService.notifyAdmins('New User Joined! 👤', joinMsg, 'USER_JOINED', user.id);
+      }
 
       return snapshot;
     } catch (err) {
