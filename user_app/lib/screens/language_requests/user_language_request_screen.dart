@@ -40,11 +40,11 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
       final reqRes = await _apiClient.get('/language-requests/my');
       final List reqs = reqRes['data'] ?? [];
 
-      // 3. Fetch user progress status to get current assigned language name
-      final progRes = await _apiClient.get('/videos/progress');
+      // 3. Fetch user videos status to get current assigned language name
+      final progRes = await _apiClient.get('/videos/my');
       final progData = progRes['data'] ?? {};
       final assignedLangObj = progData['assignedLanguage'];
-      final String currentLang = assignedLangObj != null ? assignedLangObj['name'] : 'English';
+      final String currentLang = assignedLangObj != null ? assignedLangObj['name'] : 'Bengali';
       final String? assignedLangId = assignedLangObj != null ? assignedLangObj['id'] : null;
 
       if (mounted) {
@@ -64,7 +64,10 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _currentLanguageName = 'Bengali';
+          _isLoading = false;
+        });
       }
     }
   }
