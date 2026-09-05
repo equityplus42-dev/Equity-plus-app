@@ -90,9 +90,8 @@ class VideoService {
       orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
     });
 
-    // Only snapshot the FIRST 3 videos — remaining videos unlock after 25% watch progress
-    const INITIAL_BATCH_SIZE = 3;
-    const snapshotVideos = activeVideos.slice(0, INITIAL_BATCH_SIZE);
+    // All active videos for the assigned language are included and unlocked
+    const snapshotVideos = activeVideos;
 
     const snapshotVideoCount = snapshotVideos.length;
     const snapshotTotalDurationSeconds = snapshotVideos.reduce(
@@ -582,7 +581,7 @@ class VideoService {
     for (const v of allActiveVideos) {
       const isSnapshotVideo = snapshotVideoIds.includes(v.id);
       const isDirectAssigned = directAssignedVideoIds.has(v.id);
-      const isUnlocked = isSnapshotVideo || isDirectAssigned || evaluatedSnapshot.newVideosUnlocked;
+      const isUnlocked = true;
       const prog = progressMap.get(v.id);
 
       if (isUnlocked) {
