@@ -292,13 +292,24 @@ class AuthService {
    */
   async purgeDeletedUser(userId) {
     try {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      const targetEmail = targetUser?.email || '';
+
       await prisma.$transaction([
         prisma.userVideoProgress.deleteMany({ where: { userId } }),
         prisma.snapshotVideo.deleteMany({ where: { snapshot: { userId } } }),
         prisma.userVideoSnapshot.deleteMany({ where: { userId } }),
+        prisma.userJoiningSnapshot.deleteMany({ where: { userId } }),
         prisma.languageChangeRequest.deleteMany({ where: { userId } }),
         prisma.playbackSession.deleteMany({ where: { userId } }),
-        prisma.notification.deleteMany({ where: { userId } }),
+        prisma.notification.deleteMany({
+          where: {
+            OR: [
+              { userId },
+              ...(targetEmail ? [{ message: { contains: targetEmail } }] : [])
+            ]
+          }
+        }),
         prisma.referral.deleteMany({ where: { OR: [{ refereeId: userId }, { referrerId: userId }] } }),
         prisma.hierarchyNode.deleteMany({ where: { userId } }),
         prisma.profile.deleteMany({ where: { userId } }),

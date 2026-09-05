@@ -134,9 +134,17 @@ class UserRepository {
       prisma.userVideoProgress.deleteMany({ where: { userId: id } }),
       prisma.snapshotVideo.deleteMany({ where: { snapshot: { userId: id } } }),
       prisma.userVideoSnapshot.deleteMany({ where: { userId: id } }),
+      prisma.userJoiningSnapshot.deleteMany({ where: { userId: id } }),
       prisma.languageChangeRequest.deleteMany({ where: { userId: id } }),
       prisma.playbackSession.deleteMany({ where: { userId: id } }),
-      prisma.notification.deleteMany({ where: { userId: id } }),
+      prisma.notification.deleteMany({
+        where: {
+          OR: [
+            { userId: id },
+            { message: { contains: user.email } }
+          ]
+        }
+      }),
       prisma.referral.deleteMany({ where: { OR: [{ refereeId: id }, { referrerId: id }] } }),
       prisma.hierarchyNode.deleteMany({ where: { userId: id } }),
       prisma.userProductAccess.deleteMany({ where: { userId: id } }),

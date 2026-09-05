@@ -34,6 +34,7 @@ class DeveloperController {
           await prisma.userVideoSnapshot.delete({ where: { id: snapshot.id } });
         }
         
+        await prisma.userJoiningSnapshot.deleteMany({ where: { userId: u.id } });
         await prisma.videoAssignment.deleteMany({ where: { userId: u.id } });
         await prisma.userProductAccess.deleteMany({ where: { userId: u.id } });
         await prisma.payment.deleteMany({ where: { userId: u.id } });
@@ -42,7 +43,14 @@ class DeveloperController {
         });
         await prisma.hierarchyNode.deleteMany({ where: { userId: u.id } });
         await prisma.profile.deleteMany({ where: { userId: u.id } });
-        await prisma.notification.deleteMany({ where: { userId: u.id } });
+        await prisma.notification.deleteMany({
+          where: {
+            OR: [
+              { userId: u.id },
+              { message: { contains: u.email } }
+            ]
+          }
+        });
         await prisma.auditLog.deleteMany({ where: { userId: u.id } });
 
         // Hard delete the test User row
