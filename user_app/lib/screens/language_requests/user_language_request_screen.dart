@@ -43,15 +43,19 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
       // 3. Fetch user progress status to get current assigned language name
       final progRes = await _apiClient.get('/videos/progress');
       final progData = progRes['data'] ?? {};
-      final String currentLang = progData['assignedLanguage'] != null
-          ? progData['assignedLanguage']['name']
-          : 'Default';
+      final assignedLangObj = progData['assignedLanguage'];
+      final String currentLang = assignedLangObj != null ? assignedLangObj['name'] : 'English';
+      final String? assignedLangId = assignedLangObj != null ? assignedLangObj['id'] : null;
 
       if (mounted) {
         setState(() {
           _availableLanguages = langs.cast<Map<String, dynamic>>();
           if (_availableLanguages.isNotEmpty) {
-            _selectedLanguageId = _availableLanguages.first['id'];
+            final otherLang = _availableLanguages.firstWhere(
+              (l) => l['id'] != assignedLangId,
+              orElse: () => _availableLanguages.first,
+            );
+            _selectedLanguageId = otherLang['id'];
           }
           _currentLanguageName = currentLang;
           _requestsHistory = reqs;
