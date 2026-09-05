@@ -1,10 +1,10 @@
-# 🚀 Equity Plus (Vridhi / Loop Referral & Video LMS Ecosystem)
+# 🚀 Vridhi Network (Referral & Video LMS Ecosystem)
 
 [![Backend CI](https://github.com/YOUR_USERNAME/ReferralSystem/actions/workflows/backend.yml/badge.svg)](https://github.com/YOUR_USERNAME/ReferralSystem/actions/workflows/backend.yml)
 [![User App CI](https://github.com/YOUR_USERNAME/ReferralSystem/actions/workflows/user_app.yml/badge.svg)](https://github.com/YOUR_USERNAME/ReferralSystem/actions/workflows/user_app.yml)
 [![Admin App CI](https://github.com/YOUR_USERNAME/ReferralSystem/actions/workflows/admin_app.yml/badge.svg)](https://github.com/YOUR_USERNAME/ReferralSystem/actions/workflows/admin_app.yml)
 
-> **Equity Plus** is a production-ready, enterprise-grade multi-level network referral platform and Video Learning Management System (LMS). Built with a highly scalable Node.js / Express backend using Prisma ORM with TiDB/MySQL, paired with modern, cross-platform Flutter applications for both end-users and administrators.
+> **Vridhi Network** is a production-ready, enterprise-grade multi-level network referral platform and Video Learning Management System (LMS). Built with a highly scalable Node.js / Express backend using Prisma ORM with TiDB/MySQL, paired with modern, cross-platform Flutter applications for both end-users and administrators.
 
 ---
 
@@ -38,11 +38,11 @@
 
 ## 🏗️ Executive Summary & Architecture
 
-The **Equity Plus** platform integrates multi-level referral network marketing with high-definition video distribution. It solves key scalability challenges using a **Materialized Path** hierarchy implementation for $O(1)$ ancestor queries, secure multi-provider media streaming (Cloudinary & Cloudflare R2), automated refund eligibility calculation based on video watch metrics, and dual payment support (online via Razorpay and offline via Cash Payment workflow).
+The **Vridhi Network** platform integrates multi-level referral network marketing with high-definition video distribution. It solves key scalability challenges using a **Materialized Path** hierarchy implementation for $O(1)$ ancestor queries, secure multi-provider media streaming (Cloudinary & Cloudflare R2), automated refund eligibility calculation based on video watch metrics, and dual payment support (online via Razorpay and offline via Cash Payment workflow).
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                               EQUITY PLUS ECOSYSTEM                             │
+│                               VRIDHI NETWORK ECOSYSTEM                          │
 ├────────────────────────────┬────────────────────────────┬───────────────────────┤
 │    User Flutter App        │    Admin Flutter App       │   Node.js Express API │
 │   (Android/iOS/Web)        │   (Android/iOS/Web)        │     (v5 Architecture) │
@@ -390,7 +390,7 @@ Create a `.env` file in the `backend/` root directory:
 # ==========================================
 # DATABASE CONFIGURATION
 # ==========================================
-DATABASE_URL="mysql://username:password@localhost:3306/equity_plus_db?sslaccept=strict"
+DATABASE_URL="mysql://username:password@localhost:3306/vridhi_network_db?sslaccept=strict"
 
 # ==========================================
 # APPLICATION & SERVER CONFIGURATION
@@ -482,7 +482,7 @@ npm install -g pm2
 
 # Step 2: Start Application
 cd backend
-pm2 start src/server.js --name equity-backend
+pm2 start src/server.js --name vridhi-backend
 
 # Step 3: Save PM2 State for automatic reboot recovery
 pm2 save

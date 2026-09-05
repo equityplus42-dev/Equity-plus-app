@@ -27,7 +27,7 @@ module.exports = {
     points_level_3: 25,
     max_hierarchy_depth: 3,
     require_admin_approval: true,
-    campaign_ad_title: 'Special Equity Offer',
+    campaign_ad_title: 'Special Vridhi Offer',
     campaign_ad_description: 'Earn 2x reward points today! Check out details.',
     campaign_ad_image_url: 'https://picsum.photos/400/250',
     campaign_ad_redirect_url: 'https://google.com',

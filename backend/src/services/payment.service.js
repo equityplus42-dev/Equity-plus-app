@@ -430,7 +430,7 @@ class PaymentService {
       data: {
         userId: payment.userId,
         title: 'Cash Payment Approved 🎉',
-        message: `Your cash payment of ₹${payment.amount / 100} has been verified and approved by the Admin! Welcome to Equity Plus.`,
+        message: `Your cash payment of ₹${payment.amount / 100} has been verified and approved by the Admin! Welcome to Vridhi Network.`,
         type: 'PAYMENT',
       },
     });

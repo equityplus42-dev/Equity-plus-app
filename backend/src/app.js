@@ -69,7 +69,7 @@ const swaggerHtml = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EquityPlus API Documentation</title>
+  <title>Vridhi Network API Documentation</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css" />
   <style>
     html { box-sizing: border-box; }
@@ -116,7 +116,7 @@ app.use('/api', apiRouter);
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'EquityPlus API Backend Service is Running',
+    message: 'Vridhi Network API Backend Service is Running',
     version: '1.0.0',
     docs: '/api/docs',
     health: '/health',

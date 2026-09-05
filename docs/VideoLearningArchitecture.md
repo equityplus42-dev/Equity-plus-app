@@ -2,7 +2,7 @@
 
 > **Document Version**: 2.0.0 (Final Production Hardening Release)  
 > **Status**: Production Ready  
-> **Platform**: Equity Plus Video Learning Network  
+> **Platform**: Vridhi Network Video Learning Network  
 
 ---
 

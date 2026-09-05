@@ -1,6 +1,6 @@
 # Business Logic Specification
 
-This document details the core domain rules, reward calculations, approval workflows, tree placement algorithms, snapshot refund eligibility rules, and **multilingual video production specifications** for the Equity Plus Platform.
+This document details the core domain rules, reward calculations, approval workflows, tree placement algorithms, snapshot refund eligibility rules, and **multilingual video production specifications** for the Vridhi Network Platform.
 
 ---
 

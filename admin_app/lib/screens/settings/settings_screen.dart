@@ -52,7 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _l2Controller.text = currentSettings['points_level_2'] ?? '50';
       _l3Controller.text = currentSettings['points_level_3'] ?? '25';
       _depthController.text = currentSettings['max_hierarchy_depth'] ?? '3';
-      _campaignTitleController.text = currentSettings['campaign_ad_title'] ?? 'Special Equity Offer';
+      _campaignTitleController.text = currentSettings['campaign_ad_title'] ?? 'Special Vridhi Offer';
       _campaignDescController.text = currentSettings['campaign_ad_description'] ?? 'Earn 2x reward points today! Check out details.';
       _campaignImageController.text = currentSettings['campaign_ad_image_url'] ?? 'https://picsum.photos/400/250';
       _campaignRedirectController.text = currentSettings['campaign_ad_redirect_url'] ?? 'https://google.com';

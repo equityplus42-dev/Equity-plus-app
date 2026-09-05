@@ -20,7 +20,7 @@ class _TermsAndConditionsScreenState extends State<TermsAndConditionsScreen> {
       title: '1. PREAMBLE, PLATFORM IDENTITY & DEFINITIONS',
       content: '''
 1.1 ACCEPTANCE OF TERMS AND BINDING SERVICE AGREEMENT
-Welcome to Vridhi Network (hereinafter referred to as "Platform", "Vridhi", "We", "Us", or "Our"), operated in conjunction with the Equity Plus digital network infrastructure. By downloading, installing, accessing, browsing, registering an account on, or utilizing any services provided through the Vridhi User Mobile Application or affiliated web domains (including but not limited to https://vridhi-network-app.vercel.app), you ("User", "You", or "Your") explicitly acknowledge, represent, and warrant that you have read, understood, and agreed to be legally bound by these Terms and Conditions ("Terms", "Agreement"), alongside our Privacy Policy, Refund Policy, and Disclaimer Policy. If you do not agree with any portion of these Terms, you are strictly prohibited from accessing or using the Platform and must immediately uninstall the application and terminate all associated sessions.
+Welcome to Vridhi Network (hereinafter referred to as "Platform", "Vridhi", "We", "Us", or "Our"), operated under the Vridhi Network digital infrastructure. By downloading, installing, accessing, browsing, registering an account on, or utilizing any services provided through the Vridhi User Mobile Application or affiliated web domains (including but not limited to https://vridhi-network-app.vercel.app), you ("User", "You", or "Your") explicitly acknowledge, represent, and warrant that you have read, understood, and agreed to be legally bound by these Terms and Conditions ("Terms", "Agreement"), alongside our Privacy Policy, Refund Policy, and Disclaimer Policy. If you do not agree with any portion of these Terms, you are strictly prohibited from accessing or using the Platform and must immediately uninstall the application and terminate all associated sessions.
 
 1.2 PLATFORM OPERATIONAL ARCHITECTURE
 Vridhi Network functions as a hybrid digital platform integrating proprietary video-based educational content distribution, digital learning snapshot allocation, structured referral link marketing, and multi-tier affiliate reward mechanisms. The Platform utilizes secure cloud computing, automated IP-based deferred referral attribution, encrypted data storage, and integrated payment gateway solutions (such as Razorpay) to deliver a seamless, high-integrity digital learning environment.
@@ -163,7 +163,7 @@ You explicitly agree that you shall not file a chargeback, payment reversal, or 
       title: '7. INTELLECTUAL PROPERTY & CONTENT PROTECTION',
       content: '''
 7.1 PROPRIETARY OWNERSHIP RIGHTS
-All material available on the Platform—including but not limited to educational video lectures, curriculum blueprints, graphics, user interfaces, branding, software source code, database architecture, domain names, trademarks, logos, and audio recordings—is the exclusive intellectual property of Vridhi Network and Equity Plus, protected under the Indian Copyright Act, 1957, the Trademarks Act, 1999, and international copyright treaties.
+All material available on the Platform—including but not limited to educational video lectures, curriculum blueprints, graphics, user interfaces, branding, software source code, database architecture, domain names, trademarks, logos, and audio recordings—is the exclusive intellectual property of Vridhi Network, protected under the Indian Copyright Act, 1957, the Trademarks Act, 1999, and international copyright treaties.
 
 7.2 STRICT PROHIBITION OF SCREEN RECORDING & CAPTURE
 You are strictly prohibited from performing any of the following actions:
@@ -217,10 +217,10 @@ Vridhi Network is an educational content and promotional referral platform. We d
 THE PLATFORM, INCLUDING ALL VIDEO CONTENT, SOFTWARE, FUNCTIONS, AND MATERIALS, IS PROVIDED ON AN "AS-IS" AND "AS-AVAILABLE" BASIS WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. VRIDHI NETWORK DOES NOT WARRANT THAT THE APP WILL OPERATE UNINTERRUPTED, ERROR-FREE, OR FREE OF VIRUSES OR MALICIOUS COMPONENTS.
 
 10.3 LIMITATION OF MONETARY LIABILITY
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL VRIDHI NETWORK, EQUITY PLUS, ITS DIRECTORS, OFFICERS, EMPLOYEES, AGENTS, OR AFFILIATES BE LIABLE FOR ANY INDIRECT, INCIDENTAL, CONSEQUENTIAL, SPECIAL, PUNITIVE, OR EXEMPLARY DAMAGES (INCLUDING LOSS OF PROFITS, DATA, GOODWILL, OR BUSINESS INTERRUPTION) ARISING OUT OF OR IN CONNECTION WITH YOUR USE OR INABILITY TO USE THE PLATFORM. OUR AGGREGATE LIABILITY FOR ALL CLAIMS SHALL NOT EXCEED THE TOTAL MONETARY AMOUNT PAID BY YOU TO VRIDHI NETWORK IN THE THIRTY (30) DAYS IMMEDIATELY PRECEDING THE CLAIM.
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL VRIDHI NETWORK, ITS DIRECTORS, OFFICERS, EMPLOYEES, AGENTS, OR AFFILIATES BE LIABLE FOR ANY INDIRECT, INCIDENTAL, CONSEQUENTIAL, SPECIAL, PUNITIVE, OR EXEMPLARY DAMAGES (INCLUDING LOSS OF PROFITS, DATA, GOODWILL, OR BUSINESS INTERRUPTION) ARISING OUT OF OR IN CONNECTION WITH YOUR USE OR INABILITY TO USE THE PLATFORM. OUR AGGREGATE LIABILITY FOR ALL CLAIMS SHALL NOT EXCEED THE TOTAL MONETARY AMOUNT PAID BY YOU TO VRIDHI NETWORK IN THE THIRTY (30) DAYS IMMEDIATELY PRECEDING THE CLAIM.
 
 10.4 USER INDEMNIFICATION OBLIGATION
-You agree to defend, indemnify, and hold harmless Vridhi Network, Equity Plus, its officers, directors, employees, and agents from and against all claims, liabilities, damages, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising from: (a) your violation of these Terms; (b) your infringement of third-party intellectual property rights; (c) your fraudulent account activities; or (d) your misuse of video content.
+You agree to defend, indemnify, and hold harmless Vridhi Network, its officers, directors, employees, and agents from and against all claims, liabilities, damages, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising from: (a) your violation of these Terms; (b) your infringement of third-party intellectual property rights; (c) your fraudulent account activities; or (d) your misuse of video content.
 ''',
     ),
     _TermSection(
@@ -249,7 +249,7 @@ These Terms, alongside the Privacy Policy, Refund Policy, and Disclaimer Policy,
 For any questions, legal notices, refund inquiries, or compliance grievances regarding these Terms & Conditions, please contact our designated Grievance Officer:
 
 Vridhi Network Support & Compliance Cell
-Email: support@vridhinetwork.com / equityplus42@gmail.com
+Email: support@vridhinetwork.com
 Web Help Desk: https://vridhi-network-app.vercel.app/support
 Official Platform Domain: https://vridhi-network-app.vercel.app
 Corporate Office: Vridhi Network Hub, Salt Lake Sector V, Kolkata, West Bengal, India — 700091.
