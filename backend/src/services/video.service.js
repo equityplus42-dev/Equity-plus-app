@@ -1055,13 +1055,30 @@ class VideoService {
       })
     ).map((sv) => sv.videoId);
 
-    return videos.map((v) => ({
-      ...v,
-      categoryId: v.categoryId || v.category?.id || null,
-      categoryName: v.category?.name || v.categoryName || 'Time Management',
-      isAssignedToSnapshot: assignedVideoIds.includes(v.id),
-      deletionProtected: assignedVideoIds.includes(v.id),
-    }));
+    return videos.map((v) => {
+      let resolvedCategoryName = v.category?.name || v.categoryName;
+      if (!resolvedCategoryName) {
+        const title = (v.title || '').toLowerCase();
+        if (title.includes('টাইম') || title.includes('time') || title.includes('সময়')) resolvedCategoryName = 'Time Management';
+        else if (title.includes('অভ্যাস') || title.includes('habit')) resolvedCategoryName = 'Habit Building';
+        else if (title.includes('কমিউনিকেশন') || title.includes('যোগাযোগ') || title.includes('communication')) resolvedCategoryName = 'Communication Skills';
+        else if (title.includes('সোশ্যাল') || title.includes('social')) resolvedCategoryName = 'Social Media Influence';
+        else if (title.includes('মানসিক') || title.includes('mental') || title.includes('mindset')) resolvedCategoryName = 'Mental Health & Mindset';
+        else if (title.includes('অর্থ') || title.includes('finance')) resolvedCategoryName = 'Personal Finance';
+        else if (title.includes('একাধিক') || title.includes('income')) resolvedCategoryName = 'Multiple Streams of Income';
+        else if (title.includes('প্যারেন্টিং') || title.includes('parenting')) resolvedCategoryName = 'Parenting & Family';
+        else if (title.includes('গীতা') || title.includes('gita')) resolvedCategoryName = 'Bhagavad Gita Wisdom';
+        else resolvedCategoryName = 'Time Management';
+      }
+
+      return {
+        ...v,
+        categoryId: v.categoryId || v.category?.id || null,
+        categoryName: resolvedCategoryName,
+        isAssignedToSnapshot: assignedVideoIds.includes(v.id),
+        deletionProtected: assignedVideoIds.includes(v.id),
+      };
+    });
   }
 
   /**

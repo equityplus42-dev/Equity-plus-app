@@ -27,6 +27,53 @@ class CategoryService {
         });
       }
     }
+
+    // Auto-categorize any uncategorized videos based on title keywords
+    try {
+      const uncategorizedVideos = await prisma.video.findMany({
+        where: { OR: [{ categoryId: null }, { categoryName: null }] },
+      });
+
+      if (uncategorizedVideos.length > 0) {
+        const categories = await prisma.category.findMany();
+        const catMap = {};
+        for (const c of categories) catMap[c.name] = c;
+
+        for (const video of uncategorizedVideos) {
+          const title = (video.title || '').toLowerCase();
+          let targetName = null;
+
+          if (title.includes('টাইম') || title.includes('time') || title.includes('সময়')) {
+            targetName = 'Time Management';
+          } else if (title.includes('অভ্যাস') || title.includes('habit')) {
+            targetName = 'Habit Building';
+          } else if (title.includes('কমিউনিকেশন') || title.includes('যোগাযোগ') || title.includes('communication')) {
+            targetName = 'Communication Skills';
+          } else if (title.includes('সোশ্যাল') || title.includes('social')) {
+            targetName = 'Social Media Influence';
+          } else if (title.includes('মানসিক') || title.includes('mental') || title.includes('mindset')) {
+            targetName = 'Mental Health & Mindset';
+          } else if (title.includes('অর্থ') || title.includes('finance')) {
+            targetName = 'Personal Finance';
+          } else if (title.includes('একাধিক') || title.includes('income')) {
+            targetName = 'Multiple Streams of Income';
+          } else if (title.includes('প্যারেন্টিং') || title.includes('parenting')) {
+            targetName = 'Parenting & Family';
+          } else if (title.includes('গীতা') || title.includes('gita')) {
+            targetName = 'Bhagavad Gita Wisdom';
+          }
+
+          if (targetName && catMap[targetName]) {
+            await prisma.video.update({
+              where: { id: video.id },
+              data: { categoryId: catMap[targetName].id, categoryName: catMap[targetName].name },
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // Non-blocking fallback
+    }
   }
 
   /**
