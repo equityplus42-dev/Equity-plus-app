@@ -99,6 +99,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
             _buildSettingTile(
+              icon: Icons.gavel_outlined,
+              title: 'Terms & Conditions',
+              subtitle: '4000+ words legal agreement & 25% refund rules',
+              trailing: const Icon(Icons.chevron_right, color: AppTheme.neonCyan),
+              onTap: () {
+                Navigator.pushNamed(context, '/terms-and-conditions');
+              },
+            ),
+            _buildSettingTile(
               icon: Icons.verified_user_outlined,
               title: 'Privacy Policy',
               subtitle: 'How we manage your data security',
