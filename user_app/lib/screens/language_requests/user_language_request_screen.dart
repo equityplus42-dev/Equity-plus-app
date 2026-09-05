@@ -16,9 +16,13 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
   final ApiClient _apiClient = ApiClient();
   final _reasonController = TextEditingController();
 
-  List<Map<String, dynamic>> _availableLanguages = [];
-  String? _selectedLanguageId;
-  String _currentLanguageName = 'Loading...';
+  List<Map<String, dynamic>> _availableLanguages = [
+    {'id': 'fac44ba1-afe6-42e7-ae6a-0b13402b0832', 'name': 'English', 'code': 'en'},
+    {'id': '3321e10b-d8e9-4086-b80c-ec891ea122eb', 'name': 'Hindi', 'code': 'hi'},
+    {'id': '4dea7216-bd07-4bd9-9cd9-b5a6a64d4346', 'name': 'Bengali', 'code': 'bn'},
+  ];
+  String? _selectedLanguageId = 'fac44ba1-afe6-42e7-ae6a-0b13402b0832';
+  String _currentLanguageName = 'Bengali';
   List<dynamic> _requestsHistory = [];
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -220,12 +224,14 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
                         child: Column(
                           children: [
                             DropdownButtonFormField<String>(
+                              key: ValueKey(_selectedLanguageId),
                               value: _availableLanguages.any((l) => l['id'] == _selectedLanguageId)
                                   ? _selectedLanguageId
                                   : (_availableLanguages.isNotEmpty ? _availableLanguages.first['id'] : null),
                               isExpanded: true,
                               dropdownColor: AppTheme.cardBg,
-                              style: GoogleFonts.outfit(color: AppTheme.lightText),
+                              icon: const Icon(Icons.arrow_drop_down_circle_outlined, color: AppTheme.neonCyan),
+                              style: GoogleFonts.outfit(color: AppTheme.lightText, fontSize: 15),
                               decoration: const InputDecoration(
                                 labelText: 'Requested Language',
                                 prefixIcon: Icon(Icons.language, color: AppTheme.neonCyan),
@@ -233,12 +239,17 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
                               items: _availableLanguages.map((l) {
                                 return DropdownMenuItem<String>(
                                   value: l['id'],
-                                  child: Text('${l['name']} (${l['code']})', style: GoogleFonts.outfit(color: AppTheme.lightText)),
+                                  child: Text(
+                                    '${l['name']} (${l['code']})',
+                                    style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold),
+                                  ),
                                 );
                               }).toList(),
                               onChanged: (val) {
                                 if (val != null) {
-                                  setState(() => _selectedLanguageId = val);
+                                  setState(() {
+                                    _selectedLanguageId = val;
+                                  });
                                 }
                               },
                             ),
