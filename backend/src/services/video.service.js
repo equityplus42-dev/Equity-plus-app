@@ -137,22 +137,30 @@ class VideoService {
     if (!snapshot || !snapshot.snapshotVideos || snapshot.snapshotVideos.length === 0) {
       return;
     }
+    const targetVideoIds = snapshot.snapshotVideos.map((sv) => sv.videoId);
+    const existingAssignments = await prisma.videoAssignment.findMany({
+      where: { userId, videoId: { in: targetVideoIds } },
+      select: { videoId: true, status: true },
+    });
+    const existingMap = new Map(existingAssignments.map((a) => [a.videoId, a.status]));
+
     for (const sv of snapshot.snapshotVideos) {
       const vid = sv.videoId;
-      const video = await prisma.video.findUnique({ where: { id: vid } });
-      if (video && video.isActive) {
-        await prisma.videoAssignment.upsert({
-          where: { userId_videoId: { userId, videoId: vid } },
-          update: { status: 'ACTIVE' },
-          create: {
-            userId,
-            videoId: vid,
-            languageId: video.languageId,
-            productId: video.productId,
-            status: 'ACTIVE',
-            assignedBy: 'SYSTEM_AUTO',
-          },
-        });
+      const status = existingMap.get(vid);
+      if (!status) {
+        const video = await prisma.video.findUnique({ where: { id: vid }, select: { id: true, languageId: true, productId: true, isActive: true } });
+        if (video && video.isActive) {
+          await prisma.videoAssignment.create({
+            data: {
+              userId,
+              videoId: vid,
+              languageId: video.languageId,
+              productId: video.productId,
+              status: 'ACTIVE',
+              assignedBy: 'SYSTEM_AUTO',
+            },
+          }).catch(() => {});
+        }
       }
     }
   }

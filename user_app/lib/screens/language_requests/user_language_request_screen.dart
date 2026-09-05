@@ -48,14 +48,15 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
       final String? assignedLangId = assignedLangObj != null ? assignedLangObj['id'] : null;
 
       if (mounted) {
+        final allLangs = langs.cast<Map<String, dynamic>>();
+        final filterLangs = allLangs.where((l) => l['id'] != assignedLangId).toList();
+
         setState(() {
-          _availableLanguages = langs.cast<Map<String, dynamic>>();
+          _availableLanguages = filterLangs.isNotEmpty ? filterLangs : allLangs;
           if (_availableLanguages.isNotEmpty) {
-            final otherLang = _availableLanguages.firstWhere(
-              (l) => l['id'] != assignedLangId,
-              orElse: () => _availableLanguages.first,
-            );
-            _selectedLanguageId = otherLang['id'];
+            _selectedLanguageId = _availableLanguages.first['id'];
+          } else {
+            _selectedLanguageId = null;
           }
           _currentLanguageName = currentLang;
           _requestsHistory = reqs;
@@ -219,7 +220,10 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
                         child: Column(
                           children: [
                             DropdownButtonFormField<String>(
-                              value: _selectedLanguageId,
+                              value: _availableLanguages.any((l) => l['id'] == _selectedLanguageId)
+                                  ? _selectedLanguageId
+                                  : (_availableLanguages.isNotEmpty ? _availableLanguages.first['id'] : null),
+                              isExpanded: true,
                               dropdownColor: AppTheme.cardBg,
                               style: GoogleFonts.outfit(color: AppTheme.lightText),
                               decoration: const InputDecoration(
@@ -229,7 +233,7 @@ class _UserLanguageRequestScreenState extends State<UserLanguageRequestScreen> {
                               items: _availableLanguages.map((l) {
                                 return DropdownMenuItem<String>(
                                   value: l['id'],
-                                  child: Text('${l['name']} (${l['code']})'),
+                                  child: Text('${l['name']} (${l['code']})', style: GoogleFonts.outfit(color: AppTheme.lightText)),
                                 );
                               }).toList(),
                               onChanged: (val) {
