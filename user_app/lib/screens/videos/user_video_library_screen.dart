@@ -16,18 +16,17 @@ class UserVideoLibraryScreen extends StatefulWidget {
 }
 
 class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
-  bool _checkedDisclaimer = false;
   String? _selectedCategoryFilter;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _checkDisclaimerAndLoad();
+      await _loadVideos();
     });
   }
 
-  Future<void> _checkDisclaimerAndLoad() async {
+  Future<void> _loadVideos() async {
     final provider = Provider.of<UserVideoProvider>(context, listen: false);
     await provider.fetchUserVideos();
 
@@ -55,14 +54,6 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
         Navigator.of(context).pop();
         return;
       }
-    }
-
-    if (!mounted) return;
-
-    if (mounted) {
-      setState(() {
-        _checkedDisclaimer = true;
-      });
     }
   }
 
@@ -99,7 +90,7 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
       ),
       body: Container(
         decoration: AppTheme.bgGradient,
-        child: !_checkedDisclaimer || videoProvider.isLoading
+        child: videoProvider.isLoading
             ? const Center(child: SpinKitRing(color: AppTheme.primaryPurple))
             : RefreshIndicator(
                 onRefresh: () => videoProvider.fetchUserVideos(),
