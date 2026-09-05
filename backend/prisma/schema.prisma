@@ -50,6 +50,7 @@ model User {
   productAccesses         UserProductAccess[]
   refundRequests          RefundRequest[]
   videoAssignments        VideoAssignment[]
+  joiningSnapshot         UserJoiningSnapshot?
 
   @@index([referrerId])
 }
@@ -522,5 +523,26 @@ model DeferredReferral {
 
   @@index([ipAddress, expiresAt])
   @@index([referralCode])
+}
+
+model UserJoiningSnapshot {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userEmail            String
+  userName             String
+  phoneNumber          String?
+  joinedAt             DateTime @default(now())
+  referralCodeUsed     String
+  referrerId           String?
+  referrerName         String?
+  referrerEmail        String?
+  assignedLanguageName String?
+  hierarchyLevel       Int      @default(0)
+  createdAt            DateTime @default(now())
+
+  @@index([userId])
+  @@index([joinedAt])
+  @@index([referralCodeUsed])
 }
 

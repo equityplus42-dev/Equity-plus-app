@@ -117,6 +117,16 @@ class DeveloperModeScreen extends StatelessWidget {
                 onTap: () => Navigator.pushNamed(context, AppRoutes.releases),
               ),
 
+              // Feature 4.5: User Joining Snapshots Audit Log
+              _buildDevTile(
+                context,
+                icon: Icons.history_toggle_off_rounded,
+                title: 'User Joining Snapshots Log 📑',
+                desc: 'Physically inspect user registration timestamps & referral connection tree',
+                color: AppTheme.neonCyan,
+                onTap: () => _showJoiningSnapshotsDialog(context),
+              ),
+
               const SizedBox(height: 20),
               Text(
                 'RAZORPAY & TEST ACCOUNT CONTROLS',
@@ -462,6 +472,213 @@ class DeveloperModeScreen extends StatelessWidget {
             child: Text('KILL TEST USER', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showJoiningSnapshotsDialog(BuildContext context) {
+    final apiClient = ApiClient();
+    List<dynamic> snapshots = [];
+    bool isLoading = true;
+    String search = '';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          void fetchSnapshots() async {
+            setState(() => isLoading = true);
+            try {
+              final query = search.trim().isNotEmpty ? '?search=${Uri.encodeComponent(search.trim())}' : '';
+              final res = await apiClient.get('/developer/joining-snapshots$query');
+              if (res != null && res['data'] != null) {
+                snapshots = res['data']['snapshots'] ?? [];
+              }
+            } catch (e) {
+              // ignore
+            } finally {
+              setState(() => isLoading = false);
+            }
+          }
+
+          if (isLoading && snapshots.isEmpty) {
+            fetchSnapshots();
+          }
+
+          return Dialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxHeight: 650),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.history_toggle_off_rounded, color: AppTheme.neonCyan),
+                          const SizedBox(width: 8),
+                          Text(
+                            'User Joining Snapshots Log',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppTheme.softGrey),
+                        onPressed: () => Navigator.pop(dialogCtx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Developer physical audit log of user registration timestamps & referral connections.',
+                    style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    onChanged: (val) {
+                      search = val;
+                      fetchSnapshots();
+                    },
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Search by user name, email, referral code...',
+                      hintStyle: GoogleFonts.outfit(color: Colors.grey, fontSize: 12),
+                      prefixIcon: const Icon(Icons.search, color: AppTheme.neonCyan, size: 18),
+                      filled: true,
+                      fillColor: Colors.black26,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator(color: AppTheme.neonCyan))
+                        : snapshots.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No user joining snapshots found.',
+                                  style: GoogleFonts.outfit(color: AppTheme.softGrey),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: snapshots.length,
+                                itemBuilder: (context, index) {
+                                  final item = snapshots[index];
+                                  final joinedAtStr = item['joinedAt'] != null
+                                      ? DateTime.parse(item['joinedAt']).toLocal().toString().split('.')[0]
+                                      : 'N/A';
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                item['userName'] ?? item['userEmail'] ?? 'User',
+                                                style: GoogleFonts.outfit(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.primaryPurple.withOpacity(0.2),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                'Level ${item['hierarchyLevel'] ?? 0}',
+                                                style: GoogleFonts.outfit(
+                                                  color: AppTheme.primaryPurple,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Email: ${item['userEmail']}',
+                                          style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12),
+                                        ),
+                                        if (item['phoneNumber'] != null && item['phoneNumber'].toString().isNotEmpty)
+                                          Text(
+                                            'Phone: ${item['phoneNumber']}',
+                                            style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 12),
+                                          ),
+                                        const Divider(color: Colors.white10, height: 16),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.access_time, size: 14, color: AppTheme.neonCyan),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Joined At: $joinedAtStr',
+                                              style: GoogleFonts.outfit(color: AppTheme.neonCyan, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.qr_code, size: 14, color: Colors.amberAccent),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Code Used: ${item['referralCodeUsed']}',
+                                              style: GoogleFonts.outfit(color: Colors.amberAccent, fontSize: 11),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.people_outline, size: 14, color: AppTheme.lightText),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                item['referrerName'] != null
+                                                    ? 'Referred By: ${item['referrerName']} (${item['referrerEmail']})'
+                                                    : 'Direct Signup (No Referrer)',
+                                                style: GoogleFonts.outfit(color: AppTheme.lightText, fontSize: 11),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

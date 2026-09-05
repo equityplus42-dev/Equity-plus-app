@@ -125,7 +125,7 @@ class NotificationService {
       }
 
       const admins = await prisma.user.findMany({
-        where: { role: 'ADMIN', isDeleted: false },
+        where: { role: { in: ['ADMIN', 'DEVELOPER'] }, isDeleted: false },
         select: { id: true },
       });
       const notifications = await Promise.all(

@@ -101,12 +101,12 @@ class AuthService {
       await referralService.createReferralEntry(user.id, referrerId);
     }
 
-    // 8. Auto-assign initial top 3 videos for new user
+    // 8. Create permanent user joining snapshot log & notify admins
     try {
-      const videoService = require('./video.service');
-      await videoService.getOrCreateUserSnapshot(user.id);
-    } catch (assignErr) {
-      console.warn('[AuthService] New user initial video assignment notice:', assignErr.message);
+      const joiningSnapshotService = require('./joiningSnapshot.service');
+      await joiningSnapshotService.createSnapshotForUser(user.id);
+    } catch (snapshotErr) {
+      console.warn('[AuthService] User joining snapshot log notice:', snapshotErr.message);
     }
 
     // 9. Generate auth token

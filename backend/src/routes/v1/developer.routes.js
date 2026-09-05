@@ -19,4 +19,7 @@ router.post('/test-user/reseed', developerController.reseedTestUser);
 // KILL TEST USER permanently from database
 router.delete('/test-user/kill', developerController.killTestUser);
 
+// User Joining Snapshots (Developer Only)
+router.get('/joining-snapshots', developerController.getJoiningSnapshots);
+
 module.exports = router;

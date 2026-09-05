@@ -264,6 +264,20 @@ class DeveloperController {
       next(error);
     }
   }
+
+  /**
+   * Get all User Joining Snapshots (Developer Only)
+   */
+  async getJoiningSnapshots(req, res, next) {
+    try {
+      const joiningSnapshotService = require('../services/joiningSnapshot.service');
+      const { search, page, limit } = req.query;
+      const result = await joiningSnapshotService.getAllJoiningSnapshots({ search, page, limit });
+      return ApiResponse.success(res, 'User joining snapshots fetched successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new DeveloperController();
