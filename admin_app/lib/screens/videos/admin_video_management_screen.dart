@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:convert';
 import '../../providers/admin_languages_provider.dart';
 import '../../providers/admin_videos_provider.dart';
+import '../../providers/admin_categories_provider.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
@@ -24,6 +25,7 @@ class AdminVideoManagementScreen extends StatefulWidget {
 class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String? _selectedLanguageId;
+  String? _selectedCategoryFilter;
 
   @override
   void initState() {
@@ -31,6 +33,8 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final langProvider = Provider.of<AdminLanguagesProvider>(context, listen: false);
+      final catProvider = Provider.of<AdminCategoriesProvider>(context, listen: false);
+      await catProvider.fetchCategories();
       await langProvider.fetchLanguages();
       if (langProvider.languages.isNotEmpty) {
         setState(() {
@@ -167,8 +171,176 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     );
   }
 
+  void _showManageCategoriesDialog() {
+    final catProvider = Provider.of<AdminCategoriesProvider>(context, listen: false);
+    catProvider.fetchCategories();
+
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+    bool isCreating = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.cardBg,
+          title: Text(
+            'Manage Video Categories',
+            style: GoogleFonts.outfit(color: AppTheme.lightText, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ADD NEW CATEGORY',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.neonCyan,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: nameController,
+                    style: GoogleFonts.outfit(color: AppTheme.lightText),
+                    decoration: const InputDecoration(
+                      labelText: 'Category Name (e.g. Leadership)',
+                      prefixIcon: Icon(Icons.category, color: AppTheme.neonCyan),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: descController,
+                    style: GoogleFonts.outfit(color: AppTheme.lightText),
+                    decoration: const InputDecoration(
+                      labelText: 'Description (Optional)',
+                      prefixIcon: Icon(Icons.description, color: AppTheme.softGrey),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: isCreating
+                          ? null
+                          : () async {
+                              final name = nameController.text.trim();
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Category name is required')),
+                                );
+                                return;
+                              }
+                              setDialogState(() { isCreating = true; });
+                              final success = await catProvider.createCategory(name, descController.text.trim());
+                              setDialogState(() { isCreating = false; });
+                              if (success) {
+                                nameController.clear();
+                                descController.clear();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Category "$name" created! 🎉'), backgroundColor: AppTheme.neonGreen),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(catProvider.errorMessage ?? 'Error creating category'), backgroundColor: Colors.redAccent),
+                                );
+                              }
+                            },
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: isCreating
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Add Category'),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white10),
+                  const SizedBox(height: 10),
+                  Text(
+                    'EXISTING CATEGORIES (${catProvider.categories.length})',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.softGrey,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  catProvider.categories.isEmpty
+                      ? const Text('No categories added yet.', style: TextStyle(color: AppTheme.softGrey))
+                      : Column(
+                          children: catProvider.categories.map((cat) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: AppTheme.glassCardDecoration(),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.folder_special_outlined, size: 18, color: AppTheme.neonCyan),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          cat.name,
+                                          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.lightText),
+                                        ),
+                                        Text(
+                                          '${cat.videoCount} videos',
+                                          style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.softGrey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          backgroundColor: AppTheme.cardBg,
+                                          title: Text('Delete Category "${cat.name}"?'),
+                                          content: const Text('Videos under this category will fallback to default category.'),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.redAccent))),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        await catProvider.deleteCategory(cat.id);
+                                        setDialogState(() {});
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showUploadVideoDialog() {
     final langProvider = Provider.of<AdminLanguagesProvider>(context, listen: false);
+    final catProvider = Provider.of<AdminCategoriesProvider>(context, listen: false);
     if (langProvider.languages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please create at least one language folder first.')),
@@ -180,6 +352,8 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
     final descController = TextEditingController();
     final thumbController = TextEditingController();
     String dialogLanguageId = _selectedLanguageId ?? langProvider.languages.first.id;
+    String? dialogCategoryId = catProvider.categories.isNotEmpty ? catProvider.categories.first.id : null;
+    String? dialogCategoryName = catProvider.categories.isNotEmpty ? catProvider.categories.first.name : 'Time Management';
 
     bool isUploadingFile = false;
     String? selectedFileName;
@@ -231,6 +405,35 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                     if (val != null) {
                       setDialogState(() {
                         dialogLanguageId = val;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // Category Dropdown Selection
+                DropdownButtonFormField<String>(
+                  value: catProvider.categories.any((c) => c.id == dialogCategoryId)
+                      ? dialogCategoryId
+                      : (catProvider.categories.isNotEmpty ? catProvider.categories.first.id : null),
+                  dropdownColor: AppTheme.cardBg,
+                  style: GoogleFonts.outfit(color: AppTheme.lightText),
+                  decoration: const InputDecoration(
+                    labelText: 'Select Category (e.g. Time Management)',
+                    prefixIcon: Icon(Icons.category_outlined, color: AppTheme.neonGreen),
+                  ),
+                  items: catProvider.categories.map((cat) {
+                    return DropdownMenuItem<String>(
+                      value: cat.id,
+                      child: Text(cat.name),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      final selectedCat = catProvider.categories.firstWhere((c) => c.id == val);
+                      setDialogState(() {
+                        dialogCategoryId = val;
+                        dialogCategoryName = selectedCat.name;
                       });
                     }
                   },
@@ -548,6 +751,8 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                         videoUrl: uploadedCloudinaryUrl!,
                         thumbnailUrl: thumbController.text.trim(),
                         languageId: dialogLanguageId,
+                        categoryId: dialogCategoryId,
+                        categoryName: dialogCategoryName,
                         duration: uploadedVideoDuration > 0 ? uploadedVideoDuration : null,
                         r2ObjectKey: uploadedR2ObjectKey,
                       );
@@ -602,6 +807,11 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.category_outlined, color: AppTheme.neonGreen),
+            tooltip: 'Manage Video Categories',
+            onPressed: _showManageCategoriesDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.add_location_alt_outlined),
             tooltip: 'Add Language Folder',
@@ -698,272 +908,291 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 12),
+                // Category Filter Row
+                Consumer<AdminCategoriesProvider>(
+                  builder: (context, catProv, child) {
+                    if (catProv.categories.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6.0),
+                            child: Text(
+                              'CATEGORIES',
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.softGrey,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: SizedBox(
+                              height: 34,
+                              child: ListView(
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 6.0),
+                                    child: ChoiceChip(
+                                      selected: _selectedCategoryFilter == null,
+                                      label: Text('All', style: GoogleFonts.outfit(fontSize: 11)),
+                                      selectedColor: AppTheme.neonCyan.withOpacity(0.3),
+                                      backgroundColor: AppTheme.cardBg,
+                                      onSelected: (_) {
+                                        setState(() {
+                                          _selectedCategoryFilter = null;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  ...catProv.categories.map((c) {
+                                    final isSelected = _selectedCategoryFilter == c.name;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 6.0),
+                                      child: ChoiceChip(
+                                        selected: isSelected,
+                                        label: Text(c.name, style: GoogleFonts.outfit(fontSize: 11)),
+                                        selectedColor: AppTheme.neonCyan.withOpacity(0.3),
+                                        backgroundColor: AppTheme.cardBg,
+                                        onSelected: (selected) {
+                                          setState(() {
+                                            _selectedCategoryFilter = selected ? c.name : null;
+                                          });
+                                        },
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
                 const Divider(color: Colors.white10),
 
                 // Video List Body
                 Expanded(
-                  child: videoProvider.isLoading
-                  ? const Center(child: SpinKitRing(color: AppTheme.primaryPurple))
-                  : videoProvider.videos.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.video_library_outlined, size: 70, color: AppTheme.softGrey),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No Videos in this Language Folder',
+                  child: _buildVideoListBody(videoProvider),
+                ),
+              ],
+            ),
+          ),
+          const AdminVideoAssignmentsScreen(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoListBody(AdminVideosProvider videoProvider) {
+    if (videoProvider.isLoading) {
+      return const Center(child: SpinKitRing(color: AppTheme.primaryPurple));
+    }
+
+    final displayVideos = _selectedCategoryFilter == null
+        ? videoProvider.videos
+        : videoProvider.videos.where((v) => v.categoryName == _selectedCategoryFilter).toList();
+
+    if (displayVideos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.video_library_outlined, size: 70, color: AppTheme.softGrey),
+            const SizedBox(height: 16),
+            Text(
+              'No Videos Found',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.lightText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap "Upload Video" below to add content.',
+              style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: displayVideos.length,
+      itemBuilder: (context, index) {
+        final video = displayVideos[index];
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: AppTheme.glassCardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () => _showAdminVideoPreviewDialog(context, video),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryPurple.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.play_circle_fill, color: AppTheme.primaryPurple, size: 28),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.neonCyan.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                video.categoryName.toUpperCase(),
                                 style: GoogleFonts.outfit(
-                                  fontSize: 18,
+                                  fontSize: 9,
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.lightText,
+                                  color: AppTheme.neonCyan,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Tap "Upload Video" below to add content.',
-                                style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryPurple.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                            ],
+                              child: Text(
+                                video.languageName,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryPurple,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          video.title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.lightText,
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: videoProvider.videos.length,
-                          itemBuilder: (context, index) {
-                            final video = videoProvider.videos[index];
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(12),
-                              decoration: AppTheme.glassCardDecoration(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () => _showAdminVideoPreviewDialog(context, video),
-                                        child: Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryPurple.withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          child: const Icon(Icons.play_circle_fill, color: AppTheme.primaryPurple, size: 28),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              video.title,
-                                              style: GoogleFonts.outfit(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.lightText,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            if (video.description != null && video.description!.isNotEmpty) ...[
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                video.description!,
-                                                style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(Icons.play_arrow_rounded, size: 22, color: AppTheme.neonGreen),
-                                            tooltip: 'Preview Video',
-                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                            padding: const EdgeInsets.all(3),
-                                            onPressed: () => _showAdminVideoPreviewDialog(context, video),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.arrow_upward, size: 18, color: AppTheme.neonCyan),
-                                            tooltip: 'Move Up',
-                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                            padding: const EdgeInsets.all(3),
-                                            onPressed: index > 0
-                                                ? () async {
-                                                    final list = List<AdminVideoModel>.from(videoProvider.videos);
-                                                    final item = list.removeAt(index);
-                                                    list.insert(index - 1, item);
-                                                    final orders = list
-                                                        .asMap()
-                                                        .entries
-                                                        .map((e) => {'id': e.value.id, 'orderIndex': e.key})
-                                                        .toList();
-                                                    await videoProvider.reorderVideos(orders, languageId: _selectedLanguageId);
-                                                  }
-                                                : null,
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.arrow_downward, size: 18, color: AppTheme.neonCyan),
-                                            tooltip: 'Move Down',
-                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                            padding: const EdgeInsets.all(3),
-                                            onPressed: index < videoProvider.videos.length - 1
-                                                ? () async {
-                                                    final list = List<AdminVideoModel>.from(videoProvider.videos);
-                                                    final item = list.removeAt(index);
-                                                    list.insert(index + 1, item);
-                                                    final orders = list
-                                                        .asMap()
-                                                        .entries
-                                                        .map((e) => {'id': e.value.id, 'orderIndex': e.key})
-                                                        .toList();
-                                                    await videoProvider.reorderVideos(orders, languageId: _selectedLanguageId);
-                                                  }
-                                                : null,
-                                          ),
-                                          IconButton(
-                                            icon: Icon(
-                                              Icons.delete_outline,
-                                              size: 19,
-                                              color: video.isAssignedToSnapshot ? AppTheme.softGrey : Colors.redAccent,
-                                            ),
-                                            tooltip: video.isAssignedToSnapshot
-                                                ? 'Assigned to Paid Users — Deletion Disabled'
-                                                : 'Delete Video',
-                                            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                            padding: const EdgeInsets.all(3),
-                                            onPressed: video.isAssignedToSnapshot
-                                                ? () {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text(
-                                                            'Deletion Protected: Video is part of active user snapshots.'),
-                                                        backgroundColor: Colors.orangeAccent,
-                                                      ),
-                                                    );
-                                                  }
-                                                : () async {
-                                                    final confirm = await showDialog<bool>(
-                                                      context: context,
-                                                      builder: (ctx) => AlertDialog(
-                                                        backgroundColor: AppTheme.cardBg,
-                                                        title: const Text('Delete Video?'),
-                                                        content: Text('Are you sure you want to delete "${video.title}"?'),
-                                                        actions: [
-                                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                                          ElevatedButton(
-                                                            onPressed: () => Navigator.pop(ctx, true),
-                                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                                            child: const Text('Delete'),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-
-                                                    if (confirm == true) {
-                                                      final langProv = Provider.of<AdminLanguagesProvider>(context, listen: false);
-                                                      final success = await videoProvider.deleteVideo(video.id, languageId: _selectedLanguageId);
-                                                      langProv.fetchLanguages();
-                                                      if (success && mounted) {
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text('Video deleted successfully'),
-                                                            backgroundColor: AppTheme.neonCyan,
-                                                          ),
-                                                        );
-                                                      }
-                                                    }
-                                                  },
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (video.isAssignedToSnapshot) ...[
-                                        Container(
-                                          margin: const EdgeInsets.only(bottom: 6),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: Colors.amber.withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: Colors.amber.withOpacity(0.4)),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.lock, size: 12, color: Colors.amber),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Used in User Snapshots — Deletion Protected',
-                                                style: GoogleFonts.outfit(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.amber,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.neonCyan.withOpacity(0.15),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              video.languageName,
-                                              style: GoogleFonts.outfit(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.neonCyan,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Text(
-                                              video.videoUrl,
-                                              style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                    padding: const EdgeInsets.all(3),
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    onPressed: video.isAssignedToSnapshot
+                        ? () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Deletion Protected: Video is part of active user snapshots.'),
+                                backgroundColor: Colors.orangeAccent,
+                              ),
+                            );
+                          }
+                        : () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                backgroundColor: AppTheme.cardBg,
+                                title: const Text('Delete Video?'),
+                                content: Text('Are you sure you want to delete "${video.title}"?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                    child: const Text('Delete'),
                                   ),
                                 ],
                               ),
                             );
+
+                            if (confirm == true) {
+                              final langProv = Provider.of<AdminLanguagesProvider>(context, listen: false);
+                              final success = await videoProvider.deleteVideo(video.id, languageId: _selectedLanguageId);
+                              langProv.fetchLanguages();
+                              if (success && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Video deleted successfully'),
+                                    backgroundColor: AppTheme.neonCyan,
+                                  ),
+                                );
+                              }
+                            }
                           },
+                  ),
+                ],
+              ),
+              if (video.isAssignedToSnapshot) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.lock, size: 12, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Used in User Snapshots — Deletion Protected',
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber,
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 6),
+              Text(
+                video.videoUrl,
+                style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
-        ),
-        const AdminVideoAssignmentsScreen(),
-      ],
-    ),
-  );
+        );
+      },
+    );
   }
 
   void _showAdminVideoPreviewDialog(BuildContext context, AdminVideoModel video) {

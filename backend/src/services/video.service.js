@@ -318,7 +318,7 @@ class VideoService {
       const allActiveVideos = await prisma.video.findMany({
         where: whereClause,
         orderBy,
-        include: { language: true, product: true },
+        include: { language: true, product: true, category: true },
       });
 
       const userProgressRecords = await prisma.userVideoProgress.findMany({
@@ -341,6 +341,8 @@ class VideoService {
           languageId: v.languageId,
           languageName: v.language.name,
           productName: v.product?.name || null,
+          categoryId: v.categoryId || v.category?.id || null,
+          categoryName: v.category?.name || v.categoryName || 'Time Management',
           status: v.status,
           orderIndex: v.orderIndex,
           provider: v.provider || (isR2Video ? 'CLOUDFLARE_R2' : 'CLOUDINARY'),
@@ -571,7 +573,7 @@ class VideoService {
     const allActiveVideos = await prisma.video.findMany({
       where: whereClause,
       orderBy,
-      include: { language: true, product: true },
+      include: { language: true, product: true, category: true },
     });
 
     const unlockedVideos = [];
@@ -598,6 +600,8 @@ class VideoService {
           duration: v.duration,
           languageName: v.language.name,
           productName: v.product?.name || null,
+          categoryId: v.categoryId || v.category?.id || null,
+          categoryName: v.category?.name || v.categoryName || 'Time Management',
           status: v.status,
           orderIndex: v.orderIndex,
           provider: v.provider || (isR2Video ? 'CLOUDFLARE_R2' : 'CLOUDINARY'),
@@ -936,10 +940,38 @@ class VideoService {
    * Create video under chosen language & product
    * @param {string} r2ObjectKey — Permanent R2 object key (e.g. "videos/<uuid>.mp4"). Store this, NOT the presigned URL.
    */
-  async createVideo({ title, description, videoUrl, thumbnailUrl, duration, languageId, productId, status = 'AVAILABLE', orderIndex, r2ObjectKey, provider }) {
+  async createVideo({ title, description, videoUrl, thumbnailUrl, duration, languageId, productId, categoryId, categoryName, status = 'AVAILABLE', orderIndex, r2ObjectKey, provider }) {
     const language = await prisma.language.findUnique({ where: { id: languageId } });
     if (!language) {
       throw new Error('Specified language folder not found');
+    }
+
+    let resolvedCategoryId = categoryId || null;
+    let resolvedCategoryName = categoryName || null;
+
+    if (!resolvedCategoryId && resolvedCategoryName) {
+      const cat = await prisma.category.findUnique({ where: { name: resolvedCategoryName } });
+      if (cat) {
+        resolvedCategoryId = cat.id;
+      }
+    } else if (resolvedCategoryId && !resolvedCategoryName) {
+      const cat = await prisma.category.findUnique({ where: { id: resolvedCategoryId } });
+      if (cat) {
+        resolvedCategoryName = cat.name;
+      }
+    }
+
+    // Default fallback category to "Time Management" if none specified
+    if (!resolvedCategoryId && !resolvedCategoryName) {
+      const defaultCat = await prisma.category.findFirst({
+        orderBy: { orderIndex: 'asc' },
+      });
+      if (defaultCat) {
+        resolvedCategoryId = defaultCat.id;
+        resolvedCategoryName = defaultCat.name;
+      } else {
+        resolvedCategoryName = 'Time Management';
+      }
     }
 
     let finalOrderIndex = orderIndex !== undefined && orderIndex !== null ? parseInt(orderIndex, 10) : null;
@@ -970,10 +1002,12 @@ class VideoService {
         duration: duration ? parseInt(duration, 10) : 0,
         languageId,
         productId: productId || null,
+        categoryId: resolvedCategoryId,
+        categoryName: resolvedCategoryName,
         status,
         orderIndex: finalOrderIndex,
       },
-      include: { language: true, product: true },
+      include: { language: true, product: true, category: true },
     });
   }
 
@@ -1011,7 +1045,7 @@ class VideoService {
     const videos = await prisma.video.findMany({
       where,
       orderBy: [{ languageId: 'asc' }, { orderIndex: 'asc' }, { createdAt: 'desc' }],
-      include: { language: true, product: true },
+      include: { language: true, product: true, category: true },
     });
 
     const assignedVideoIds = (
@@ -1023,6 +1057,8 @@ class VideoService {
 
     return videos.map((v) => ({
       ...v,
+      categoryId: v.categoryId || v.category?.id || null,
+      categoryName: v.category?.name || v.categoryName || 'Time Management',
       isAssignedToSnapshot: assignedVideoIds.includes(v.id),
       deletionProtected: assignedVideoIds.includes(v.id),
     }));

@@ -11,6 +11,8 @@ class AdminVideoModel {
   final int duration;
   final String languageId;
   final String languageName;
+  final String? categoryId;
+  final String categoryName;
   final String status;
   final int orderIndex;
   final bool isAssignedToSnapshot;
@@ -25,6 +27,8 @@ class AdminVideoModel {
     required this.duration,
     required this.languageId,
     required this.languageName,
+    this.categoryId,
+    required this.categoryName,
     required this.status,
     required this.orderIndex,
     required this.isAssignedToSnapshot,
@@ -41,6 +45,8 @@ class AdminVideoModel {
       duration: json['duration'] ?? 0,
       languageId: json['languageId'],
       languageName: json['language'] != null ? json['language']['name'] : 'Unknown',
+      categoryId: json['categoryId'] ?? (json['category'] != null ? json['category']['id'] : null),
+      categoryName: json['categoryName'] ?? (json['category'] != null ? json['category']['name'] : 'Time Management'),
       status: json['status'] ?? 'AVAILABLE',
       orderIndex: json['orderIndex'] ?? 0,
       isAssignedToSnapshot: json['isAssignedToSnapshot'] == true || json['deletionProtected'] == true,
@@ -87,6 +93,8 @@ class AdminVideosProvider extends ChangeNotifier {
     required String videoUrl,
     String? thumbnailUrl,
     required String languageId,
+    String? categoryId,
+    String? categoryName,
     int? duration,
     String? r2ObjectKey,
   }) async {
@@ -101,6 +109,8 @@ class AdminVideosProvider extends ChangeNotifier {
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'languageId': languageId,
+        if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
+        if (categoryName != null && categoryName.isNotEmpty) 'categoryName': categoryName,
         if (duration != null && duration > 0) 'duration': duration,
         if (r2ObjectKey != null && r2ObjectKey.isNotEmpty) 'r2ObjectKey': r2ObjectKey,
       });

@@ -450,6 +450,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           subtitle: 'Watch courses in your assigned language',
                           color: AppTheme.neonGreen,
                           onTap: () => Navigator.pushNamed(context, AppRoutes.videos),
+                          isHorizontal: true,
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -476,52 +477,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildMenuCard(
-                                icon: Icons.receipt_long_outlined,
-                                title: 'Payments',
-                                subtitle: 'Receipts & history',
-                                color: AppTheme.neonGreen,
-                                onTap: () => Navigator.pushNamed(context, AppRoutes.paymentHistory),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMenuCard(
-                                icon: Icons.currency_exchange_outlined,
-                                title: 'Refunds',
-                                subtitle: 'Apply & track status',
-                                color: AppTheme.primaryPink,
-                                onTap: () => Navigator.pushNamed(context, AppRoutes.refundRequest),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildMenuCard(
-                                icon: Icons.settings_applications_outlined,
-                                title: 'App Settings',
-                                subtitle: 'Theme & security',
-                                color: AppTheme.primaryPink,
-                                onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMenuCard(
-                                icon: Icons.support_agent_outlined,
-                                title: 'Support Hub',
-                                subtitle: 'Help & documentation',
-                                color: AppTheme.neonGreen,
-                                onTap: () => Navigator.pushNamed(context, AppRoutes.support),
-                              ),
-                            ),
-                          ],
+                        _buildMenuCard(
+                          icon: Icons.settings_applications_outlined,
+                          title: 'App Settings & Hub',
+                          subtitle: 'Payments, Refunds, Support, Security & Legal',
+                          color: AppTheme.primaryPink,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                          isHorizontal: true,
                         ),
                         
                         const SizedBox(height: 40),
@@ -535,9 +497,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Navigator.pushReplacementNamed(context, AppRoutes.login);
                             },
                             icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-                            label: const Text(
+                            label: Text(
                               'Logout from App',
-                              style: TextStyle(color: Colors.redAccent, fontSize: 16),
+                              style: GoogleFonts.outfit(
+                                color: Colors.redAccent,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -560,42 +526,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String subtitle,
     required Color color,
     required VoidCallback onTap,
+    bool isHorizontal = false,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: AppTheme.glassCardDecoration(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+        child: isHorizontal
+            ? Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: color, size: 26),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.lightText,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: AppTheme.softGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: AppTheme.softGrey),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.lightText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: AppTheme.softGrey,
+                    ),
+                  ),
+                ],
               ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.lightText,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                color: AppTheme.softGrey,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

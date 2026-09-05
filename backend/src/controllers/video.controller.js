@@ -4,7 +4,7 @@ const ApiResponse = require('../utils/apiResponse');
 class VideoController {
   async createVideo(req, res, next) {
     try {
-      const { title, description, videoUrl, thumbnailUrl, duration, languageId, productId, status, orderIndex, r2ObjectKey, provider } = req.body;
+      const { title, description, videoUrl, thumbnailUrl, duration, languageId, productId, categoryId, categoryName, status, orderIndex, r2ObjectKey, provider } = req.body;
       if (!title || !videoUrl || !languageId) {
         return ApiResponse.error(res, 'Title, videoUrl, and languageId are required', 400);
       }
@@ -16,6 +16,8 @@ class VideoController {
         duration,
         languageId,
         productId,
+        categoryId,
+        categoryName,
         status,
         orderIndex,
         r2ObjectKey,

@@ -111,6 +111,16 @@ model Language {
   requestedLangRequests   LanguageChangeRequest[] @relation("RequestedLanguageRequests")
 }
 
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. "Time Management", "Habit Building", etc.
+  description String?  @db.Text
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  videos      Video[]
+}
+
 model Video {
   id                   String              @id @default(uuid())
   title                String
@@ -126,6 +136,9 @@ model Video {
   language             Language            @relation(fields: [languageId], references: [id], onDelete: Cascade)
   productId            String?
   product              Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  categoryId           String?
+  category             Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryName         String?             @db.VarChar(128)   // Fallback English category name
   status               String              @default("AVAILABLE") // DRAFT, UPLOADED, AVAILABLE, ASSIGNED, IN_USE, ARCHIVED
   orderIndex           Int                 @default(0)
   currentVersionNumber Int                 @default(1)
@@ -140,6 +153,7 @@ model Video {
 
   @@index([languageId])
   @@index([productId])
+  @@index([categoryId])
 }
 
 model VideoVersion {

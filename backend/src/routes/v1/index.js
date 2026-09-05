@@ -24,6 +24,7 @@ const refundRoutes = require('./refund.routes');
 const videoAssignmentRoutes = require('./videoAssignment.routes');
 const appReleaseRoutes = require('./appRelease.routes');
 const developerRoutes = require('./developer.routes');
+const categoryRoutes = require('./category.routes');
 const appVersionMiddleware = require('../../middleware/appVersion.middleware');
 
 router.use('/app-version', appReleaseRoutes);
@@ -38,6 +39,7 @@ router.use('/referrals', referralRoutes);
 router.use('/hierarchy', hierarchyRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/languages', languageRoutes);
+router.use('/categories', categoryRoutes);
 router.use('/videos', videoRoutes);
 router.use('/language-requests', languageRequestRoutes);
 router.use('/products', productRoutes);

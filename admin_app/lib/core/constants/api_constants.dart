@@ -39,6 +39,7 @@ class ApiConstants {
 
   // Language & Video endpoints
   static const String languages = '/languages';
+  static const String categories = '/categories';
   static const String adminVideos = '/videos/admin';
   static String assignUserLanguage(String userId) => '/videos/admin/users/$userId/language';
   static String resetUserVideoProgress(String userId) => '/videos/admin/users/$userId/reset-video-progress';

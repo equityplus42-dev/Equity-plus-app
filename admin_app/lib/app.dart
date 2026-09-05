@@ -16,6 +16,7 @@ import 'providers/admin_payments_provider.dart';
 import 'providers/admin_video_assignments_provider.dart';
 import 'providers/admin_notifications_provider.dart';
 import 'providers/admin_release_provider.dart';
+import 'providers/admin_categories_provider.dart';
 import 'providers/update_provider.dart';
 import 'screens/update/app_update_wrapper.dart';
 
@@ -33,6 +34,7 @@ class AdminApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminSettingsProvider()),
         ChangeNotifierProvider(create: (_) => AdminHierarchyProvider()),
         ChangeNotifierProvider(create: (_) => AdminLanguagesProvider()),
+        ChangeNotifierProvider(create: (_) => AdminCategoriesProvider()),
         ChangeNotifierProvider(create: (_) => AdminVideosProvider()),
         ChangeNotifierProvider(create: (_) => AdminLanguageRequestsProvider()),
         ChangeNotifierProvider(create: (_) => AdminProductsProvider()),
