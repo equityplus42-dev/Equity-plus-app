@@ -61,9 +61,9 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
-    try {
-      await _apiClient.post(ApiConstants.logout, {});
-    } catch (_) {}
+    // Fire backend logout in background without blocking UI navigation
+    _apiClient.post(ApiConstants.logout, {}).catchError((_) => <String, dynamic>{});
+    // Immediately clear local storage
     await _storage.clearAll();
   }
 

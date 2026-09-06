@@ -62,9 +62,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    try {
-      await _apiClient.post(ApiConstants.logout, {});
-    } catch (_) {}
+    // Fire backend logout in background without blocking UI navigation
+    _apiClient.post(ApiConstants.logout, {}).catchError((_) => <String, dynamic>{});
+    // Immediately clear local state & storage
     await _storage.clearAll();
     _user = null;
     notifyListeners();
