@@ -544,5 +544,7 @@ model UserJoiningSnapshot {
   @@index([userId])
   @@index([joinedAt])
   @@index([referralCodeUsed])
+  @@index([userEmail])
+  @@index([userName])
 }
 
