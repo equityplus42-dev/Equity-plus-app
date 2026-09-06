@@ -298,20 +298,6 @@ class UserVideoProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> acceptDisclaimer() async {
-    try {
-      await _apiClient.post(ApiConstants.acceptDisclaimer, {});
-      _isDisclaimerAccepted = true;
-      _disclaimerNeedsReacceptance = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      notifyListeners();
-      return false;
-    }
-  }
-
   Future<void> recordProgress(String videoId, int watchedSecs) async {
     try {
       final vIndex = _unlockedVideos.indexWhere((item) => item.id == videoId);

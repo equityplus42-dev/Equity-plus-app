@@ -744,6 +744,18 @@ class _AdminVideoManagementScreenState extends State<AdminVideoManagementScreen>
                         return;
                       }
 
+                      if (dialogCategoryId == null || dialogCategoryId!.isEmpty) {
+                        if (catProvider.categories.isNotEmpty) {
+                          dialogCategoryId = catProvider.categories.first.id;
+                          dialogCategoryName = catProvider.categories.first.name;
+                        } else {
+                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                            const SnackBar(content: Text('Please select or create a Category first.')),
+                          );
+                          return;
+                        }
+                      }
+
                       final videoProvider = Provider.of<AdminVideosProvider>(dialogCtx, listen: false);
                       final success = await videoProvider.createVideo(
                         title: title,

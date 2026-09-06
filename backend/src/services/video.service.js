@@ -124,9 +124,7 @@ class VideoService {
       },
     });
 
-    // Auto-assign first 3 snapshot videos in VideoAssignment table
-    await this.syncUserInitialVideoAssignments(userId, snapshot);
-
+    // All videos across categories are unlocked dynamically for active users
     return snapshot;
   }
 
