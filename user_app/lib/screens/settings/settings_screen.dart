@@ -67,7 +67,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.receipt_long_outlined,
               iconColor: AppTheme.neonGreen,
               title: 'Payments',
-              subtitle: 'Receipts & billing history',
               trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
               onTap: () => Navigator.pushNamed(context, AppRoutes.paymentHistory),
             ),
@@ -75,7 +74,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.currency_exchange_outlined,
               iconColor: AppTheme.primaryPink,
               title: 'Refund Requests',
-              subtitle: 'Apply for refund & track status',
               trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
               onTap: () => Navigator.pushNamed(context, AppRoutes.refundRequest),
             ),
@@ -88,7 +86,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.support_agent_outlined,
               iconColor: AppTheme.neonCyan,
               title: 'Support Hub',
-              subtitle: 'Help desk, FAQs & documentation',
               trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
               onTap: () => Navigator.pushNamed(context, AppRoutes.support),
             ),
@@ -101,7 +98,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.notifications_active_outlined,
               iconColor: AppTheme.primaryPurple,
               title: 'Push Notifications',
-              subtitle: 'Alert on downline activities & updates',
               trailing: Switch(
                 value: _notificationsEnabled,
                 onChanged: _toggleNotifications,
@@ -112,7 +108,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.lock_outline,
               iconColor: AppTheme.primaryPurple,
               title: 'Biometric Security',
-              subtitle: 'Unlock app with fingerprint or Face ID',
               trailing: Switch(
                 value: _biometricEnabled,
                 onChanged: _toggleBiometrics,
@@ -128,7 +123,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.gavel_outlined,
               iconColor: AppTheme.neonCyan,
               title: 'Terms & Conditions',
-              subtitle: '4000+ words legal agreement & 25% refund policy',
               trailing: const Icon(Icons.chevron_right, color: AppTheme.neonCyan),
               onTap: () => Navigator.pushNamed(context, AppRoutes.termsAndConditions),
             ),
@@ -136,7 +130,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.verified_user_outlined,
               iconColor: AppTheme.softGrey,
               title: 'Privacy Policy',
-              subtitle: 'Data protection and security compliance',
               trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
               onTap: () {
                 showDialog(
@@ -251,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
     required Color iconColor,
     required String title,
-    required String subtitle,
+    String? subtitle,
     required Widget trailing,
     VoidCallback? onTap,
   }) {
@@ -260,7 +253,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: AppTheme.glassCardDecoration(),
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -277,13 +270,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: AppTheme.lightText,
           ),
         ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.outfit(
-            fontSize: 12,
-            color: AppTheme.softGrey,
-          ),
-        ),
+        subtitle: subtitle != null && subtitle.isNotEmpty
+            ? Text(
+                subtitle,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  color: AppTheme.softGrey,
+                ),
+              )
+            : null,
         trailing: trailing,
       ),
     );
