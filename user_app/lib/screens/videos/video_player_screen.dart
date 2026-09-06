@@ -135,49 +135,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // ── Initialise controller ─────────────────────────────────────────────────
   Future<void> _initializeVideoAndSession() async {
     try {
-      // 1. Cross-device resume position
-      int resumePos = widget.video.watchedSecs;
-      try {
-        final posRes = await _apiClient.get('/sessions/${widget.video.id}/resume');
-        if (posRes['data'] != null && posRes['data']['lastPositionSecs'] != null) {
-          resumePos = posRes['data']['lastPositionSecs'];
-        }
-      } catch (_) {}
+      // 1. Determine playback URL immediately
+      String? playbackUrl = widget.video.videoUrl.isNotEmpty ? widget.video.videoUrl : null;
+      if (playbackUrl == null && _isR2Video()) {
+        playbackUrl = await _fetchFreshPlaybackUrl();
+      }
 
-      // 2. Start Playback Session
-      try {
-        final sessRes = await _apiClient.post('/sessions/${widget.video.id}/start', {
-          'platform': 'FLUTTER_MOBILE',
-          'deviceName': 'User Device',
-        });
-        if (sessRes['data'] != null) _sessionId = sessRes['data']['sessionId'];
-      } catch (_) {}
-
-      // 3. Determine playback URL
-      // For R2 videos: call /access to get a fresh 1-hour presigned URL.
-      // For Cloudinary videos: use the direct URL from the model.
-      String playbackUrl;
-      if (_isR2Video()) {
-        final freshUrl = await _fetchFreshPlaybackUrl();
-        if (freshUrl == null || freshUrl.isEmpty) {
-          // Could not get fresh URL — show error
-          if (mounted) setState(() => _hasError = true);
-          return;
-        }
-        playbackUrl = freshUrl;
-      } else {
-        playbackUrl = widget.video.videoUrl;
+      if (playbackUrl == null || playbackUrl.isEmpty) {
+        if (mounted) setState(() => _hasError = true);
+        return;
       }
 
       _activePlaybackUrl = playbackUrl;
       _urlRefreshAttempts = 0;
 
-      // 4. Initialise controller at current quality
-      await _createController(
+      // 2. Start video player controller immediately (Instant 0ms playback start)
+      final createFuture = _createController(
         buildQualityUrl(playbackUrl.trim(), _currentQuality),
-        resumePos: resumePos,
+        resumePos: widget.video.watchedSecs,
         autoPlay: true,
       );
+
+      // 3. Asynchronously start playback session & check server resume position in background
+      unawaited(Future.microtask(() async {
+        try {
+          final sessRes = await _apiClient.post('/sessions/${widget.video.id}/start', {
+            'platform': 'FLUTTER_MOBILE',
+            'deviceName': 'User Device',
+          });
+          if (sessRes['data'] != null) _sessionId = sessRes['data']['sessionId'];
+        } catch (_) {}
+      }));
+
+      await createFuture;
     } catch (e) {
       debugPrint('Video Player init error: $e');
       if (mounted) setState(() => _hasError = true);

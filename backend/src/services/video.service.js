@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const cloudflareR2Service = require('./cloudflareR2.service');
 
 class VideoService {
   /**
@@ -331,33 +332,43 @@ class VideoService {
       });
       const progressMap = new Map(userProgressRecords.map((r) => [r.videoId, r]));
 
-      const unlockedVideos = allActiveVideos.map((v) => {
-        const prog = progressMap.get(v.id);
-        const isR2Video = Boolean(v.r2ObjectKey) ||
-          (v.videoUrl && (v.videoUrl.includes('r2.cloudflarestorage.com') || v.videoUrl.includes('.r2.dev')));
+      const unlockedVideos = await Promise.all(
+        allActiveVideos.map(async (v) => {
+          const prog = progressMap.get(v.id);
+          const isR2Video = Boolean(v.r2ObjectKey) ||
+            (v.videoUrl && (v.videoUrl.includes('r2.cloudflarestorage.com') || v.videoUrl.includes('.r2.dev')));
 
-        return {
-          id: v.id,
-          title: v.title,
-          description: v.description,
-          videoUrl: isR2Video ? null : v.videoUrl,
-          thumbnailUrl: v.thumbnailUrl,
-          duration: v.duration,
-          languageId: v.languageId,
-          languageName: v.language.name,
-          productName: v.product?.name || null,
-          categoryId: v.categoryId || v.category?.id || null,
-          categoryName: v.category?.name || v.categoryName || 'Time Management',
-          status: v.status,
-          orderIndex: v.orderIndex,
-          provider: v.provider || (isR2Video ? 'CLOUDFLARE_R2' : 'CLOUDINARY'),
-          watchedSecs: prog ? prog.watchedSecs : 0,
-          isCompleted: prog ? prog.isCompleted : false,
-          isLocked: false,
-          unlockNotice: null,
-          createdAt: v.createdAt,
-        };
-      });
+          let playbackUrl = v.videoUrl;
+          if (isR2Video) {
+            const r2Key = v.r2ObjectKey || cloudflareR2Service.extractR2ObjectKeyFromUrl(v.videoUrl);
+            if (r2Key) {
+              playbackUrl = await cloudflareR2Service.generatePlaybackUrl(r2Key, 3600);
+            }
+          }
+
+          return {
+            id: v.id,
+            title: v.title,
+            description: v.description,
+            videoUrl: playbackUrl || v.videoUrl,
+            thumbnailUrl: v.thumbnailUrl,
+            duration: v.duration,
+            languageId: v.languageId,
+            languageName: v.language.name,
+            productName: v.product?.name || null,
+            categoryId: v.categoryId || v.category?.id || null,
+            categoryName: v.category?.name || v.categoryName || 'Time Management',
+            status: v.status,
+            orderIndex: v.orderIndex,
+            provider: v.provider || (isR2Video ? 'CLOUDFLARE_R2' : 'CLOUDINARY'),
+            watchedSecs: prog ? prog.watchedSecs : 0,
+            isCompleted: prog ? prog.isCompleted : false,
+            isLocked: false,
+            unlockNotice: null,
+            createdAt: v.createdAt,
+          };
+        })
+      );
 
       return {
         needsLanguageSelection: false,
@@ -584,23 +595,25 @@ class VideoService {
     const unlockedVideos = [];
     const lockedVideos = [];
 
-    for (const v of allActiveVideos) {
-      const isSnapshotVideo = snapshotVideoIds.includes(v.id);
-      const isDirectAssigned = directAssignedVideoIds.has(v.id);
-      const isUnlocked = true;
-      const prog = progressMap.get(v.id);
-
-      if (isUnlocked) {
-        // For R2 videos, omit the stored videoUrl from the library list response.
-        // The stored URL is a stale presigned URL that may have expired.
-        // Flutter must call GET /videos/:id/access to get a fresh signed URL before playback.
+    const processedVideos = await Promise.all(
+      allActiveVideos.map(async (v) => {
+        const prog = progressMap.get(v.id);
         const isR2Video = Boolean(v.r2ObjectKey) ||
           (v.videoUrl && (v.videoUrl.includes('r2.cloudflarestorage.com') || v.videoUrl.includes('.r2.dev')));
+
+        let playbackUrl = v.videoUrl;
+        if (isR2Video) {
+          const r2Key = v.r2ObjectKey || cloudflareR2Service.extractR2ObjectKeyFromUrl(v.videoUrl);
+          if (r2Key) {
+            playbackUrl = await cloudflareR2Service.generatePlaybackUrl(r2Key, 3600);
+          }
+        }
+
         const videoData = {
           id: v.id,
           title: v.title,
           description: v.description,
-          videoUrl: isR2Video ? null : v.videoUrl,  // R2: null (use /access). Cloudinary: direct URL.
+          videoUrl: playbackUrl || v.videoUrl,
           thumbnailUrl: v.thumbnailUrl,
           duration: v.duration,
           languageName: v.language.name,
@@ -617,18 +630,20 @@ class VideoService {
           createdAt: v.createdAt,
         };
 
-        const passesFilter =
-          !filter ||
-          filter === 'ALL' ||
-          (filter === 'COMPLETED' && videoData.isCompleted) ||
-          (filter === 'CONTINUE_WATCHING' && videoData.watchedSecs > 0 && !videoData.isCompleted) ||
-          (filter === 'UNLOCKED' && !videoData.isLocked);
+        return videoData;
+      })
+    );
 
-        if (passesFilter) {
-          unlockedVideos.push(videoData);
-        }
-      } else {
-        // Remaining videos stay HIDDEN until 25% watch time criteria or 30 days unlock criteria is met.
+    for (const videoData of processedVideos) {
+      const passesFilter =
+        !filter ||
+        filter === 'ALL' ||
+        (filter === 'COMPLETED' && videoData.isCompleted) ||
+        (filter === 'CONTINUE_WATCHING' && videoData.watchedSecs > 0 && !videoData.isCompleted) ||
+        (filter === 'UNLOCKED' && !videoData.isLocked);
+
+      if (passesFilter) {
+        unlockedVideos.push(videoData);
       }
     }
 
