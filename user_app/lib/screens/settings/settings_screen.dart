@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/routes/app_routes.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/update_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -166,26 +167,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            _buildSettingTile(
-              icon: Icons.info_outline,
-              iconColor: AppTheme.neonGreen,
-              title: 'App Version',
-              subtitle: 'v1.0.0 (Production Stable)',
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.neonGreen.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Up to date',
-                  style: GoogleFonts.outfit(
-                    color: AppTheme.neonGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+            Consumer<UpdateProvider>(
+              builder: (context, updateProvider, _) {
+                final displayVer = 'v${updateProvider.currentVersion} (Build ${updateProvider.currentBuildNumber})';
+                final isAvail = updateProvider.updateAvailable;
+                return _buildSettingTile(
+                  icon: Icons.info_outline,
+                  iconColor: isAvail ? Colors.amberAccent : AppTheme.neonGreen,
+                  title: 'App Version',
+                  subtitle: displayVer,
+                  onTap: isAvail
+                      ? () {
+                          updateProvider.checkForUpdates(forceRefreshPackageInfo: true);
+                        }
+                      : null,
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (isAvail ? Colors.amberAccent : AppTheme.neonGreen).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isAvail ? 'Update Available 🚀' : 'Up to date',
+                      style: GoogleFonts.outfit(
+                        color: isAvail ? Colors.amberAccent : AppTheme.neonGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
 
             const SizedBox(height: 32),
