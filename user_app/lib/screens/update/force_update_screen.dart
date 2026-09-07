@@ -319,12 +319,6 @@ class ForceUpdateScreen extends StatelessWidget {
             ),
           ],
         );
-
-      case DownloadStatus.success:
-        return const Text(
-          'Update downloaded! Please complete installation.',
-          style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold),
-        );
     }
   }
 }
