@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/network/api_client.dart';
+import '../services/local_notification_service.dart';
 
 class AdminNotificationModel {
   final String id;
@@ -38,6 +39,8 @@ class AdminNotificationsProvider extends ChangeNotifier {
   List<AdminNotificationModel> _notifications = [];
   bool _isLoading = false;
   String? _errorMessage;
+  final Set<String> _poppedNotificationIds = {};
+  bool _isFirstFetch = true;
 
   List<AdminNotificationModel> get notifications => _notifications;
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
@@ -54,7 +57,31 @@ class AdminNotificationsProvider extends ChangeNotifier {
     try {
       final res = await _apiClient.get('/notifications');
       final List list = res['data'] ?? [];
-      _notifications = list.map((item) => AdminNotificationModel.fromJson(item)).toList();
+      final fetched = list.map((item) => AdminNotificationModel.fromJson(item)).toList();
+
+      // Trigger native mobile system notifications for new unread admin alerts
+      for (final n in fetched) {
+        if (!n.isRead && !_poppedNotificationIds.contains(n.id)) {
+          if (!_isFirstFetch) {
+            LocalNotificationService().showNotification(
+              id: n.id.hashCode,
+              title: n.title,
+              body: n.message,
+            );
+          }
+          _poppedNotificationIds.add(n.id);
+        }
+      }
+
+      if (_isFirstFetch) {
+        // Record initial unread notification IDs on app startup
+        for (final n in fetched) {
+          _poppedNotificationIds.add(n.id);
+        }
+        _isFirstFetch = false;
+      }
+
+      _notifications = fetched;
       _isLoading = false;
       notifyListeners();
     } catch (e) {

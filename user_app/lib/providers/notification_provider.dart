@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/notification_model.dart';
 import '../repositories/notification_repository.dart';
+import '../services/local_notification_service.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationRepository _notificationRepository = NotificationRepository();
@@ -8,19 +9,47 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
   String? _errorMessage;
+  final Set<String> _poppedNotificationIds = {};
+  bool _isFirstFetch = true;
 
   List<NotificationModel> get notifications => _notifications;
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchNotifications() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> fetchNotifications({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
-      _notifications = await _notificationRepository.getNotifications();
+      final fetched = await _notificationRepository.getNotifications();
+      
+      // Trigger native system shade notifications for new unread notifications
+      for (final n in fetched) {
+        if (!n.isRead && !_poppedNotificationIds.contains(n.id)) {
+          if (!_isFirstFetch) {
+            LocalNotificationService().showNotification(
+              id: n.id.hashCode,
+              title: n.title,
+              body: n.message,
+            );
+          }
+          _poppedNotificationIds.add(n.id);
+        }
+      }
+
+      if (_isFirstFetch) {
+        // Record initial unread notification IDs so past notifications don't spam popups on launch
+        for (final n in fetched) {
+          _poppedNotificationIds.add(n.id);
+        }
+        _isFirstFetch = false;
+      }
+
+      _notifications = fetched;
       _isLoading = false;
       notifyListeners();
     } catch (e) {

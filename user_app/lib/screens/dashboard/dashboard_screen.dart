@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -22,6 +23,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  Timer? _notifTimer;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +45,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       Provider.of<NotificationProvider>(context, listen: false).fetchNotifications();
       Provider.of<AuthProvider>(context, listen: false).refreshProfile();
     });
+
+    // Periodically check for new notifications in background every 10 seconds
+    _notifTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted) {
+        Provider.of<NotificationProvider>(context, listen: false).fetchNotifications(silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notifTimer?.cancel();
+    super.dispose();
   }
 
   void _copyToClipboard(String text) {

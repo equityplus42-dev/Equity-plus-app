@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app.dart';
 import 'core/storage/storage_service.dart';
 import 'providers/update_provider.dart';
+import 'services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +13,7 @@ void main() async {
   await storage.init();
 
   await UpdateProvider().initPackageInfo(appType: 'ADMIN_APP');
+  await LocalNotificationService().initialize();
 
   runApp(const AdminApp());
 }
