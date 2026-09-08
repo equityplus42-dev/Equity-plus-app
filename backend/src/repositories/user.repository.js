@@ -101,34 +101,6 @@ class UserRepository {
       return null;
     }
 
-    // 0. Claw back / deduct referral points from all upstream referrers in the tree
-    const referralService = require('../services/referral.service');
-    await referralService.clawbackPointsOnUserDeletion(id);
-
-    // 1. Save user details to DeletedUserLog table
-    await prisma.deletedUserLog.create({
-      data: {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        referralCode: user.referralCode,
-        referrerId: user.referrerId,
-        firstName: user.profile?.firstName || null,
-        lastName: user.profile?.lastName || null,
-        phoneNumber: user.profile?.phoneNumber || null,
-        whatsApp: user.profile?.whatsApp || null,
-        state: user.profile?.state || null,
-        district: user.profile?.district || null,
-        panNumber: user.profile?.panNumber || null,
-        aadharNumber: user.profile?.aadharNumber || null,
-        assignedLanguageId: user.profile?.assignedLanguageId || null,
-        assignedProductId: user.profile?.assignedProductId || null,
-        points: user.points || 0,
-        deletedBy: adminId,
-        snapshotData: JSON.stringify(user),
-      },
-    });
-
     const fullName = user.profile ? `${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim() : null;
     const notificationOrConditions = [
       { userId: id },
@@ -138,26 +110,43 @@ class UserRepository {
       notificationOrConditions.push({ message: { contains: fullName } });
     }
 
-    // 2. Permanently hard delete user from main active User table and clean up child records
-    await prisma.$transaction([
-      prisma.userVideoProgress.deleteMany({ where: { userId: id } }),
-      prisma.snapshotVideo.deleteMany({ where: { snapshot: { userId: id } } }),
-      prisma.userVideoSnapshot.deleteMany({ where: { userId: id } }),
-      prisma.userJoiningSnapshot.deleteMany({ where: { userId: id } }),
-      prisma.languageChangeRequest.deleteMany({ where: { userId: id } }),
-      prisma.playbackSession.deleteMany({ where: { userId: id } }),
+    // 1 & 2. Run clawback, archive log creation, and notification cleanup in parallel
+    const referralService = require('../services/referral.service');
+    await Promise.all([
+      referralService.clawbackPointsOnUserDeletion(id).catch(err => {
+        console.warn('[UserRepository] Non-fatal clawback notice:', err.message);
+      }),
+      prisma.deletedUserLog.create({
+        data: {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          referralCode: user.referralCode,
+          referrerId: user.referrerId,
+          firstName: user.profile?.firstName || null,
+          lastName: user.profile?.lastName || null,
+          phoneNumber: user.profile?.phoneNumber || null,
+          whatsApp: user.profile?.whatsApp || null,
+          state: user.profile?.state || null,
+          district: user.profile?.district || null,
+          panNumber: user.profile?.panNumber || null,
+          aadharNumber: user.profile?.aadharNumber || null,
+          assignedLanguageId: user.profile?.assignedLanguageId || null,
+          assignedProductId: user.profile?.assignedProductId || null,
+          points: user.points || 0,
+          deletedBy: adminId,
+          snapshotData: JSON.stringify(user),
+        },
+      }),
       prisma.notification.deleteMany({
         where: {
           OR: notificationOrConditions
         }
       }),
-      prisma.referral.deleteMany({ where: { OR: [{ refereeId: id }, { referrerId: id }] } }),
-      prisma.hierarchyNode.deleteMany({ where: { userId: id } }),
-      prisma.userProductAccess.deleteMany({ where: { userId: id } }),
-      prisma.videoAssignment.deleteMany({ where: { userId: id } }),
-      prisma.profile.deleteMany({ where: { userId: id } }),
-      prisma.user.delete({ where: { id } }),
     ]);
+
+    // 3. Delete user from database (cascades all foreign key relations natively in 1 DB operation)
+    await prisma.user.delete({ where: { id } });
 
     return { id, email: user.email, deletedPermanently: true };
   }

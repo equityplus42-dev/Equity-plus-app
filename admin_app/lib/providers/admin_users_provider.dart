@@ -108,12 +108,23 @@ class AdminUsersProvider extends ChangeNotifier {
   }
 
   Future<bool> deleteUser(String userId) async {
+    final removedIndex = _users.indexWhere((u) => u.id == userId);
+    final removedUser = removedIndex != -1 ? _users[removedIndex] : null;
+
+    // Instant Optimistic UI: Immediately remove user from screen in 0ms
+    if (removedIndex != -1) {
+      _users.removeAt(removedIndex);
+      notifyListeners();
+    }
+
     try {
       await _apiClient.delete('${ApiConstants.users}/$userId');
-      _users.removeWhere((u) => u.id == userId);
-      notifyListeners();
       return true;
     } catch (e) {
+      // Revert if backend deletion fails
+      if (removedUser != null && removedIndex != -1) {
+        _users.insert(removedIndex, removedUser);
+      }
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
       return false;
