@@ -62,24 +62,50 @@ class ApiClient {
   Future<http.Response> _sendWithFailover(
     Future<http.Response> Function(String baseUrl) requestFn,
   ) async {
-    final List<String> rawCandidates = ApiConstants.useLocalBackend
-        ? [
-            ApiConstants.activeBaseUrl,
-            ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.activeBaseUrl),
-          ]
-        : [
-            ApiConstants.baseUrl,
-            ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.baseUrl),
-          ];
+    // In production mode, ONLY query the production backend. Never query private LAN/local IPs.
+    if (!ApiConstants.useLocalBackend) {
+      const timeoutDuration = Duration(seconds: 25);
+      try {
+        // Primary Attempt
+        return await requestFn(ApiConstants.baseUrl).timeout(timeoutDuration);
+      } on Exception catch (e) {
+        final errStr = e.toString().toLowerCase();
+        final isRetryable = errStr.contains('timeoutexception') ||
+            errStr.contains('socketexception') ||
+            errStr.contains('clientexception') ||
+            errStr.contains('connection closed') ||
+            errStr.contains('connection reset');
+
+        if (isRetryable) {
+          // Automatic 1-time retry for server cold starts or brief cellular network handshakes
+          try {
+            await Future.delayed(const Duration(milliseconds: 500));
+            return await requestFn(ApiConstants.baseUrl).timeout(timeoutDuration);
+          } catch (retryErr) {
+            final retryStr = retryErr.toString().toLowerCase();
+            if (retryStr.contains('timeoutexception')) {
+              throw Exception('Server is taking longer to respond. Please check your internet connection and try again.');
+            }
+            final clean = retryErr.toString().replaceAll('Exception: ', '');
+            throw Exception('Could not reach server: $clean');
+          }
+        }
+        rethrow;
+      }
+    }
+
+    // Local Development Mode
+    final List<String> rawCandidates = [
+      ApiConstants.activeBaseUrl,
+      ...ApiConstants.candidateBaseUrls.where((url) => url != ApiConstants.activeBaseUrl),
+    ];
 
     final candidates = rawCandidates;
 
     Object? lastError;
     for (final candidate in candidates) {
       try {
-        final timeoutDuration = (candidate.contains('vercel.app') || candidate.startsWith('https://'))
-            ? const Duration(seconds: 15)
-            : const Duration(seconds: 4);
+        const timeoutDuration = Duration(seconds: 8);
         final response = await requestFn(candidate).timeout(timeoutDuration);
         if (response.statusCode == 404 && candidate != candidates.last) {
           lastError = Exception('Resource not found (404) at $candidate');
@@ -101,7 +127,7 @@ class ApiClient {
       }
     }
     final cleanErrorMsg = lastError != null ? lastError.toString().replaceAll('Exception: ', '') : 'Unknown error';
-    throw Exception('Could not reach backend server ($cleanErrorMsg)');
+    throw Exception('Could not reach local server ($cleanErrorMsg). Please ensure local backend is running.');
   }
 
   Future<dynamic> get(String endpoint, {Map<String, String>? queryParams}) async {
