@@ -6,7 +6,7 @@ class AuthController {
   async register(req, res, next) {
     try {
       const result = await authService.register(req.body);
-      await auditLogService.log(req, 'REGISTER', result.user.id, { email: result.user.email });
+      auditLogService.log(req, 'REGISTER', result.user.id, { email: result.user.email }).catch(() => {});
       return ApiResponse.success(res, 'Registration successful', result, 201);
     } catch (error) {
       next(error);
@@ -16,7 +16,7 @@ class AuthController {
   async login(req, res, next) {
     try {
       const result = await authService.login(req.body);
-      await auditLogService.log(req, 'LOGIN', result.user.id, { email: result.user.email });
+      auditLogService.log(req, 'LOGIN', result.user.id, { email: result.user.email }).catch(() => {});
       return ApiResponse.success(res, 'Login successful', result);
     } catch (error) {
       next(error);

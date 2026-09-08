@@ -14,6 +14,9 @@ const swaggerDocument = require('./config/swagger.json');
 
 const app = express();
 
+// Enable trust proxy for Vercel / reverse-proxy environments (resolves X-Forwarded-For validation errors)
+app.set('trust proxy', 1);
+
 // 1. Helmet (Security headers) — allow CDN for Swagger UI assets
 app.use(
   helmet({
@@ -49,6 +52,10 @@ app.use(loggerMiddleware);
 const limiter = rateLimit({
   windowMs: apiConfig.RATE_LIMIT.WINDOW_MS,
   max: apiConfig.RATE_LIMIT.MAX_REQUESTS,
+  validate: {
+    xForwardedForHeader: false,
+    default: false,
+  },
   skip: (req) => {
     const ip = req.ip || req.connection?.remoteAddress || '';
     return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';

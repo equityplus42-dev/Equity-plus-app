@@ -101,10 +101,12 @@ class AuthService {
       await referralService.createReferralEntry(user.id, referrerId);
     }
 
-    // 8. Create permanent user joining snapshot log & notify admins
+    // 8. Create permanent user joining snapshot log & notify admins asynchronously in background
     try {
       const joiningSnapshotService = require('./joiningSnapshot.service');
-      await joiningSnapshotService.createSnapshotForUser(user.id);
+      joiningSnapshotService.createSnapshotForUser(user.id).catch((snapshotErr) => {
+        console.warn('[AuthService] User joining snapshot log notice:', snapshotErr.message);
+      });
     } catch (snapshotErr) {
       console.warn('[AuthService] User joining snapshot log notice:', snapshotErr.message);
     }
