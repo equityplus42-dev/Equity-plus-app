@@ -176,9 +176,9 @@ class AuthService {
       throw new Error('You have requested the OTP too many times (maximum 5 requests). Please contact support.');
     }
 
-    // Generate random 4-digit OTP in range 0-1000
-    const otpVal = Math.floor(Math.random() * 1001); // Range 0-1000
-    const otp = String(otpVal).padStart(4, '0'); // Padded to 4 digits
+    // Generate random 4-digit OTP between 1000 and 9999
+    const otpVal = Math.floor(1000 + Math.random() * 9000);
+    const otp = String(otpVal);
 
     // Set expiry to 15 minutes from now
     const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
@@ -194,7 +194,12 @@ class AuthService {
     });
 
     // Send email using nodemailer
-    await sendOtpEmail(email, otp);
+    const mailResult = await sendOtpEmail(email, otp);
+    if (mailResult && mailResult.fallback) {
+      // If email delivery failed due to SMTP error, log clearly
+      const logger = require('../utils/logger');
+      logger.warn(`[AuthService] Email delivery failed for ${email}: ${mailResult.error}. Active OTP is ${otp}`);
+    }
 
     return { 
       message: 'OTP sent successfully', 

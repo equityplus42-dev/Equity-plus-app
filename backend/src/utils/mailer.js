@@ -1,21 +1,32 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// Retrieve SMTP settings from env
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER || 'mock_user@ethereal.email',
-    pass: process.env.SMTP_PASS || 'mock_pass',
-  },
-});
+function getTransporter() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const isGmail = host.includes('gmail.com') || (user && user.endsWith('@gmail.com'));
+
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+    });
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user, pass },
+  });
+}
 
 async function sendOtpEmail(email, otp) {
-  let activeTransporter = transporter;
-  
-  const isMockSmtp = !process.env.SMTP_USER || process.env.SMTP_USER === 'your_email@gmail.com';
+  const smtpUser = process.env.SMTP_USER;
+  const isMockSmtp = !smtpUser || smtpUser === 'mock_user@ethereal.email' || smtpUser === 'your_email@gmail.com';
+  let activeTransporter;
+
   if (isMockSmtp) {
     try {
       const testAccount = await nodemailer.createTestAccount();
@@ -31,7 +42,10 @@ async function sendOtpEmail(email, otp) {
       logger.info(`Generated test Ethereal account: user=${testAccount.user}`);
     } catch (err) {
       logger.error('Failed to create Ethereal test account, will use fallback transporter', err);
+      activeTransporter = getTransporter();
     }
+  } else {
+    activeTransporter = getTransporter();
   }
 
   const mailOptions = {
