@@ -49,13 +49,13 @@ async function sendOtpEmail(email, otp) {
   }
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || '"Equilty Plus" <no-reply@equiltyplus.com>',
+    from: process.env.SMTP_FROM || '"Vridhi Network" <equityplus42@gmail.com>',
     to: email,
-    subject: 'Your Password Reset OTP',
+    subject: 'Your Password Reset OTP - Vridhi Network',
     text: `Your OTP for resetting password is: ${otp}. It is valid for 15 minutes.`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-        <h2 style="color: #6200EE; text-align: center;">Equilty Plus Password Reset</h2>
+        <h2 style="color: #6200EE; text-align: center;">Vridhi Network Password Reset</h2>
         <p>Hello,</p>
         <p>You requested a password reset. Please use the following 4-digit One-Time Password (OTP) to complete the verification process:</p>
         <div style="background-color: #f3e5f5; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #6200EE; margin: 20px 0; border-radius: 4px;">
