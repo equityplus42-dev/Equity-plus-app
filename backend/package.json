@@ -20,6 +20,7 @@
     "@aws-sdk/lib-storage": "^3.1109.0",
     "@aws-sdk/s3-request-presigner": "^3.1109.0",
     "@prisma/client": "^5.11.0",
+    "@simplewebauthn/server": "^14.0.1",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",
     "compression": "^1.8.1",

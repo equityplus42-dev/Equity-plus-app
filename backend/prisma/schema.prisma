@@ -51,6 +51,7 @@ model User {
   refundRequests          RefundRequest[]
   videoAssignments        VideoAssignment[]
   joiningSnapshot         UserJoiningSnapshot?
+  passkeys                PasskeyCredential[]
 
   @@index([referrerId])
 }
@@ -548,3 +549,31 @@ model UserJoiningSnapshot {
   @@index([userName])
 }
 
+model PasskeyCredential {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique @db.VarChar(255)
+  publicKey    String    @db.Text
+  counter      BigInt    @default(0)
+  deviceType   String    @default("singleDevice")
+  backedUp     Boolean   @default(false)
+  transports   String?   @db.VarChar(255)
+  name         String    @default("My Passkey")
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model WebAuthnChallenge {
+  id         String    @id @default(uuid())
+  challenge  String    @unique @db.VarChar(255)
+  userId     String?
+  type       String    @default("AUTHENTICATION") // REGISTRATION, AUTHENTICATION
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  @@index([challenge])
+  @@index([expiresAt])
+}

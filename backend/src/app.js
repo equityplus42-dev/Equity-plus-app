@@ -112,6 +112,26 @@ app.get('/api/docs', (req, res) => {
 
 const landingController = require('./controllers/landing.controller');
 
+// Digital Asset Links for Android App Links & WebAuthn / FIDO2 Passkeys
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  return res.status(200).json([
+    {
+      relation: [
+        'delegate_permission/common.handle_all_urls',
+        'delegate_permission/common.get_login_creds'
+      ],
+      target: {
+        namespace: 'android_app',
+        package_name: 'com.referral.user_app',
+        sha256_cert_fingerprints: [
+          '6D:AF:54:6C:9E:AC:C0:49:C6:DA:31:AC:B1:3C:50:AB:7A:8F:7E:FF:46:8C:FC:03:3A:61:34:B7:DB:97:4C:2B'
+        ]
+      }
+    }
+  ]);
+});
+
 // Public Web Landing & Referral APK Download Endpoints
 app.get('/download', (req, res, next) => landingController.handleReferralLanding(req, res, next));
 app.get('/r/:refCode', (req, res, next) => landingController.handleReferralLanding(req, res, next));

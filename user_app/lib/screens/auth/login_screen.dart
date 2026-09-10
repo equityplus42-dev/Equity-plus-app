@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/biometric_service.dart';
+import '../../services/passkey_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -23,11 +24,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _biometricService = BiometricService();
   bool _canCheckBiometrics = false;
+  bool _isPasskeySupported = false;
 
   @override
   void initState() {
     super.initState();
     _checkBiometrics();
+    _checkPasskey();
+  }
+
+  Future<void> _checkPasskey() async {
+    final supported = await PasskeyService().isSupported();
+    if (mounted) {
+      setState(() {
+        _isPasskeySupported = supported;
+      });
+    }
   }
 
   Future<void> _checkBiometrics() async {
@@ -44,6 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final isBiometricEnabled = prefs.getBool('biometric_enabled') ?? false;
     final email = prefs.getString('biometric_email');
     final password = prefs.getString('biometric_password');
+
+    if (!mounted) return;
 
     // If biometric login is not enabled in settings or we have no saved credentials, prompt to login with password first
     if (!isBiometricEnabled || email == null || password == null) {
@@ -106,6 +120,46 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _submitPasskeyLogin() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final emailText = _emailController.text.trim();
+    final String? email = emailText.isNotEmpty ? emailText : null;
+
+    final success = await authProvider.loginWithPasskey(email: email);
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Successfully authenticated with Passkey!'),
+          backgroundColor: AppTheme.neonGreen,
+        ),
+      );
+      final user = authProvider.user;
+      final bool hasKyc = user != null &&
+          user.panNumber != null &&
+          user.panNumber!.isNotEmpty &&
+          user.aadharNumber != null &&
+          user.aadharNumber!.isNotEmpty;
+      if (hasKyc) {
+        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.kyc);
+      }
+    } else {
+      if (authProvider.errorMessage != null &&
+          authProvider.errorMessage!.isNotEmpty &&
+          !authProvider.errorMessage!.toLowerCase().contains('cancel')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage!),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -129,6 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('biometric_email', _emailController.text.trim());
       await prefs.setString('biometric_password', _passwordController.text);
+      if (!mounted) return;
 
       final user = authProvider.user;
       final bool hasKyc = user != null &&
@@ -204,6 +259,47 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (_isPasskeySupported) ...[
+                          ElevatedButton.icon(
+                            onPressed: authProvider.isLoading ? null : _submitPasskeyLogin,
+                            icon: const Icon(Icons.fingerprint_rounded, size: 22),
+                            label: Text(
+                              'Sign in with Passkey',
+                              style: GoogleFonts.outfit(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryPurple,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: Colors.white.withOpacity(0.15))),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  'or continue with password',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    color: AppTheme.softGrey,
+                                  ),
+                                ),
+                              ),
+                              Expanded(child: Divider(color: Colors.white.withOpacity(0.15))),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                        ],
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,

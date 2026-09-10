@@ -20,6 +20,7 @@ import '../../screens/payments/payment_history_screen.dart';
 import '../../screens/payments/payment_checkout_screen.dart';
 import '../../screens/refunds/user_refund_request_screen.dart';
 import '../../screens/settings/terms_and_conditions_screen.dart';
+import '../../screens/settings/passkey_management_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -43,6 +44,7 @@ class AppRoutes {
   static const String paymentCheckout = '/payment-checkout';
   static const String refundRequest = '/refund-request';
   static const String termsAndConditions = '/terms-and-conditions';
+  static const String passkeys = '/passkeys';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -67,6 +69,7 @@ class AppRoutes {
       paymentCheckout: (context) => const PaymentCheckoutScreen(),
       refundRequest: (context) => const UserRefundRequestScreen(),
       termsAndConditions: (context) => const TermsAndConditionsScreen(),
+      passkeys: (context) => const PasskeyManagementScreen(),
     };
   }
 }

@@ -105,6 +105,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             _buildSettingTile(
+              icon: Icons.fingerprint_rounded,
+              iconColor: AppTheme.neonGreen,
+              title: 'Passkeys (Passwordless)',
+              subtitle: 'Manage FIDO2 WebAuthn passkeys for instant login',
+              trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
+              onTap: () => Navigator.pushNamed(context, AppRoutes.passkeys),
+            ),
+            _buildSettingTile(
               icon: Icons.lock_outline,
               iconColor: AppTheme.primaryPurple,
               title: 'Biometric Security',

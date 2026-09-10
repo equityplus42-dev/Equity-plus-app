@@ -3,6 +3,7 @@ import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/user_repository.dart';
 import '../core/storage/storage_service.dart';
+import '../services/passkey_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _authRepository = AuthRepository();
@@ -30,6 +31,37 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       _user = await _authRepository.login(email, password);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> loginWithPasskey({String? email}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await PasskeyService().loginWithPasskey(email: email);
+      if (result == null) {
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      final UserModel user = result['user'];
+      final String token = result['token'];
+
+      await _storage.saveToken(token);
+      await _storage.saveUser(user.id, user.email);
+
+      _user = user;
       _isLoading = false;
       notifyListeners();
       return true;
