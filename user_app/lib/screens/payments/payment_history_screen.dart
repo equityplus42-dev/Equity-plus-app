@@ -5,6 +5,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
 import '../../providers/user_payment_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/sync/sync_manager.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
   const PaymentHistoryScreen({super.key});
@@ -13,13 +14,31 @@ class PaymentHistoryScreen extends StatefulWidget {
   State<PaymentHistoryScreen> createState() => _PaymentHistoryScreenState();
 }
 
-class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
+class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<UserPaymentProvider>(context, listen: false).fetchUserPayments();
+      SyncManager().markFetched('user_payments');
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      if (SyncManager().shouldFetch('user_payments')) {
+        SyncManager().markFetched('user_payments');
+        Provider.of<UserPaymentProvider>(context, listen: false).fetchUserPayments(silent: true);
+      }
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -50,153 +69,162 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
       ),
       body: Container(
         decoration: AppTheme.bgGradient,
-        child: paymentProvider.isLoading
+        child: paymentProvider.isLoading && paymentProvider.payments.isEmpty
             ? const Center(child: SpinKitRing(color: AppTheme.primaryPurple))
-            : paymentProvider.payments.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.receipt_long_outlined, size: 70, color: AppTheme.softGrey),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No Payment Records Found',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.lightText,
+            : RefreshIndicator(
+                onRefresh: () async {
+                  SyncManager().markFetched('user_payments');
+                  await paymentProvider.fetchUserPayments(silent: true);
+                },
+                color: AppTheme.primaryPurple,
+                child: paymentProvider.payments.isEmpty
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.receipt_long_outlined, size: 70, color: AppTheme.softGrey),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No Payment Records Found',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.lightText,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Your transaction receipts will appear here.',
+                                  style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Your transaction receipts will appear here.',
-                          style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
-                        ),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () => paymentProvider.fetchUserPayments(),
-                    color: AppTheme.primaryPurple,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: paymentProvider.payments.length,
-                      itemBuilder: (context, index) {
-                        final payment = paymentProvider.payments[index];
-                        final color = _getStatusColor(payment.status);
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: paymentProvider.payments.length,
+                        itemBuilder: (context, index) {
+                          final payment = paymentProvider.payments[index];
+                          final color = _getStatusColor(payment.status);
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 14),
-                          padding: const EdgeInsets.all(16),
-                          decoration: AppTheme.glassCardDecoration(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      payment.productName ?? 'Product Access',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.lightText,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: color.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: color.withOpacity(0.4)),
-                                    ),
-                                    child: Text(
-                                      payment.status,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: color,
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.all(16),
+                            decoration: AppTheme.glassCardDecoration(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        payment.productName ?? 'Product Access',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.lightText,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Amount Paid:',
-                                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
-                                  ),
-                                  Text(
-                                    '₹${payment.amountInRupees.toStringAsFixed(2)}',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.neonGreen,
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: color.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: color.withOpacity(0.4)),
+                                      ),
+                                      child: Text(
+                                        payment.status,
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: color,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Order ID:',
-                                    style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      payment.orderId,
-                                      textAlign: TextAlign.end,
-                                      style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.lightText),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (payment.paymentId != null) ...[
-                                const SizedBox(height: 4),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      'Payment ID:',
+                                      'Amount Paid:',
+                                      style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+                                    ),
+                                    Text(
+                                      '₹${payment.amountInRupees.toStringAsFixed(2)}',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.neonGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Order ID:',
                                       style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        payment.paymentId!,
+                                        payment.orderId,
                                         textAlign: TextAlign.end,
-                                        style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonCyan),
+                                        style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.lightText),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ],
-                              const SizedBox(height: 6),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  DateFormat('dd MMM yyyy, hh:mm a').format(payment.createdAt),
-                                  style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.softGrey),
+                                if (payment.paymentId != null) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Payment ID:',
+                                        style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.softGrey),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          payment.paymentId!,
+                                          textAlign: TextAlign.end,
+                                          style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.neonCyan),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    DateFormat('dd MMM yyyy, hh:mm a').format(payment.createdAt),
+                                    style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.softGrey),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
       ),
     );
   }

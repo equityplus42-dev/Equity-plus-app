@@ -16,6 +16,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:async';
 import '../../widgets/change_password_dialog.dart';
 import '../../core/constants/api_constants.dart';
+import '../../core/sync/sync_manager.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,29 +25,55 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats();
       Provider.of<AdminNotificationsProvider>(context, listen: false).fetchNotifications(silent: true);
+      SyncManager().markFetched('admin_dashboard');
+      SyncManager().markFetched('admin_notifications');
     });
-    // Periodically fetch stats silently in background every 10 seconds
-    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+
+    // Throttled background sync (30 seconds) to prevent server overload and battery drain
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
-        Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
-        Provider.of<AdminNotificationsProvider>(context, listen: false).fetchNotifications(silent: true);
+        _syncLatestDataSilently();
       }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncLatestDataSilently();
+    }
+  }
+
+  Future<void> _syncLatestDataSilently({bool force = false}) async {
+    if (!mounted) return;
+
+    if (SyncManager().shouldFetch('admin_dashboard', force: force)) {
+      SyncManager().markFetched('admin_dashboard');
+      Provider.of<AdminDashboardProvider>(context, listen: false).fetchDashboardStats(silent: true);
+    }
+
+    if (SyncManager().shouldFetch('admin_notifications', force: force)) {
+      SyncManager().markFetched('admin_notifications');
+      Provider.of<AdminNotificationsProvider>(context, listen: false).fetchNotifications(silent: true);
+    }
   }
 
   void _copyToClipboard(String text) {
@@ -160,7 +187,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () => dashboard.fetchDashboardStats(silent: true),
+                  onRefresh: () => _syncLatestDataSilently(force: true),
                   color: AppTheme.primaryPurple,
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),

@@ -139,17 +139,25 @@ class UserPaymentProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> fetchUserPayments() async {
+  Future<bool> fetchUserPayments({bool silent = false}) async {
+    if (!silent && _payments.isEmpty) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
     try {
       final res = await _apiClient.get('/payments/my');
       final List list = res['data'] ?? [];
       _payments = list.map((item) => PaymentModel.fromJson(item)).toList();
       _errorMessage = null;
+      _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
+      _isLoading = false;
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       debugPrint('Error fetching user payments: $e');
+      notifyListeners();
       return false;
     }
   }

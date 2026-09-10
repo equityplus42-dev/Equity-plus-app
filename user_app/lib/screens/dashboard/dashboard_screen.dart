@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/user_payment_provider.dart';
 import '../../core/constants/api_constants.dart';
 import '../../widgets/floating_campaign_ad.dart';
+import '../../core/sync/sync_manager.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,12 +23,14 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   Timer? _notifTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     // Load dashboard metrics, notifications and verify active payment
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final paymentProv = Provider.of<UserPaymentProvider>(context, listen: false);
@@ -44,10 +47,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData();
       Provider.of<NotificationProvider>(context, listen: false).fetchNotifications();
       Provider.of<AuthProvider>(context, listen: false).refreshProfile();
+      SyncManager().markFetched('user_dashboard');
+      SyncManager().markFetched('user_payments');
+      SyncManager().markFetched('user_notifications');
+      SyncManager().markFetched('user_profile');
     });
 
-    // Periodically check for new notifications in background every 10 seconds
-    _notifTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    // Periodically check for new notifications in background every 15 seconds (respecting throttle)
+    _notifTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (mounted) {
         Provider.of<NotificationProvider>(context, listen: false).fetchNotifications(silent: true);
       }
@@ -56,8 +63,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notifTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncLatestDataSilently();
+    }
+  }
+
+  Future<void> _syncLatestDataSilently({bool force = false}) async {
+    if (!mounted) return;
+
+    if (SyncManager().shouldFetch('user_dashboard', force: force)) {
+      SyncManager().markFetched('user_dashboard');
+      Provider.of<DashboardProvider>(context, listen: false).fetchDashboardData(silent: true);
+    }
+
+    if (SyncManager().shouldFetch('user_payments', force: force)) {
+      SyncManager().markFetched('user_payments');
+      Provider.of<UserPaymentProvider>(context, listen: false).fetchUserPayments(silent: true);
+    }
+
+    if (SyncManager().shouldFetch('user_notifications', force: force)) {
+      SyncManager().markFetched('user_notifications');
+      Provider.of<NotificationProvider>(context, listen: false).fetchNotifications(silent: true);
+    }
+
+    if (SyncManager().shouldFetch('user_profile', force: force)) {
+      SyncManager().markFetched('user_profile');
+      Provider.of<AuthProvider>(context, listen: false).refreshProfile();
+    }
   }
 
   void _copyToClipboard(String text) {
@@ -179,11 +218,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () async {
-                    await dashboardProvider.fetchDashboardData();
-                    await notificationProvider.fetchNotifications();
-                    await authProvider.refreshProfile();
-                  },
+                  onRefresh: () => _syncLatestDataSilently(force: true),
                   color: AppTheme.primaryPurple,
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),

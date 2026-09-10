@@ -14,10 +14,12 @@ class AdminApprovalsProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchPendingApprovals() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> fetchPendingApprovals({bool silent = false}) async {
+    if (!silent && _pendingReferrals.isEmpty) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
       final response = await _apiClient.get(ApiConstants.pendingReferrals);

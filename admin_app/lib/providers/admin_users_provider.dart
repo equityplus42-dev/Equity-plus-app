@@ -18,15 +18,19 @@ class AdminUsersProvider extends ChangeNotifier {
   int get currentPage => _currentPage;
   bool get hasNext => _hasNext;
 
-  Future<void> fetchUsers({String search = '', bool refresh = false}) async {
+  Future<void> fetchUsers({String search = '', bool refresh = false, bool silent = false}) async {
     if (refresh) {
       _currentPage = 1;
-      _users = [];
+      if (!silent) {
+        _users = [];
+      }
     }
 
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    if (!silent && _users.isEmpty) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
       final Map<String, String> queryParams = {

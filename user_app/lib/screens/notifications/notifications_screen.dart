@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/sync/sync_manager.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -13,13 +14,31 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<NotificationProvider>(context, listen: false).fetchNotifications();
+      SyncManager().markFetched('user_notifications');
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      if (SyncManager().shouldFetch('user_notifications')) {
+        SyncManager().markFetched('user_notifications');
+        Provider.of<NotificationProvider>(context, listen: false).fetchNotifications(silent: true);
+      }
+    }
   }
 
   IconData _getTypeIcon(String type) {
@@ -111,40 +130,49 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: Container(
         decoration: AppTheme.bgGradient,
-        child: notificationProvider.isLoading
+        child: notificationProvider.isLoading && notificationProvider.notifications.isEmpty
             ? const Center(
                 child: SpinKitRing(
                   color: AppTheme.primaryPurple,
                   size: 50.0,
                 ),
               )
-            : notificationProvider.notifications.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.notifications_none, size: 80, color: AppTheme.softGrey),
-                        const SizedBox(height: 16),
-                        Text(
-                          'All Caught Up!',
-                          style: GoogleFonts.outfit(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.lightText,
+            : RefreshIndicator(
+                onRefresh: () async {
+                  SyncManager().markFetched('user_notifications');
+                  await notificationProvider.fetchNotifications(silent: true);
+                },
+                color: AppTheme.primaryPurple,
+                child: notificationProvider.notifications.isEmpty
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.notifications_none, size: 80, color: AppTheme.softGrey),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'All Caught Up!',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.lightText,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'No new notifications to display.',
+                                  style: GoogleFonts.outfit(color: AppTheme.softGrey),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No new notifications to display.',
-                          style: GoogleFonts.outfit(color: AppTheme.softGrey),
-                        ),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () => notificationProvider.fetchNotifications(),
-                    color: AppTheme.primaryPurple,
-                    child: ListView.builder(
+                      )
+                    : ListView.builder(
                       padding: const EdgeInsets.all(20.0),
                       itemCount: notificationProvider.notifications.length,
                       itemBuilder: (context, index) {

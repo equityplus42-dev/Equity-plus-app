@@ -123,10 +123,12 @@ class AdminPaymentsProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchAdminPayments({String? status, String? search}) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> fetchAdminPayments({String? status, String? search, bool silent = false}) async {
+    if (!silent && _payments.isEmpty) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
       final queryParams = <String, String>{};
@@ -146,10 +148,12 @@ class AdminPaymentsProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchAdminRefundRequests({String? status}) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> fetchAdminRefundRequests({String? status, bool silent = false}) async {
+    if (!silent && _refundRequests.isEmpty) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
       final queryParams = <String, String>{};
@@ -165,6 +169,34 @@ class AdminPaymentsProvider extends ChangeNotifier {
       _isLoading = false;
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+    }
+  }
+
+  Future<bool> approveCashPayment(String paymentId) async {
+    try {
+      await _apiClient.post('/payments/approve-cash/$paymentId', {});
+      final index = _payments.indexWhere((p) => p.id == paymentId);
+      if (index != -1) {
+        final old = _payments[index];
+        _payments[index] = AdminPaymentModel(
+          id: old.id,
+          orderId: old.orderId,
+          paymentId: old.paymentId,
+          amount: old.amount,
+          currency: old.currency,
+          status: 'SUCCESS',
+          userEmail: old.userEmail,
+          userName: old.userName,
+          productName: old.productName,
+          createdAt: old.createdAt,
+        );
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
     }
   }
 

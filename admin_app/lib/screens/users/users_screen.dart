@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/sync/sync_manager.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -17,18 +18,31 @@ class UsersScreen extends StatefulWidget {
   State<UsersScreen> createState() => _UsersScreenState();
 }
 
-class _UsersScreenState extends State<UsersScreen> {
+class _UsersScreenState extends State<UsersScreen> with WidgetsBindingObserver {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminUsersProvider>(context, listen: false).fetchUsers(refresh: true);
       Provider.of<AdminLanguagesProvider>(context, listen: false).fetchLanguages();
+      SyncManager().markFetched('admin_users');
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      if (SyncManager().shouldFetch('admin_users')) {
+        SyncManager().markFetched('admin_users');
+        Provider.of<AdminUsersProvider>(context, listen: false)
+            .fetchUsers(search: _searchController.text.trim(), refresh: true, silent: true);
+      }
+    }
   }
 
   void _showAssignLanguageDialog(String userId, String userName) {
@@ -334,6 +348,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -428,17 +443,26 @@ class _UsersScreenState extends State<UsersScreen> {
             Expanded(
               child: usersProvider.isLoading && usersProvider.users.isEmpty
                   ? const Center(child: SpinKitRing(color: AppTheme.primaryPurple))
-                  : usersProvider.users.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No users found',
-                            style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 16),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: () => usersProvider.fetchUsers(search: _searchController.text.trim(), refresh: true),
-                          color: AppTheme.primaryPurple,
-                          child: ListView.builder(
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        SyncManager().markFetched('admin_users');
+                        await usersProvider.fetchUsers(search: _searchController.text.trim(), refresh: true, silent: true);
+                      },
+                      color: AppTheme.primaryPurple,
+                      child: usersProvider.users.isEmpty
+                          ? SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.6,
+                                child: Center(
+                                  child: Text(
+                                    'No users found',
+                                    style: GoogleFonts.outfit(color: AppTheme.softGrey, fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             itemCount: usersProvider.users.length + (usersProvider.hasNext ? 1 : 0),

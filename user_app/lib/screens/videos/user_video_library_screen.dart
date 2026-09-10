@@ -7,6 +7,7 @@ import '../../providers/user_video_provider.dart';
 import '../../widgets/language_selection_modal.dart';
 import 'video_player_screen.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/sync/sync_manager.dart';
 
 class UserVideoLibraryScreen extends StatefulWidget {
   const UserVideoLibraryScreen({super.key});
@@ -15,15 +16,33 @@ class UserVideoLibraryScreen extends StatefulWidget {
   State<UserVideoLibraryScreen> createState() => _UserVideoLibraryScreenState();
 }
 
-class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
+class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> with WidgetsBindingObserver {
   String? _selectedCategoryFilter;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadVideos();
+      SyncManager().markFetched('user_videos');
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      if (SyncManager().shouldFetch('user_videos')) {
+        SyncManager().markFetched('user_videos');
+        Provider.of<UserVideoProvider>(context, listen: false).fetchUserVideos(silent: true);
+      }
+    }
   }
 
   Future<void> _loadVideos() async {
@@ -90,10 +109,13 @@ class _UserVideoLibraryScreenState extends State<UserVideoLibraryScreen> {
       ),
       body: Container(
         decoration: AppTheme.bgGradient,
-        child: videoProvider.isLoading
+        child: videoProvider.isLoading && videoProvider.unlockedVideos.isEmpty
             ? const Center(child: SpinKitRing(color: AppTheme.primaryPurple))
             : RefreshIndicator(
-                onRefresh: () => videoProvider.fetchUserVideos(),
+                onRefresh: () async {
+                  SyncManager().markFetched('user_videos');
+                  await videoProvider.fetchUserVideos(silent: true);
+                },
                 color: AppTheme.primaryPurple,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),

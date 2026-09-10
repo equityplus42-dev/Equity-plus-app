@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/sync/sync_manager.dart';
 
 class ApprovalsScreen extends StatefulWidget {
   const ApprovalsScreen({super.key});
@@ -14,13 +15,31 @@ class ApprovalsScreen extends StatefulWidget {
   State<ApprovalsScreen> createState() => _ApprovalsScreenState();
 }
 
-class _ApprovalsScreenState extends State<ApprovalsScreen> {
+class _ApprovalsScreenState extends State<ApprovalsScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminApprovalsProvider>(context, listen: false).fetchPendingApprovals();
+      SyncManager().markFetched('admin_approvals');
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      if (SyncManager().shouldFetch('admin_approvals')) {
+        SyncManager().markFetched('admin_approvals');
+        Provider.of<AdminApprovalsProvider>(context, listen: false).fetchPendingApprovals(silent: true);
+      }
+    }
   }
 
   Future<void> _approve(String id) async {
@@ -56,33 +75,42 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         decoration: AppTheme.bgGradient,
         child: approvals.isLoading
             ? const Center(child: SpinKitPulse(color: AppTheme.primaryPurple))
-            : approvals.pendingReferrals.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.verified_outlined, size: 80, color: AppTheme.softGrey),
-                        const SizedBox(height: 16),
-                        Text(
-                          'All Set!',
-                          style: GoogleFonts.outfit(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.lightText,
+            : RefreshIndicator(
+                onRefresh: () async {
+                  SyncManager().markFetched('admin_approvals');
+                  await approvals.fetchPendingApprovals(silent: true);
+                },
+                color: AppTheme.primaryPurple,
+                child: approvals.pendingReferrals.isEmpty
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.verified_outlined, size: 80, color: AppTheme.softGrey),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'All Set!',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.lightText,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'No pending referral rewards requiring review.',
+                                  style: GoogleFonts.outfit(color: AppTheme.softGrey),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No pending referral rewards requiring review.',
-                          style: GoogleFonts.outfit(color: AppTheme.softGrey),
-                        ),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () => approvals.fetchPendingApprovals(),
-                    color: AppTheme.primaryPurple,
-                    child: ListView.builder(
+                      )
+                    : ListView.builder(
                       padding: const EdgeInsets.all(20.0),
                       itemCount: approvals.pendingReferrals.length,
                       itemBuilder: (context, index) {

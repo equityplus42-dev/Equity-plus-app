@@ -23,10 +23,12 @@ class DashboardProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchDashboardData() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> fetchDashboardData({bool silent = false}) async {
+    if (!silent && _totalReferrals == 0 && _referralCode == null) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
       // 1. Fetch Stats

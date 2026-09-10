@@ -170,15 +170,17 @@ class UserVideoProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchUserVideos({String? languageId}) async {
-    if (_unlockedVideos.isEmpty) {
+  Future<void> fetchUserVideos({String? languageId, bool silent = false}) async {
+    if (!silent && _unlockedVideos.isEmpty) {
       _isLoading = true;
     }
     _errorMessage = null;
     if (languageId != null) {
       _selectedLanguageId = languageId;
     }
-    notifyListeners();
+    if (!silent) {
+      notifyListeners();
+    }
 
     try {
       String endpoint = ApiConstants.userVideos;

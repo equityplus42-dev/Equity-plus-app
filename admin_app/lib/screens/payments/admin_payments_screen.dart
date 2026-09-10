@@ -5,6 +5,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:intl/intl.dart';
 import '../../providers/admin_payments_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/sync/sync_manager.dart';
 
 class AdminPaymentsScreen extends StatefulWidget {
   const AdminPaymentsScreen({super.key});
@@ -13,16 +14,39 @@ class AdminPaymentsScreen extends StatefulWidget {
   State<AdminPaymentsScreen> createState() => _AdminPaymentsScreenState();
 }
 
-class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
+class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> with WidgetsBindingObserver {
   final _searchController = TextEditingController();
   String? _selectedStatus;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminPaymentsProvider>(context, listen: false).fetchAdminPayments();
+      SyncManager().markFetched('admin_payments');
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      if (SyncManager().shouldFetch('admin_payments')) {
+        SyncManager().markFetched('admin_payments');
+        Provider.of<AdminPaymentsProvider>(context, listen: false).fetchAdminPayments(
+          status: _selectedStatus,
+          search: _searchController.text.trim(),
+          silent: true,
+        );
+      }
+    }
   }
 
   void _onSearch() {
@@ -92,6 +116,7 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
                     style: GoogleFonts.outfit(color: AppTheme.lightText),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('All')),
+                      const DropdownMenuItem(value: 'PENDING_CASH_APPROVAL', child: Text('CASH PENDING')),
                       const DropdownMenuItem(value: 'SUCCESS', child: Text('SUCCESS')),
                       const DropdownMenuItem(value: 'CREATED', child: Text('CREATED')),
                       const DropdownMenuItem(value: 'REFUNDED', child: Text('REFUNDED')),
@@ -112,17 +137,30 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
             Expanded(
               child: paymentProvider.isLoading
                   ? const Center(child: SpinKitRing(color: AppTheme.primaryPurple))
-                  : paymentProvider.payments.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No payment records found',
-                            style: GoogleFonts.outfit(color: AppTheme.softGrey),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: () => paymentProvider.fetchAdminPayments(status: _selectedStatus, search: _searchController.text.trim()),
-                          color: AppTheme.primaryPurple,
-                          child: ListView.builder(
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        SyncManager().markFetched('admin_payments');
+                        await paymentProvider.fetchAdminPayments(
+                          status: _selectedStatus,
+                          search: _searchController.text.trim(),
+                          silent: true,
+                        );
+                      },
+                      color: AppTheme.primaryPurple,
+                      child: paymentProvider.payments.isEmpty
+                          ? SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.6,
+                                child: Center(
+                                  child: Text(
+                                    'No payment records found',
+                                    style: GoogleFonts.outfit(color: AppTheme.softGrey),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             itemCount: paymentProvider.payments.length,
                             itemBuilder: (context, index) {

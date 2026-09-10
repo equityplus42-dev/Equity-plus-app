@@ -19,7 +19,7 @@ class PaymentCheckoutScreen extends StatefulWidget {
   State<PaymentCheckoutScreen> createState() => _PaymentCheckoutScreenState();
 }
 
-class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
+class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> with WidgetsBindingObserver {
   bool _isLoadingProduct = true;
   String? _productId;
   String _productName = 'Vridhi Network Membership';
@@ -34,13 +34,22 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchDefaultProductAndCheckPendingCash();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollingTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchDefaultProductAndCheckPendingCash();
+    }
   }
 
   Future<void> _fetchDefaultProductAndCheckPendingCash() async {
