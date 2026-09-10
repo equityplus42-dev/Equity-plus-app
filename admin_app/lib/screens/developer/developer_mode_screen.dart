@@ -6,8 +6,83 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
 
-class DeveloperModeScreen extends StatelessWidget {
+class DeveloperModeScreen extends StatefulWidget {
   const DeveloperModeScreen({super.key});
+
+  @override
+  State<DeveloperModeScreen> createState() => _DeveloperModeScreenState();
+}
+
+class _DeveloperModeScreenState extends State<DeveloperModeScreen> {
+  final ApiClient _apiClient = ApiClient();
+  bool _isCashPaymentEnabled = true;
+  bool _isLoadingCashStatus = true;
+  bool _isTogglingCash = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCashPaymentStatus();
+  }
+
+  Future<void> _fetchCashPaymentStatus() async {
+    try {
+      final res = await _apiClient.get('/developer/cash-payment-status');
+      if (mounted && res != null && res['data'] != null && res['data']['enabled'] != null) {
+        setState(() {
+          _isCashPaymentEnabled = res['data']['enabled'] == true;
+          _isLoadingCashStatus = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingCashStatus = false);
+      }
+    }
+  }
+
+  Future<void> _toggleCashPayment(bool newValue) async {
+    if (_isTogglingCash) return;
+    final previousValue = _isCashPaymentEnabled;
+    setState(() {
+      _isCashPaymentEnabled = newValue;
+      _isTogglingCash = true;
+    });
+
+    try {
+      await _apiClient.post('/developer/cash-payment-toggle', {
+        'enabled': newValue,
+      });
+      if (!mounted) return;
+      setState(() {
+        _isTogglingCash = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            newValue
+                ? '✅ Cash Payment Option ENABLED across all user apps!'
+                : '⚠️ Cash Payment Option DISABLED. Users can only pay online via Razorpay.',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: newValue ? AppTheme.neonGreen : Colors.deepOrangeAccent,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isCashPaymentEnabled = previousValue;
+        _isTogglingCash = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update Cash Payment setting: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +223,9 @@ class DeveloperModeScreen extends StatelessWidget {
                 color: Colors.amberAccent,
                 onTap: () => _showUpdatePriceDialog(context),
               ),
+
+              // Feature 5.5: Cash Payment Option Toggle (Offline Collection)
+              _buildCashPaymentToggleTile(),
 
               // Feature 6: Reset Test Account Payment Status
               _buildDevTile(
@@ -734,6 +812,118 @@ class DeveloperModeScreen extends StatelessWidget {
             const Icon(Icons.chevron_right, color: AppTheme.softGrey),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCashPaymentToggleTile() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isCashPaymentEnabled
+              ? AppTheme.neonGreen.withOpacity(0.4)
+              : Colors.white12,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: (_isCashPaymentEnabled ? AppTheme.neonGreen : Colors.grey)
+                  .withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.payments_outlined,
+              color: _isCashPaymentEnabled ? AppTheme.neonGreen : Colors.grey,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Cash Payment Option',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.lightText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (_isCashPaymentEnabled ? AppTheme.neonGreen : Colors.redAccent)
+                            .withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: (_isCashPaymentEnabled ? AppTheme.neonGreen : Colors.redAccent)
+                              .withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        _isCashPaymentEnabled ? 'LIVE' : 'OFF',
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: _isCashPaymentEnabled ? AppTheme.neonGreen : Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isLoadingCashStatus
+                      ? 'Fetching current status...'
+                      : _isCashPaymentEnabled
+                          ? '● ACTIVE — Users can select "Paid in Cash" offline approval'
+                          : '○ DISABLED — Cash option hidden; users can only pay via Razorpay',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: _isLoadingCashStatus
+                        ? AppTheme.softGrey
+                        : _isCashPaymentEnabled
+                            ? AppTheme.neonGreen.withOpacity(0.9)
+                            : Colors.amberAccent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_isTogglingCash)
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: Padding(
+                padding: EdgeInsets.all(4.0),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.neonCyan,
+                ),
+              ),
+            )
+          else
+            Switch.adaptive(
+              value: _isCashPaymentEnabled,
+              activeColor: AppTheme.neonGreen,
+              activeTrackColor: AppTheme.neonGreen.withOpacity(0.4),
+              inactiveThumbColor: Colors.grey,
+              inactiveTrackColor: Colors.white12,
+              onChanged: _isLoadingCashStatus ? null : _toggleCashPayment,
+            ),
+        ],
       ),
     );
   }

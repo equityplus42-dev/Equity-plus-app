@@ -22,4 +22,8 @@ router.delete('/test-user/kill', developerController.killTestUser);
 // User Joining Snapshots (Developer Only)
 router.get('/joining-snapshots', developerController.getJoiningSnapshots);
 
+// Cash Payment Option Feature Flag Toggle (Developer Only)
+router.get('/cash-payment-status', developerController.getCashPaymentStatus);
+router.post('/cash-payment-toggle', developerController.toggleCashPayment);
+
 module.exports = router;

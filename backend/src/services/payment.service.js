@@ -297,6 +297,11 @@ class PaymentService {
    * Request Cash Payment (User option: Paid in Cash)
    */
   async requestCashPayment({ userId, productId }) {
+    const isEnabled = await this.isCashPaymentEnabled();
+    if (!isEnabled) {
+      throw new Error('Cash payment option is currently disabled by administrator. Please pay online via Razorpay or contact support.');
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { profile: true },
@@ -515,6 +520,49 @@ class PaymentService {
     });
 
     return { price };
+  }
+
+  /**
+   * Check whether cash payments are enabled globally
+   */
+  async isCashPaymentEnabled() {
+    const setting = await prisma.systemSettings.findUnique({
+      where: { key: 'cash_payment_enabled' },
+    }).catch(() => null);
+
+    if (setting && setting.value !== undefined && setting.value !== null) {
+      return setting.value === 'true';
+    }
+    // Default to true if not explicitly set
+    return true;
+  }
+
+  /**
+   * Developer / Admin: Set cash payment enabled or disabled
+   */
+  async setCashPaymentEnabled(enabled, userId = null) {
+    const boolVal = Boolean(enabled);
+    const strVal = String(boolVal);
+
+    await prisma.systemSettings.upsert({
+      where: { key: 'cash_payment_enabled' },
+      update: { value: strVal },
+      create: {
+        key: 'cash_payment_enabled',
+        value: strVal,
+        description: 'Global toggle to enable or disable offline cash payment option for users',
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'CASH_PAYMENT_TOGGLE',
+        details: JSON.stringify({ enabled: boolVal }),
+      },
+    }).catch(() => {});
+
+    return { enabled: boolVal };
   }
 
   /**

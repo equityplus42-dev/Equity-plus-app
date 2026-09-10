@@ -286,6 +286,40 @@ class DeveloperController {
       next(error);
     }
   }
+
+  /**
+   * Get Cash Payment Option Status (Developer Only)
+   */
+  async getCashPaymentStatus(req, res, next) {
+    try {
+      const paymentService = require('../services/payment.service');
+      const enabled = await paymentService.isCashPaymentEnabled();
+      return ApiResponse.success(res, 'Cash payment status retrieved', { enabled });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Toggle Cash Payment Option (Developer Only)
+   */
+  async toggleCashPayment(req, res, next) {
+    try {
+      const paymentService = require('../services/payment.service');
+      const { enabled } = req.body;
+      if (enabled === undefined || enabled === null) {
+        return ApiResponse.error(res, 'Field "enabled" (boolean) is required', 400);
+      }
+      const result = await paymentService.setCashPaymentEnabled(enabled, req.user?.id);
+      return ApiResponse.success(
+        res,
+        `Cash payment option is now ${result.enabled ? 'ENABLED' : 'DISABLED'} across all apps`,
+        result
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new DeveloperController();

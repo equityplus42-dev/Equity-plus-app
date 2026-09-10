@@ -25,6 +25,7 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
   String _productName = 'Vridhi Network Membership';
   int _amountInRupees = 1000;
   bool _isProcessing = false;
+  bool _isCashPaymentEnabled = true;
 
   // Cash approval waiting state & polling
   String? _pendingCashPaymentId;
@@ -59,7 +60,25 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
       debugPrint('Error fetching products: $e');
     }
 
+    // Fetch membership pricing & cash payment feature flag
+    try {
+      final configRes = await ApiClient().get('/payments/membership-price');
+      if (configRes['data'] != null) {
+        if (configRes['data']['price'] != null) {
+          _amountInRupees = configRes['data']['price'];
+        }
+        if (configRes['data']['cashPaymentEnabled'] != null) {
+          setState(() {
+            _isCashPaymentEnabled = configRes['data']['cashPaymentEnabled'] == true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching payment config: $e');
+    }
+
     // Check if user already has a pending cash approval payment
+    if (!mounted) return;
     try {
       final paymentProv = Provider.of<UserPaymentProvider>(context, listen: false);
       await paymentProv.fetchUserPayments();
@@ -590,23 +609,24 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
                               ),
                             ),
 
-                            const SizedBox(height: 14),
-
-                            // Paid in Cash Option (NEWLY REQUESTED)
-                            ElevatedButton.icon(
-                              onPressed: _processCashPaymentRequest,
-                              icon: const Icon(Icons.payments_outlined, size: 22, color: Colors.black),
-                              label: Text(
-                                'Paid in Cash (Offline Request)',
-                                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
+                            // Paid in Cash Option (Offline Request) - Controlled by Developer Toggle
+                            if (_isCashPaymentEnabled) ...[
+                              const SizedBox(height: 14),
+                              ElevatedButton.icon(
+                                onPressed: _processCashPaymentRequest,
+                                icon: const Icon(Icons.payments_outlined, size: 22, color: Colors.black),
+                                label: Text(
+                                  'Paid in Cash (Offline Request)',
+                                  style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.neonGreen,
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  minimumSize: const Size(double.infinity, 52),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.neonGreen,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
-                                minimumSize: const Size(double.infinity, 52),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
-                            ),
+                            ],
 
                             const SizedBox(height: 16),
 

@@ -96,7 +96,8 @@ class PaymentController {
   async getMembershipPrice(req, res, next) {
     try {
       const price = await paymentService.getMembershipPrice();
-      return ApiResponse.success(res, 'Current membership price retrieved', { price });
+      const cashPaymentEnabled = await paymentService.isCashPaymentEnabled();
+      return ApiResponse.success(res, 'Current membership price retrieved', { price, cashPaymentEnabled });
     } catch (error) {
       next(error);
     }
