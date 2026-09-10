@@ -25,7 +25,7 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
   String _productName = 'Vridhi Network Membership';
   int _amountInRupees = 1000;
   bool _isProcessing = false;
-  bool _isCashPaymentEnabled = true;
+  bool _isCashPaymentEnabled = false;
 
   // Cash approval waiting state & polling
   String? _pendingCashPaymentId;
@@ -68,9 +68,11 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
           _amountInRupees = configRes['data']['price'];
         }
         if (configRes['data']['cashPaymentEnabled'] != null) {
-          setState(() {
-            _isCashPaymentEnabled = configRes['data']['cashPaymentEnabled'] == true;
-          });
+          if (mounted) {
+            setState(() {
+              _isCashPaymentEnabled = configRes['data']['cashPaymentEnabled'] == true;
+            });
+          }
         }
       }
     } catch (e) {
@@ -172,11 +174,22 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
       _startPollingCashStatus(paymentId);
     } catch (e) {
       if (mounted) {
+        final errStr = e.toString().replaceAll('Exception: ', '').trim();
         setState(() {
           _isProcessing = false;
+          if (errStr.toLowerCase().contains('disabled')) {
+            _isCashPaymentEnabled = false;
+          }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text(
+              errStr.toLowerCase().contains('disabled')
+                  ? 'Cash payment option is currently disabled by administrator. Please pay online via Razorpay.'
+                  : errStr,
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
