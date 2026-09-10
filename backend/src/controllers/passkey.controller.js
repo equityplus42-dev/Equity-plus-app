@@ -77,6 +77,25 @@ class PasskeyController {
   }
 
   /**
+   * POST /api/v1/auth/passkey/reset-password/verify
+   * Verify WebAuthn assertion for password reset and issue a verified reset token
+   */
+  async verifyPasswordReset(req, res, next) {
+    try {
+      const { response } = req.body;
+      const result = await passkeyService.verifyPasswordReset({
+        clientResponse: response,
+        req,
+      });
+
+      auditLogService.log(req, 'PASSKEY_PASSWORD_RESET_VERIFIED', null, { email: result.email }).catch(() => {});
+      return ApiResponse.success(res, 'Passkey identity verified successfully', result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET /api/v1/auth/passkey/credentials
    * List all passkeys registered to the current authenticated user
    */

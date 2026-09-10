@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/passkey_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -26,6 +27,70 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  bool _isPasskeySupported = false;
+  bool _isPasskeyLoading = false;
+  bool _verifiedViaPasskey = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPasskeySupport();
+  }
+
+  Future<void> _checkPasskeySupport() async {
+    final supported = await PasskeyService().isSupported();
+    if (mounted) {
+      setState(() {
+        _isPasskeySupported = supported;
+      });
+    }
+  }
+
+  Future<void> _verifyWithPasskey() async {
+    final emailText = _emailController.text.trim();
+    final email = emailText.isNotEmpty ? emailText : null;
+
+    setState(() => _isPasskeyLoading = true);
+
+    try {
+      final result = await PasskeyService().verifyPasskeyForReset(email: email);
+      if (!mounted) return;
+
+      if (result == null) {
+        // User cancelled biometric prompt
+        setState(() => _isPasskeyLoading = false);
+        return;
+      }
+
+      setState(() {
+        _emailController.text = result['email'] ?? _emailController.text;
+        _otpController.text = result['resetToken'] ?? '';
+        _currentStep = 2; // Move straight to password entry!
+        _isPasskeyLoading = false;
+        _verifiedViaPasskey = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Identity verified with Passkey! Please enter your new password.'),
+          backgroundColor: AppTheme.neonGreen,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isPasskeyLoading = false);
+      final msg = e.toString().replaceAll('Exception: ', '');
+      if (!msg.toLowerCase().contains('cancel')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -188,7 +253,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Enter your registered email address to receive a 4-digit verification OTP.',
+            'Enter your registered email address to receive a 4-digit verification OTP, or verify your identity directly using a Passkey.',
             style: GoogleFonts.outfit(
               fontSize: 14,
               color: AppTheme.softGrey,
@@ -196,6 +261,49 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 30),
+          if (_isPasskeySupported) ...[
+            ElevatedButton.icon(
+              onPressed: (isLoading || _isPasskeyLoading) ? null : _verifyWithPasskey,
+              icon: const Icon(Icons.fingerprint_rounded, size: 22),
+              label: _isPasskeyLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(
+                      'Verify with Passkey',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.white.withOpacity(0.15))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    'or reset with email OTP',
+                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.softGrey),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.white.withOpacity(0.15))),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
@@ -333,7 +441,34 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
+          if (_verifiedViaPasskey) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.neonGreen.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.neonGreen.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_user_rounded, color: AppTheme.neonGreen, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Verified by Passkey (${_emailController.text})',
+                      style: GoogleFonts.outfit(
+                        color: AppTheme.neonGreen,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,

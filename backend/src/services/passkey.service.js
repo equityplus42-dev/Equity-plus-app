@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const prisma = require('../config/database');
 const jwtService = require('./jwt.service');
 const { AppError, ErrorCodes } = require('../utils/appError');
@@ -342,6 +343,113 @@ class PasskeyService {
         id: dbPasskey.id,
         name: dbPasskey.name,
       },
+    };
+  }
+
+  /**
+   * Verifies WebAuthn assertion specifically for password reset and issues a verified resetToken
+   */
+  async verifyPasswordReset({ clientResponse, req }) {
+    const { verifyAuthenticationResponse } = await this._getWebAuthnModule();
+    const { rpID, allowedOrigins } = this.getWebAuthnConfig(req);
+
+    if (!clientResponse || !clientResponse.id) {
+      throw new AppError('Invalid passkey assertion received', 400, ErrorCodes.AUTH_CREDENTIALS_INVALID);
+    }
+
+    // 1. Locate the registered credential in database
+    const dbPasskey = await prisma.passkeyCredential.findUnique({
+      where: { credentialId: clientResponse.id },
+      include: { user: true },
+    });
+
+    if (!dbPasskey || !dbPasskey.user || dbPasskey.user.isDeleted) {
+      throw new AppError('Passkey not recognized or account deactivated', 401, ErrorCodes.AUTH_CREDENTIALS_INVALID);
+    }
+
+    const user = dbPasskey.user;
+
+    // 2. Extract and match challenge
+    let challengeRecord = null;
+    try {
+      const clientDataJsonStr = Buffer.from(clientResponse.response.clientDataJSON, 'base64url').toString('utf8');
+      const clientData = JSON.parse(clientDataJsonStr);
+      if (clientData.challenge) {
+        challengeRecord = await prisma.webAuthnChallenge.findFirst({
+          where: {
+            challenge: clientData.challenge,
+            type: 'AUTHENTICATION',
+            expiresAt: { gt: new Date() },
+          },
+        });
+      }
+    } catch (_) {}
+
+    if (!challengeRecord) {
+      challengeRecord = await prisma.webAuthnChallenge.findFirst({
+        where: {
+          type: 'AUTHENTICATION',
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (!challengeRecord) {
+      throw new AppError('Verification challenge expired or invalid. Please try again.', 400, ErrorCodes.AUTH_CREDENTIALS_INVALID);
+    }
+
+    // Immediately consume challenge
+    await prisma.webAuthnChallenge.delete({ where: { id: challengeRecord.id } }).catch(() => {});
+
+    // 3. Verify cryptographic assertion
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response: clientResponse,
+        expectedChallenge: challengeRecord.challenge,
+        expectedOrigin: allowedOrigins,
+        expectedRPID: rpID,
+        credential: {
+          id: dbPasskey.credentialId,
+          publicKey: Buffer.from(dbPasskey.publicKey, 'base64url'),
+          counter: Number(dbPasskey.counter),
+          transports: dbPasskey.transports ? dbPasskey.transports.split(',') : undefined,
+        },
+        requireUserVerification: false,
+      });
+    } catch (verifError) {
+      throw new AppError(`Passkey verification failed: ${verifError.message}`, 401, ErrorCodes.AUTH_CREDENTIALS_INVALID);
+    }
+
+    if (!verification.verified) {
+      throw new AppError('Passkey verification failed', 401, ErrorCodes.AUTH_CREDENTIALS_INVALID);
+    }
+
+    // 4. Update counter and lastUsedAt
+    await prisma.passkeyCredential.update({
+      where: { id: dbPasskey.id },
+      data: {
+        counter: BigInt(verification.authenticationInfo.newCounter),
+        lastUsedAt: new Date(),
+      },
+    });
+
+    // 5. Generate secure one-time password reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        otpCode: resetToken,
+        otpExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins validity
+      },
+    });
+
+    return {
+      email: user.email,
+      resetToken,
+      passkeyName: dbPasskey.name,
     };
   }
 

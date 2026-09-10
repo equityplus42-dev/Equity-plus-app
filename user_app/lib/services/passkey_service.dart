@@ -106,6 +106,48 @@ class PasskeyService {
     };
   }
 
+  /// Verifies Passkey identity for Password Reset without requiring an Email OTP
+  Future<Map<String, dynamic>?> verifyPasskeyForReset({String? email}) async {
+    // 1. Fetch authentication challenge from backend
+    final optionsRes = await _apiClient.post('/auth/passkey/login/options', {
+      if (email != null && email.isNotEmpty) 'email': email,
+    });
+
+    final options = optionsRes['data'];
+    if (options == null) {
+      throw Exception('Failed to receive authentication challenge from server');
+    }
+
+    // 2. Invoke native platform authenticator (Android Credential Manager)
+    String? assertionJson;
+    try {
+      assertionJson = await _channel.invokeMethod<String>('getPasskey', {
+        'requestJson': jsonEncode(options),
+      });
+    } on PlatformException catch (e) {
+      if (e.code == 'USER_CANCELLED') {
+        return null;
+      }
+      throw Exception(e.message ?? 'Passkey verification failed');
+    }
+
+    if (assertionJson == null || assertionJson.isEmpty) {
+      return null;
+    }
+
+    // 3. Send WebAuthn assertion to backend to issue verified resetToken
+    final verifyRes = await _apiClient.post('/auth/passkey/reset-password/verify', {
+      'response': jsonDecode(assertionJson),
+    });
+
+    final data = verifyRes['data'];
+    return {
+      'email': data['email'] as String,
+      'resetToken': data['resetToken'] as String,
+      'passkeyName': data['passkeyName'] as String?,
+    };
+  }
+
   /// Registers a new Passkey on the current device for the authenticated user
   Future<PasskeyCredentialModel?> registerPasskey({String? nickname}) async {
     // 1. Fetch registration options from backend
