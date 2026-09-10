@@ -27,7 +27,8 @@ class _AppUpdateWrapperState extends State<AppUpdateWrapper> with WidgetsBinding
       updateProvider.checkForUpdates(forceRefreshPackageInfo: true);
     });
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Throttled background check (15 minutes) instead of aggressive 5-second polling
+    _pollingTimer = Timer.periodic(const Duration(minutes: 15), (_) {
       if (mounted) {
         final updateProvider = Provider.of<UpdateProvider>(context, listen: false);
         // Only poll background checks when not actively in an update flow or download

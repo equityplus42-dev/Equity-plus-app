@@ -46,6 +46,13 @@ async function appVersionMiddleware(req, res, next) {
       return next();
     }
 
+    // 4b. Only enforce in-app APK updates for mobile devices (ANDROID, IOS).
+    // Windows, desktop, and web clients are exempt from mobile APK force updates.
+    const normalizedPlatform = (platform || '').toUpperCase();
+    if (normalizedPlatform && normalizedPlatform !== 'ANDROID' && normalizedPlatform !== 'IOS') {
+      return next();
+    }
+
     // 5. Evaluate compatibility against active latest release
     const checkResult = await appReleaseService.checkVersion({
       appType,

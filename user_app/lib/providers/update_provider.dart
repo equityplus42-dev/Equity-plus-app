@@ -30,9 +30,15 @@ class UpdateProvider extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
 
   String _appType = 'USER_APP';
-  String _platform = 'ANDROID';
-  String _currentVersion = '1.0.0';
-  int _currentBuildNumber = 1;
+  String _platform = kIsWeb
+      ? 'WEB'
+      : (Platform.isAndroid
+          ? 'ANDROID'
+          : (Platform.isIOS
+              ? 'IOS'
+              : (Platform.isWindows ? 'WINDOWS' : 'DESKTOP')));
+  String _currentVersion = '1.1.2';
+  int _currentBuildNumber = 8;
   bool _isInitialized = false;
 
   // Update check results
@@ -113,12 +119,26 @@ class UpdateProvider extends ChangeNotifier {
 
   Future<void> _doInitPackageInfo(String appType) async {
     _appType = appType;
+    if (!kIsWeb) {
+      if (Platform.isAndroid) {
+        _platform = 'ANDROID';
+      } else if (Platform.isIOS) {
+        _platform = 'IOS';
+      } else if (Platform.isWindows) {
+        _platform = 'WINDOWS';
+      } else {
+        _platform = 'DESKTOP';
+      }
+    } else {
+      _platform = 'WEB';
+    }
+
     try {
-      if (!kIsWeb) {
+      if (!kIsWeb && Platform.isAndroid) {
         final info = await PackageInfo.fromPlatform();
-        _currentVersion = info.version.isNotEmpty ? info.version : '1.0.0';
-        _currentBuildNumber = int.tryParse(info.buildNumber) ?? 1;
-        _platform = Platform.isAndroid ? 'ANDROID' : (Platform.isIOS ? 'IOS' : (Platform.isWindows ? 'WINDOWS' : 'DESKTOP'));
+        if (info.version.isNotEmpty) _currentVersion = info.version;
+        final parsed = int.tryParse(info.buildNumber);
+        if (parsed != null) _currentBuildNumber = parsed;
       }
     } catch (e) {
       debugPrint('[UpdateProvider] PackageInfo fallback: $e');
@@ -139,6 +159,15 @@ class UpdateProvider extends ChangeNotifier {
 
   /// Perform version check against backend API endpoint
   Future<void> checkForUpdates({bool forceRefreshPackageInfo = false}) async {
+    // In-app APK updates are strictly for Android mobile devices.
+    // Windows, desktop, and web clients are exempt from APK downloads.
+    if (kIsWeb || !Platform.isAndroid) {
+      _updateAvailable = false;
+      _forceUpdate = false;
+      _status = DownloadStatus.idle;
+      return;
+    }
+
     if (_isChecking) return; // Prevent concurrent version-check recursion
 
     _isChecking = true;
@@ -196,6 +225,9 @@ class UpdateProvider extends ChangeNotifier {
 
   /// Trigger force update state globally when API interceptor catches APP_UPDATE_REQUIRED
   void triggerForceUpdateFromApi(Map<String, dynamic> data) {
+    // In-app APK updates are strictly for Android mobile devices.
+    if (kIsWeb || !Platform.isAndroid) return;
+
     // Single-flight lock: ignore duplicate 426 interceptor calls while already in update flow
     if (_forceUpdate && _status != DownloadStatus.idle) {
       return;
