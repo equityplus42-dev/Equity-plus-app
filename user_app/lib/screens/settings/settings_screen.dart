@@ -15,7 +15,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _biometricEnabled = false;
   bool _notificationsEnabled = true;
 
   @override
@@ -27,16 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-    });
-  }
-
-  Future<void> _toggleBiometrics(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('biometric_enabled', value);
-    setState(() {
-      _biometricEnabled = value;
     });
   }
 
@@ -111,16 +101,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'Manage FIDO2 WebAuthn passkeys for instant login',
               trailing: const Icon(Icons.chevron_right, color: AppTheme.softGrey),
               onTap: () => Navigator.pushNamed(context, AppRoutes.passkeys),
-            ),
-            _buildSettingTile(
-              icon: Icons.lock_outline,
-              iconColor: AppTheme.primaryPurple,
-              title: 'Biometric Security',
-              trailing: Switch(
-                value: _biometricEnabled,
-                onChanged: _toggleBiometrics,
-                activeColor: AppTheme.primaryPurple,
-              ),
             ),
 
             const SizedBox(height: 24),

@@ -101,7 +101,7 @@ class SupportScreen extends StatelessWidget {
                       backgroundColor: AppTheme.cardBg,
                       title: Text('Documentation & Guides', style: GoogleFonts.outfit(color: AppTheme.lightText)),
                       content: Text(
-                        '1. How to invite friends: Use your unique referral link to invite others.\n\n2. Earning Rewards: Once a friend completes verification, you earn rewards.\n\n3. Account Security: Enable biometric unlock in settings for extra security.',
+                        '1. How to invite friends: Use your unique referral link to invite others.\n\n2. Earning Rewards: Once a friend completes verification, you earn rewards.\n\n3. Account Security: Set up Passkeys in settings for fast, passwordless security.',
                         style: GoogleFonts.outfit(color: AppTheme.softGrey),
                       ),
                       actions: [

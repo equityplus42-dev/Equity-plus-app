@@ -608,7 +608,7 @@ class _PasskeyManagementScreenState extends State<PasskeyManagementScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You have not registered any passkeys yet. Add your current device to enable 1-tap biometric logins.',
+            'You have not registered any passkeys yet. Add your current device to enable 1-tap passkey logins.',
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 13,
