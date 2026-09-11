@@ -108,8 +108,8 @@ class PasskeyService {
 
   /// Verifies Passkey identity for Password Reset without requiring an Email OTP
   Future<Map<String, dynamic>?> verifyPasskeyForReset({String? email}) async {
-    // 1. Fetch authentication challenge from backend
-    final optionsRes = await _apiClient.post('/auth/passkey/login/options', {
+    // 1. Fetch authentication challenge from backend (dedicated RESET_PASSWORD challenge)
+    final optionsRes = await _apiClient.post('/auth/passkey/reset-password/options', {
       if (email != null && email.isNotEmpty) 'email': email,
     });
 

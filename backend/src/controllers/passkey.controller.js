@@ -77,6 +77,24 @@ class PasskeyController {
   }
 
   /**
+   * POST /api/v1/auth/passkey/reset-password/options
+   * Generate WebAuthn authentication options specifically for password reset.
+   * Stores challenge with type 'RESET_PASSWORD' (isolated from login challenges).
+   */
+  async generatePasswordResetOptions(req, res, next) {
+    try {
+      const { email } = req.body || {};
+      const options = await passkeyService.generatePasswordResetOptions({
+        email,
+        req,
+      });
+      return ApiResponse.success(res, 'Passkey reset options generated', options);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/v1/auth/passkey/reset-password/verify
    * Verify WebAuthn assertion for password reset and issue a verified reset token
    */

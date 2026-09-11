@@ -7,6 +7,7 @@ const { loginLimiter } = require('../../middleware/rateLimit.middleware');
 // Public endpoints (Login via discoverable or specified Passkey)
 router.post('/login/options', loginLimiter, (req, res, next) => passkeyController.generateAuthenticationOptions(req, res, next));
 router.post('/login/verify', loginLimiter, (req, res, next) => passkeyController.verifyAuthentication(req, res, next));
+router.post('/reset-password/options', loginLimiter, (req, res, next) => passkeyController.generatePasswordResetOptions(req, res, next));
 router.post('/reset-password/verify', loginLimiter, (req, res, next) => passkeyController.verifyPasswordReset(req, res, next));
 
 // Authenticated endpoints (Registering new Passkey and managing credentials)

@@ -227,6 +227,52 @@ class PasskeyService {
   }
 
   /**
+   * Generates WebAuthn authentication options specifically for password reset.
+   * Stores the challenge with type 'RESET_PASSWORD' so it cannot be consumed
+   * by a concurrent login verification call.
+   */
+  async generatePasswordResetOptions({ email, req }) {
+    const { generateAuthenticationOptions } = await this._getWebAuthnModule();
+    const { rpID } = this.getWebAuthnConfig(req);
+
+    let allowCredentials = undefined;
+    let userId = null;
+
+    if (email) {
+      const user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase().trim() },
+        include: { passkeys: true },
+      });
+
+      if (user && user.passkeys.length > 0) {
+        userId = user.id;
+        allowCredentials = user.passkeys.map((p) => ({
+          id: p.credentialId,
+          transports: p.transports ? p.transports.split(',') : undefined,
+        }));
+      }
+    }
+
+    const options = await generateAuthenticationOptions({
+      rpID,
+      allowCredentials,
+      userVerification: 'preferred',
+    });
+
+    // Store with RESET_PASSWORD type so it is isolated from regular login challenges
+    await prisma.webAuthnChallenge.create({
+      data: {
+        challenge: options.challenge,
+        userId,
+        type: 'RESET_PASSWORD',
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      },
+    });
+
+    return options;
+  }
+
+  /**
    * Verifies WebAuthn authentication assertion and issues the standard user JWT
    */
   async verifyAuthentication({ clientResponse, req }) {
@@ -369,7 +415,7 @@ class PasskeyService {
 
     const user = dbPasskey.user;
 
-    // 2. Extract and match challenge
+    // 2. Extract and match challenge (RESET_PASSWORD type only — isolated from login)
     let challengeRecord = null;
     try {
       const clientDataJsonStr = Buffer.from(clientResponse.response.clientDataJSON, 'base64url').toString('utf8');
@@ -378,7 +424,7 @@ class PasskeyService {
         challengeRecord = await prisma.webAuthnChallenge.findFirst({
           where: {
             challenge: clientData.challenge,
-            type: 'AUTHENTICATION',
+            type: 'RESET_PASSWORD',
             expiresAt: { gt: new Date() },
           },
         });
@@ -386,9 +432,10 @@ class PasskeyService {
     } catch (_) {}
 
     if (!challengeRecord) {
+      // Fallback: most recent unexpired RESET_PASSWORD challenge
       challengeRecord = await prisma.webAuthnChallenge.findFirst({
         where: {
-          type: 'AUTHENTICATION',
+          type: 'RESET_PASSWORD',
           expiresAt: { gt: new Date() },
         },
         orderBy: { createdAt: 'desc' },
